@@ -98,7 +98,6 @@ class Handler:
 
         return self.inpainter.sampling(
             tags=tags_reshape,
-            nsfw=bool(nsfw),
             calculate_type=calc_type,
             cfg_scale=float(cfg_scale),
             steps=int(steps),
