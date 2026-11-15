@@ -80,6 +80,10 @@ class Handler:
             seed=_parse_seed(seed),
         )
 
+    def get_tag_list(self) -> list[str]:
+        v = self.tag_generation.vocab
+        return sorted(t for t in v if not (t.startswith("<") and t.endswith(">")))
+
     def generate_inpainting(self, tags_text:str, nsfw, calc_type, cfg_scale, steps, seed, img_path, start_t: float = 0.9):
         tags_text = tags_text.lower()
 

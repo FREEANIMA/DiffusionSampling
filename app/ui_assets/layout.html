@@ -6,7 +6,11 @@
       <option value="inpainting">inpainting</option>
     </select>
   </div>
-  <div class="ui-row"><label>Tags</label><input id="tags" placeholder="예: woman, cinematic, ..."></div>
+  <div class="ui-row" style="position:relative;">
+    <label>Tags</label>
+    <input id="tags" placeholder="예: woman, cinematic, ..." autocomplete="off">
+    <div id="ac" class="ac-list" style="display:none;"></div>
+  </div>
   <div class="ui-row">
     <label>NSFW</label>
     <select id="nsfw"><option value="false">n</option><option value="true">y</option></select>

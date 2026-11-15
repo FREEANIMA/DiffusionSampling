@@ -35,6 +35,7 @@ class ColabUI:
         display(HTML(
             f"<style>{css}</style>\n"
             f"{layout}\n"
+            f"{self._tags_script()}\n"
             f"<script>{js}</script>"
         ))
         self._result_area = display(HTML("<div></div>"), display_id=True)
@@ -54,6 +55,11 @@ class ColabUI:
                 eval_js("window.ui_params = null")
                 return params
             time.sleep(self.POLL_INTERVAL)
+
+    def _tags_script(self) -> str:
+        tags = self.handler.get_tag_list()
+        payload = json.dumps(tags, ensure_ascii=False).replace("</", "<\\/")
+        return f"<script>window.TAG_LIST = {payload};</script>"
 
     # ---------- 생성 ----------
     def _generate(self, p: dict):
