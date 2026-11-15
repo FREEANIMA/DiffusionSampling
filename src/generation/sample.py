@@ -41,11 +41,11 @@ class Sampling:
         return img
 
     @torch.inference_mode()
-    def sampling(self, tags, calculate_type, cfg_scale, steps, H, W, seed=None, on_step=None):
+    def sampling(self, positivie_tags, calculate_type, cfg_scale, steps, H, W, seed=None, on_step=None):
         if seed is None:
             seed = random.randint(0, 2**32 - 1)
 
-        cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=tags)
+        cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=positivie_tags)
         gen = torch.Generator(device=self.device)
         gen.manual_seed(seed)
 

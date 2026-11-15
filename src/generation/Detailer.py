@@ -34,12 +34,6 @@ class Detailering:
         decoded = self.vae.decoder(latent)
         return self.vae._tensor_to_pil(decoded)
 
-    @torch.inference_mode()
-    def text_encode(self, tags):
-        cond_emb, cond_mask = self.text_encoder.encoder(tags)
-        uncond_emb, uncond_mask = self.text_encoder.encoder([INIT_PROMPT])
-        return cond_emb, uncond_emb, cond_mask, uncond_mask
-
     def mask_generation(self, mask_arr, latent):
         if isinstance(mask_arr, np.ndarray):
             m = torch.from_numpy(mask_arr).float()
@@ -59,7 +53,17 @@ class Detailering:
         return (m_lat > 0.5).float()
 
     @torch.inference_mode()
-    def sampling(self, tags, calculate_type, cfg_scale, steps, img_bytes, start_t, seed=None, on_step=None):
+    def text_encode(self, tags, neg_tags=None):
+        cond_emb, cond_mask = self.text_encoder.encoder(tags)
+        uncond_emb, uncond_mask = self.text_encoder.encoder([INIT_PROMPT])
+        if neg_tags is None:
+            return cond_emb, uncond_emb, cond_mask, uncond_mask, None, None
+        n_emb, n_mask = self.text_encoder.encoder(neg_tags)
+        return cond_emb, uncond_emb, cond_mask, uncond_mask, n_emb, n_mask
+
+    @torch.inference_mode()
+    def sampling(self, tags, calculate_type, cfg_scale, steps, img_bytes, start_t,
+                 seed=None, on_step=None, neg_tags=None, n_cfg_scale=0.0):
         arr, H, W = img_resize(img_bytes, self.allowable_size, self.patch_size, self.f)
 
         img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
@@ -85,7 +89,9 @@ class Detailering:
         if on_step:
             on_step(0, total)
 
-        cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=tags)
+        cond_emb, uncond_emb, cond_mask, uncond_mask, n_emb, n_mask = self.text_encode(
+            tags=tags, neg_tags=neg_tags
+        )
 
         def after_step(x, sigma, sigma_next):
             nonlocal done
@@ -105,8 +111,8 @@ class Detailering:
             gen=gen,
             dtype=self.dtype,
             after_step=after_step,
+            n_emb=n_emb, n_mask=n_mask, n_cfg_scale=n_cfg_scale,
         )
-
 
         return self.vae_decode(x)
 

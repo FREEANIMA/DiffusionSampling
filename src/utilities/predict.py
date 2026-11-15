@@ -3,38 +3,48 @@ from tqdm.auto import tqdm
 from .solvers import euler, heun, ddim, ddpm_plus
 
 @torch.inference_mode()
-def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_mask, cfg_scale, dtype):
+def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_mask,
+                     cfg_scale, dtype, n_emb=None, n_mask=None, n_cfg_scale=0.0):
     x_in = x.to(dtype)
     sig = sigma.expand(x.shape[0])
-    with torch.amp.autocast(device_type="cuda", dtype=dtype):
-        cond_out, _ = model.forward(
-            x=x_in, sigma=sig, txt_emb=cond_emb, txt_mask=cond_mask,
-        )
-        if cfg_scale == 1.0:
-            return cond_out.float()
-        uncond_out, _ = model.forward(
-            x=x_in, sigma=sig, txt_emb=uncond_emb, txt_mask=uncond_mask,
-        )
-    c, u = cond_out.float(), uncond_out.float()
-    return u + cfg_scale * (c - u)
 
+    use_cfg = cfg_scale != 1.0
+    use_neg = (n_emb is not None) and (n_cfg_scale != 0.0)
+
+    def fwd(emb, mask):
+        out, _ = model.forward(x=x_in, sigma=sig, txt_emb=emb, txt_mask=mask)
+        return out.float()
+
+    with torch.amp.autocast(device_type="cuda", dtype=dtype):
+        c = fwd(cond_emb, cond_mask)
+        v = c
+        if use_cfg:
+            u = fwd(uncond_emb, uncond_mask)
+            v = u + cfg_scale * (c - u)
+        if use_neg:
+            n = fwd(n_emb, n_mask)
+            v = v + n_cfg_scale * (c - n)
+    return v
 
 @torch.inference_mode()
-def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gen, dtype, after_step=None):
+def steps_sampling(model, x, sigmas, calculate_type, cfg_scale,
+                   cond_emb, cond_mask, uncond_emb, uncond_mask,
+                   gen, dtype, after_step=None,
+                   n_emb=None, n_mask=None, n_cfg_scale=0.0):
     model.eval()
     n = len(sigmas) - 1
     kw = dict(model=model, cond_emb=cond_emb, cond_mask=cond_mask,
               uncond_emb=uncond_emb, uncond_mask=uncond_mask,
-              cfg_scale=cfg_scale, dtype=dtype)
+              cfg_scale=cfg_scale, dtype=dtype,
+              n_emb=n_emb, n_mask=n_mask, n_cfg_scale=n_cfg_scale)
 
-    v_prev, sigma_prev = None, None   # AB2 이력 (CFG 적용 후 원본 v)
+    v_prev, sigma_prev = None, None
 
     try:
         for i in tqdm(range(n), desc="sampling"):
             sigma, sigma_next = sigmas[i], sigmas[i + 1]
             v = velocity_predict(x=x, sigma=sigma, **kw)
 
-            # 마지막 스텝(sigma_next=0)은 h가 커서 외삽이 과해질 수 있어 AB2 끔
             last = (i == n - 1)
             vp = None if last else v_prev
             sp = None if last else sigma_prev
