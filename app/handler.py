@@ -102,8 +102,7 @@ class Handler:
         )
 
     def get_tag_list(self) -> list[str]:
-        v = self.tag_generation.vocab
-        return sorted(t for t in v if not (t.startswith("<") and t.endswith(">")))
+        return self.tag_generation.get_ac_tags()
 
     def generate_inpainting(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, mask=None, start_t: float = 0.9):
         self.progress.reset()

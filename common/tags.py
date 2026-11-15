@@ -90,7 +90,18 @@ class TagGenration:
         type_map = dict(zip(common["tag"], common["type"]))
 
         return type_map, dup_map
-    
+
+    def get_ac_tags(self):
+        reps = {
+            self.dup_map.get(t, t)
+            for t in self.type_map
+            if t in self.vocab
+        }
+        return sorted(
+            t for t in reps
+            if t in self.vocab and not (t.startswith("<") and t.endswith(">"))
+        )
+
     def canonicalize(self, tag_list: list):
         out = []
         seen = set()
