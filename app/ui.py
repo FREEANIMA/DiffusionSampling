@@ -76,7 +76,7 @@ class UI:
 
         with Image.open(io.BytesIO(raw)) as img:
             return img.convert("L")
-
+        
     def _generate(self, p: dict):
         seed_text = str(p.get("seed", "-1")).strip()
 
@@ -116,7 +116,7 @@ class UI:
             return self.handler.generate_detailering(
                 img_path=img_path,
                 mask=mask,
-                start_t=float(p.get("start_t", 0.6)),
+                start_t=float(p.get("start_t", 0.9)),
                 margin=float(p.get("margin", 0.5)),
                 **common,
             )

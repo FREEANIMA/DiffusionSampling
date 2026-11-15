@@ -247,7 +247,7 @@
   };
 
   // ---------- UI ----------
-  const START_T_DEFAULT = { inpainting: '0.9', detailer: '0.6' };
+  const START_T_DEFAULT = { inpainting: '0.9', detailer: '0.9' };
 
   const applyMode = () => {
     const m = modeEl.value;

@@ -1,7 +1,7 @@
 from typing import Optional
 import torch
 from PIL import Image
-from src.generation import Sampling, InPainting
+from src.generation import Sampling, InPainting, Detailering
 from common import T5TextModel, VaeModel, TagGenration, console_q
 from networks import load_mmdit_dcae
 from collections import deque
@@ -52,6 +52,19 @@ class Handler:
 
         self.tags_infer_cached = deque(maxlen=64)
 
+    @property
+    def detailer(self) -> Detailering:
+        if self._sampler is None:
+            self._sampler = Detailering(
+                base_root=self.base_root, 
+                model=self.model,
+                text_encoder=self.text_encoder, 
+                vae=self.vae, 
+                config=self.config,
+                console=self.console
+            )
+        return self._sampler
+    
     @property
     def sampler(self) -> Sampling:
         if self._sampler is None:
@@ -172,7 +185,6 @@ class Handler:
 
         box = self._crop_box(mask, margin)
         crop_img = img.crop(box)
-        crop_mask = mask.crop(box)
 
         buf = io.BytesIO()
         crop_img.save(buf, format="PNG")
@@ -183,20 +195,18 @@ class Handler:
 
         tags_reshape = self._resolve_tags(tags_text, nsfw, H, W, fixed)
 
-        img_out, save_img_name = self.inpainter.sampling(
+        img_out = self.detailer.sampling(
             tags=tags_reshape,
             calculate_type=calc_type,
             cfg_scale=float(cfg_scale),
             steps=int(steps),
             seed=_parse_seed(seed),
-            mask=crop_mask,
             img_bytes=img_bytes,
             start_t=float(start_t),
             on_step=self.progress.update,
-            save_dir=os.path.join(self.base_root, "detailer")
         )
 
-        return self.inpainter.merge_img(
+        return self.detailer.merge_img(
             origin_img=img,
             img_out=img_out,
             square=box,

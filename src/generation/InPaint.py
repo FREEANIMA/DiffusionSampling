@@ -61,7 +61,6 @@ class InPainting:
     @torch.inference_mode()
     def sampling(self, tags, calculate_type, cfg_scale, steps, img_bytes, start_t, seed=None, mask=None, on_step=None, save_dir=None):
         arr, H, W = img_resize(img_bytes, self.allowable_size, self.patch_size, self.f)
-        img_pil = Image.fromarray(arr)
 
         # 변경 후
         if mask is None:
@@ -73,10 +72,9 @@ class InPainting:
         img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
         img = img.to(device=self.device, dtype=self.dtype)
 
-        latent = self.vae_encode(img)                      # (1,C,h,w)
-        mask_lat = self.mask_generation(mask_arr, latent)  # (1,1,h,w)
+        latent = self.vae_encode(img)
+        mask_lat = self.mask_generation(mask_arr, latent)
 
-        # seed 를 noise 에도 적용 (재현 가능)
         gen = torch.Generator(device=self.device)
         if seed is not None:
             gen.manual_seed(seed)
@@ -133,21 +131,3 @@ class InPainting:
         self.console.put(f"img saved: {save_img_name}")
 
         return img_out, save_img_name
-
-    def merge_img(self, origin_img, img_out, square, save_dir):
-        left, top, right, bottom = square
-
-        out = origin_img.convert("RGB").copy()
-        patch = img_out.convert("RGB").resize((right - left, bottom - top), Image.Resampling.LANCZOS)
-        out.paste(patch, (left, top))
-
-        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        save_dir = os.path.join(save_dir, stamp)
-        os.makedirs(save_dir, exist_ok=True)
-
-        save_img_name = os.path.join(save_dir, "merged.png")
-        out.save(save_img_name)
-
-        self.console.put(f"merged saved: {save_img_name}")
-
-        return out, save_img_name
