@@ -201,8 +201,6 @@ class TagGenration:
             ids = self.to_ids(dup_list)
             batch = torch.tensor([ids], dtype=torch.long, device=device)
             tags_infer = self.sampling(batch)
-            if self.console is not None:
-                self.console.put(f"llm tags : {tags_infer}")
                 
         return self.text_generation(tags_infer, nsfw, H, W, user_tags=user_tags), tags_infer
 
