@@ -1,4 +1,4 @@
-from .Sample import Sampling
+from .sample import Sampling
 from .InPaint import InPainting
 from .Detailer import Detailering
 
