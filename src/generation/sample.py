@@ -39,7 +39,7 @@ class Sampling:
         return img
 
     @torch.inference_mode()
-    def sampling(self, tags, calculate_type, cfg_scale, steps, H, W, seed=None):
+    def sampling(self, tags, calculate_type, cfg_scale, steps, H, W, seed=None, on_step=None):
         if seed is None:
             seed = random.randint(0, 2**32 - 1)
         print(f"seed: {seed}")
@@ -51,7 +51,6 @@ class Sampling:
         gen = torch.Generator(device=self.device)
         gen.manual_seed(seed)
 
-        # dc ae 전용
         noise = torch.randn(
             (1, self.in_channels, H // self.f, W // self.f),
             generator=gen,
@@ -59,8 +58,19 @@ class Sampling:
             dtype=torch.float32,
         )
 
-        x = noise
         sigmas = sigma_schedular(step=steps, device=self.device, shift=self.shift)
+
+        total = len(sigmas) - 1
+        done = 0
+        if on_step:
+            on_step(0, total)
+
+        def after_step(x, sigma, sigma_next):
+            nonlocal done
+            done += 1
+            if on_step:
+                on_step(min(done, total), total)
+            return x
 
         x = steps_sampling(
             model=self.model,
@@ -74,6 +84,7 @@ class Sampling:
             uncond_mask=uncond_mask,
             gen=gen,
             dtype=self.dtype,
+            after_step=after_step,
         )
         img = self.vae_decode(x)
 

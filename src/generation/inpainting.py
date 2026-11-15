@@ -57,7 +57,7 @@ class InPaint:
         return (m_lat > 0.5).float()
 
     @torch.inference_mode()
-    def sampling(self, tags, calculate_type, cfg_scale, steps, start_t, seed=None, path=None, mask=None):
+    def sampling(self, tags, calculate_type, cfg_scale, steps, start_t, seed=None, path=None, mask=None, on_step=None):
         if path is None:
             raise ValueError("경로를 입력해 주세요")
 
@@ -95,9 +95,19 @@ class InPaint:
         orig_at_start = (1 - start_sigma) * latent + start_sigma * noise
         x_t = (1 - mask_lat) * latent + mask_lat * orig_at_start
 
+        total = len(sigmas) - 1
+        done = 0
+        if on_step:
+            on_step(0, total)
+            
         cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=tags)
 
         def after_step(x, sigma, sigma_next):
+            nonlocal done
+            done += 1
+            if on_step:
+                on_step(min(done, total), total)
+
             s = sigma.view(1, 1, 1, 1)
             orig_t = (1 - s) * latent + s * noise
             return (1 - mask_lat) * orig_t + mask_lat * x

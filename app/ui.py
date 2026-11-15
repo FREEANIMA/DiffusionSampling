@@ -171,6 +171,10 @@ class UI:
             finally:
                 self._lock.release()
 
+        @self.app.get("/api/progress")
+        def progress():
+            return jsonify(self.handler.progress.snapshot())
+        
     def run(self, host: str = "127.0.0.1", port: int = 7860,
             colab: bool | None = None, height: int = 1000):
         if colab is None:

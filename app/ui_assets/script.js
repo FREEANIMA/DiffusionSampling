@@ -220,6 +220,41 @@
     if (result) result.innerHTML = '';
   };
 
+  // ---------- Progress ----------
+  let pollTimer = null;
+
+  const startPoll = () => {
+    const bar = $('bar');
+    bar.style.display = 'block';
+    bar.value = 0;
+    bar.max = 1;
+
+    pollTimer = setInterval(async () => {
+      try {
+        const r = await fetch('api/progress');
+        const p = await r.json();
+        if (!pollTimer) return;
+
+        if (p.total > 0) {
+          bar.max = p.total;
+          bar.value = p.step;
+          $('out').textContent = p.step >= p.total
+            ? 'decoding / saving...'
+            : `sampling ${p.step}/${p.total}`;
+        } else {
+          $('out').textContent = 'preparing...';
+        }
+      } catch (_) {}
+    }, 300);
+  };
+
+  const stopPoll = () => {
+    clearInterval(pollTimer);
+    pollTimer = null;
+    $('bar').style.display = 'none';
+  };
+
+  // ---------- Generate ----------
   $('run').onclick = async () => {
     const params = {
       mode: modeEl.value,
@@ -244,6 +279,7 @@
     const runBtn = $('run');
     runBtn.disabled = true;
     $('out').textContent = 'running...';
+    startPoll();
 
     let result = $('result');
     if (!result) {
@@ -283,6 +319,7 @@
       $('out').textContent = `failed: ${e.message}`;
 
     } finally {
+      stopPoll();
       runBtn.disabled = false;
     }
   };

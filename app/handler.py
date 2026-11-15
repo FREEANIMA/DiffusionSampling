@@ -8,6 +8,24 @@ from networks import load_mmdit_dcae
 def _parse_seed(seed) -> Optional[int]:
     return None if seed in (None, "", -1, "-1") else int(seed)
 
+import threading
+
+class Progress:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._step, self._total = 0, 0
+
+    def reset(self):
+        self.update(0, 0)
+
+    def update(self, step: int, total: int):
+        with self._lock:
+            self._step, self._total = step, total
+
+    def snapshot(self) -> dict:
+        with self._lock:
+            return {"step": self._step, "total": self._total}
+        
 class Handler:
     def __init__(self, base_root: str = ".", device: str = "cuda", dtype: torch.dtype = torch.bfloat16):
         self.base_root = base_root
@@ -25,6 +43,7 @@ class Handler:
 
         self._sampler: Optional[Sampling] = None
         self._inpainter: Optional[InPaint] = None
+        self.progress = Progress()
 
     @property
     def sampler(self) -> Sampling:
@@ -61,6 +80,7 @@ class Handler:
         return self._snap(H * 1024 / W, unit), 1024
 
     def generate_txt2img(self, tags_text:str, nsfw, calc_type, cfg_scale, H, W, steps, seed):
+        self.progress.reset()
         tags_text = tags_text.lower()
 
         H, W = self._fit_size(int(H), int(W))
@@ -78,6 +98,7 @@ class Handler:
             H=H, W=W,
             steps=int(steps),
             seed=_parse_seed(seed),
+            on_step=self.progress.update,
         )
 
     def get_tag_list(self) -> list[str]:
@@ -85,6 +106,7 @@ class Handler:
         return sorted(t for t in v if not (t.startswith("<") and t.endswith(">")))
 
     def generate_inpainting(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, mask=None, start_t: float = 0.9):
+        self.progress.reset()
         tags_text = tags_text.lower()
 
         with Image.open(img_path) as im:
@@ -105,4 +127,5 @@ class Handler:
             path=img_path,
             mask=mask,
             start_t=float(start_t),
+            on_step=self.progress.update,
         )
