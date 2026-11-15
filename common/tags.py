@@ -7,34 +7,35 @@ from networks.tags_llm import Model
 from huggingface_hub import hf_hub_download
 from version import HUGGINGFACE
 
-NAS = [
-    "style",
-    "person_count",
-    "gender",
-    "species",
-    "hair_color",
-    "hair_length",
-    "hair_style",
-    "eye_color",
-    "body_type",
-    "clothing",
-    "accessory",
-    "background",
-    "pose",
-    "expression",
-    "composition",
-    "gaze",
-    "sex_act"
-]
-
-INIT_PROMPT = "general img; "
-
 class TagGenration:
     def __init__(self, device="cuda", dtype=torch.bfloat16, console=None):
         self.device = device
         self.dtype = dtype
         self.MIN_TAG_FREQ = 20
         self.MIN_FIXED_TAGS = 20
+
+        self.NAS = [
+            "style",
+            "person_count",
+            "gender",
+            "species",
+            "hair_color",
+            "hair_length",
+            "hair_style",
+            "eye_color",
+            "body_type",
+            "clothing",
+            "accessory",
+            "background",
+            "pose",
+            "expression",
+            "composition",
+            "gaze",
+            "sex_act"
+        ]
+
+        self.INIT_PROMPT = "general img; "
+
 
         ckpt_path, vocab_path, tags_type_path = self._download()
 
@@ -180,12 +181,12 @@ class TagGenration:
             else:
                 grouped.setdefault(_type, []).append(tag)
 
-        ordered_types = [t for t in NAS if t in grouped]
-        ordered_types += [t for t in grouped if t not in NAS]
+        ordered_types = [t for t in self.NAS if t in grouped]
+        ordered_types += [t for t in grouped if t not in self.NAS]
 
         text = "".join(f"{t}: {', '.join(grouped[t])}; " for t in ordered_types)
         others_text = f"others: {', '.join(others)}; " if others else ""
-        return [INIT_PROMPT + nsfw_text + size_text + text + others_text]
+        return [self.INIT_PROMPT + nsfw_text + size_text + text + others_text]
     
     def tags_mapping_worker(self, tags: str, nsfw, H, W, device=None, fixed: bool = True):
         device = device or self.device

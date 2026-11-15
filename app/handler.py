@@ -179,10 +179,8 @@ class Handler:
         top = min(max(cy - side / 2, 0), H - side)
         left, top = int(left), int(top)
         return left, top, left + int(side), top + int(side)
-        
-    def generate_detailering(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, box=None, start_t: float = 0.7):
-        self.console.put("detailer : cfg 1.0 static")
-        cfg_scale = 1
+
+    def generate_detailering(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, box=None, start_t: float = 0.7):
         SIZE = 1024
         if img_path is None:
             raise ValueError("경로를 입력해 주세요")
@@ -207,7 +205,7 @@ class Handler:
         img_bytes = buf.getvalue()
 
         H, W = SIZE, SIZE
-        tags_reshape = self._resolve_tags(tags_text, nsfw, H, W, fixed)
+        tags_reshape = [self.tag_generation.INIT_PROMPT] 
 
         img_out = self.detailer.sampling(
             tags=tags_reshape,
