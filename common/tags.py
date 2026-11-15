@@ -33,7 +33,8 @@ class TagGenration:
     def __init__(self, device="cuda", dtype=torch.bfloat16, console=None):
         self.device = device
         self.dtype = dtype
-        self.MIN_COUNT = 20
+        self.MIN_TAG_FREQ = 20
+        self.MIN_FIXED_TAGS = 20
 
         ckpt_path, vocab_path, tags_type_path = self._download()
 
@@ -88,7 +89,7 @@ class TagGenration:
 
         dup_map = dict(zip(s["tag"], s["dup"].fillna(s["tag"])))
 
-        common = s[s["count"].fillna(0) >= self.MIN_COUNT]
+        common = s[s["count"].fillna(0) >= self.MIN_TAG_FREQ]
         type_map = dict(zip(common["tag"], common["type"]))
 
         return type_map, dup_map
@@ -192,15 +193,24 @@ class TagGenration:
 
         user_tags = self.canonicalize(tag_list=tags.split(","))
 
-        if fixed and (len(user_tags) >= self.MIN_COUNT):
-            tags_infer = []
-        else:
+        def tags_s():
             known = [t for t in user_tags if t in self.vocab]
             dup_list = known + [nsfw_str]
             random.shuffle(dup_list)
             ids = self.to_ids(dup_list)
             batch = torch.tensor([ids], dtype=torch.long, device=device)
             tags_infer = self.sampling(batch)
+
+            return tags_infer
+
+        if fixed:
+            if len(user_tags) < self.MIN_FIXED_TAGS:
+                self.console.put(f"tags 수 부족({len(user_tags)}/{self.MIN_FIXED_TAGS}): 안정을 위해 tag sampling")
+                tags_infer = tags_s()
+            else:
+                tags_infer = []
+        else:
+            tags_infer = tags_s()
                 
         return self.text_generation(tags_infer, nsfw, H, W, user_tags=user_tags), tags_infer
 
