@@ -1,9 +1,10 @@
-
 from __future__ import annotations
 
 import base64
 import io
 import json
+import sys
+import threading
 import traceback
 from pathlib import Path
 
@@ -12,12 +13,14 @@ from PIL import Image
 
 from .handler import Handler
 
-class LocalUI:
+
+class UI:
     ASSET_DIR = Path(__file__).with_name("ui_assets")
 
     def __init__(self, handler: Handler):
         self.handler = handler
         self.app = Flask(__name__)
+        self._lock = threading.Lock()  # GPU 생성은 한 번에 하나만
 
         self._register_routes()
 
@@ -47,7 +50,6 @@ class LocalUI:
             {layout}
 
             <script>
-                window.LOCAL_MODE = true;
                 window.TAG_LIST = {tags};
             </script>
 
@@ -98,11 +100,9 @@ class LocalUI:
             img_path = str(p["img_path"]).strip()
 
             if not img_path or not Path(img_path).is_file():
-                raise FileNotFoundError(
-                    f"Image not found: {img_path}"
-                )
+                raise FileNotFoundError(f"Image not found: {img_path}")
 
-            mask = self._b64_to_pil(p.get("mask", ""))
+            mask = self._b64_to_pil(p.get("mask") or "")
 
             return self.handler.generate_inpainting(
                 img_path=img_path,
@@ -117,10 +117,7 @@ class LocalUI:
 
         @self.app.get("/")
         def index():
-            return Response(
-                self._render_page(),
-                mimetype="text/html",
-            )
+            return Response(self._render_page(), mimetype="text/html")
 
         @self.app.post("/api/load_image")
         def load_image():
@@ -129,9 +126,7 @@ class LocalUI:
                 img_path = str(params.get("path", "")).strip()
 
                 if not img_path or not Path(img_path).is_file():
-                    raise FileNotFoundError(
-                        f"Image not found: {img_path}"
-                    )
+                    raise FileNotFoundError(f"Image not found: {img_path}")
 
                 with Image.open(img_path) as img:
                     img = img.convert("RGB")
@@ -149,9 +144,14 @@ class LocalUI:
 
         @self.app.post("/api/generate")
         def generate():
+            if not self._lock.acquire(blocking=False):
+                return jsonify({
+                    "success": False,
+                    "error": "이미 생성 중입니다.",
+                }), 409
+
             try:
                 params = request.get_json(force=True)
-
                 img, path = self._generate(params)
 
                 return jsonify({
@@ -168,13 +168,30 @@ class LocalUI:
                     "error": f"{type(e).__name__}: {e}",
                 }), 500
 
-    def run(self, host: str = "127.0.0.1", port: int = 7860):
-        print(f"MMDIT Local UI: http://{host}:{port}")
+            finally:
+                self._lock.release()
 
-        self.app.run(
-            host=host,
-            port=port,
-            debug=False,
-            threaded=False,
-            use_reloader=False,
-        )
+    def run(self, host: str = "127.0.0.1", port: int = 7860,
+            colab: bool | None = None, height: int = 1000):
+        if colab is None:
+            colab = "google.colab" in sys.modules  # 자동 감지
+
+        def serve():
+            self.app.run(
+                host=host,
+                port=port,
+                debug=False,
+                threaded=True,
+                use_reloader=False,
+            )
+
+        if colab:
+            from google.colab import output
+
+            # 셀이 막히지 않게 백그라운드 스레드로 실행
+            threading.Thread(target=serve, daemon=True).start()
+            output.serve_kernel_port_as_iframe(port, height=height)
+            # 새 탭으로 열려면: output.serve_kernel_port_as_window(port)
+        else:
+            print(f"MMDIT Local UI: http://{host}:{port}")
+            serve()

@@ -1,15 +1,18 @@
-
 import os
 from huggingface_hub import login
 
 COLAB_ROOT = "/content/drive/MyDrive/model/mmdit_sampling"
 
 
-def is_colab():
-    return os.path.exists("/content") and os.path.exists("/usr/local/lib/python3.10/dist-packages/google/colab")
+def is_colab() -> bool:
+    try:
+        import google.colab  # noqa: F401
+        return True
+    except ImportError:
+        return False
 
 
-def get_root():
+def get_root() -> str:
     if is_colab():
         from google.colab import drive
 
@@ -34,12 +37,7 @@ if __name__ == "__main__":
     hf_login()
 
     from app.handler import Handler
+    from app.ui import UI
 
     handler = Handler(base_root=ROOT)
-
-    if is_colab():
-        from app.ui_colab import ColabUI
-        ColabUI(handler).run()
-    else:
-        from app.ui_local import LocalUI
-        LocalUI(handler).run()
+    UI(handler).run(colab=is_colab())

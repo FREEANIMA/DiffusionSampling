@@ -59,8 +59,7 @@ class InPaint:
     @torch.inference_mode()
     def sampling(self, tags, calculate_type, cfg_scale, steps, start_t, seed=None, path=None, mask=None):
         if path is None:
-            print("경로를 입력해 주세요")
-            return
+            raise ValueError("경로를 입력해 주세요")
 
         with open(path, "rb") as f:
             img_bytes = f.read()
@@ -68,13 +67,12 @@ class InPaint:
         arr, H, W = img_resize(img_bytes, 1024, 2, 32)
         img_pil = Image.fromarray(arr)
 
+        # 변경 후
         if mask is None:
-            from src.utilities.mask_ui import draw_mask_colab
-            mask_arr = draw_mask_colab(img_pil, brush=30)
-        else:
-            mask = mask.convert("L")
-            mask = mask.resize((W, H), Image.Resampling.NEAREST)
-            mask_arr = np.array(mask, dtype=np.uint8)
+            raise ValueError("mask가 필요합니다.")
+
+        mask = mask.convert("L").resize((W, H), Image.Resampling.NEAREST)
+        mask_arr = np.array(mask, dtype=np.uint8)
 
         img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
         img = img.to(device=self.device, dtype=self.dtype)
