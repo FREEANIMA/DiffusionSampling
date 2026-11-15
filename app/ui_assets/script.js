@@ -206,19 +206,31 @@
     ctx.moveTo(x, y);
   };
 
-  // detailer: 사각형
+  // detailer: 정사각형 (드래그 방향 기준, 이미지 경계 안으로 제한)
   const drawRect = (a, b) => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const x = Math.min(a[0], b[0]);
-    const y = Math.min(a[1], b[1]);
-    const w = Math.abs(a[0] - b[0]);
-    const h = Math.abs(a[1] - b[1]);
+
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const sx = dx >= 0 ? 1 : -1;
+    const sy = dy >= 0 ? 1 : -1;
+
+    // 드래그 방향으로 남은 공간
+    const maxSide = Math.min(
+      sx > 0 ? canvas.width - a[0] : a[0],
+      sy > 0 ? canvas.height - a[1] : a[1],
+    );
+    const side = Math.max(0, Math.min(Math.max(Math.abs(dx), Math.abs(dy)), maxSide));
+
+    const x = sx > 0 ? a[0] : a[0] - side;
+    const y = sy > 0 ? a[1] : a[1] - side;
+
     ctx.fillStyle = 'rgba(255,0,0,0.25)';
-    ctx.fillRect(x, y, w, h);
+    ctx.fillRect(x, y, side, side);
     ctx.lineWidth = Math.max(2, canvas.width / 400);
     ctx.strokeStyle = 'rgba(255,0,0,0.95)';
-    ctx.strokeRect(x, y, w, h);
-    return { x, y, w, h };
+    ctx.strokeRect(x, y, side, side);
+    return { x, y, w: side, h: side };
   };
 
   canvas.addEventListener('pointerdown', (e) => {

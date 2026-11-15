@@ -170,17 +170,8 @@ class Handler:
             save_dir=os.path.join(self.base_root, "inpainting")
         )
 
-    def _square_box(self, box, W, H):
-        left, top, right, bottom = box
-        cx, cy = (left + right) / 2, (top + bottom) / 2
-        side = min(max(right - left, bottom - top), W, H)
-
-        left = min(max(cx - side / 2, 0), W - side)
-        top = min(max(cy - side / 2, 0), H - side)
-        left, top = int(left), int(top)
-        return left, top, left + int(side), top + int(side)
-
     def generate_detailering(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, box=None, start_t: float = 0.7):
+        SIZE = 1024
         if img_path is None:
             raise ValueError("경로를 입력해 주세요")
         if box is None:
@@ -197,16 +188,13 @@ class Handler:
             raise ValueError("선택한 영역이 너무 작거나 이미지 밖이에요.")
 
         box = self._square_box((left, top, right, bottom), img.width, img.height)
-
-        crop_img = img.crop(box)
+        crop_img = img.crop(box).resize((SIZE, SIZE), Image.Resampling.LANCZOS)
 
         buf = io.BytesIO()
         crop_img.save(buf, format="PNG")
         img_bytes = buf.getvalue()
 
-        W0, H0 = crop_img.size
-        H, W = self._fit_size(H0, W0)
-
+        H, W = SIZE, SIZE
         tags_reshape = self._resolve_tags(tags_text, nsfw, H, W, fixed)
 
         img_out = self.detailer.sampling(
