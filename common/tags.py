@@ -33,8 +33,8 @@ class TagGenration:
     def __init__(self, device="cuda", dtype=torch.bfloat16, console=None):
         self.device = device
         self.dtype = dtype
-        self.MIN_COUNT = 15
-        
+        self.MIN_COUNT = 20
+
         ckpt_path, vocab_path, tags_type_path = self._download()
 
         with open(vocab_path, "r", encoding="utf-8") as f:
