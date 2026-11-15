@@ -9,7 +9,7 @@ from PIL import Image
 from src.utilities import sigma_schedular, steps_sampling, img_resize
 INIT_PROMPT = "general img; "
 
-class InPaint:
+class Detailering:
     def __init__(self, base_root, model, text_encoder, vae, config, console=None):
         self.base_root = base_root
         self.shift: float = 3.0

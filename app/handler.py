@@ -1,7 +1,7 @@
 from typing import Optional
 import torch
 from PIL import Image
-from src.generation import Sampling, InPaint
+from src.generation import Sampling, InPainting
 from common import T5TextModel, VaeModel, TagGenration, console_q
 from networks import load_mmdit_dcae
 from collections import deque
@@ -45,7 +45,7 @@ class Handler:
         self.patch_size = self.config["patch_size"]
 
         self._sampler: Optional[Sampling] = None
-        self._inpainter: Optional[InPaint] = None
+        self._inpainter: Optional[InPainting] = None
         self.progress = Progress()
 
         self.tags_infer_cached = deque(maxlen=64)
@@ -64,9 +64,9 @@ class Handler:
         return self._sampler
 
     @property
-    def inpainter(self) -> InPaint:
+    def inpainter(self) -> InPainting:
         if self._inpainter is None:
-            self._inpainter = InPaint(
+            self._inpainter = InPainting(
                 base_root=self.base_root, 
                 model=self.model,
                 text_encoder=self.text_encoder, 

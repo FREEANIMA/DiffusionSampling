@@ -1,7 +1,7 @@
 from .sample import Sampling
-from .inpainting import InPaint
+from .InPaint import InPainting
 
 __all__= [
     "Sampling",
-    "InPaint",
+    "InPainting",
 ]
