@@ -45,15 +45,15 @@
 
 | Noise Level | Average Loss |
 |:---:|---:|
-| 1.0 – 0.9 | 4.0~4.3 |
-| 0.9 – 0.8 | 2.9~3.1 |
-| 0.8 – 0.7 | 2.4~2.6 |
-| 0.7 – 0.6 | 2.0~2.1 |
-| 0.6 – 0.5 | 1.8~1.9 |
-| 0.5 – 0.4 | 1.6~1.7 |
-| 0.4 – 0.3 | 1.3~1.6 |
-| 0.3 – 0.2 | 1.2~1.4 |
-| 0.2 – 0.1 | 1.0~1.1 |
+| 1.0 – 0.9 | 4.0 ~ 4.3 |
+| 0.9 – 0.8 | 2.9 ~ 3.1 |
+| 0.8 – 0.7 | 2.4 ~ 2.6 |
+| 0.7 – 0.6 | 2.0 ~ 2.1 |
+| 0.6 – 0.5 | 1.8 ~ 1.9 |
+| 0.5 – 0.4 | 1.6 ~ 1.7 |
+| 0.4 – 0.3 | 1.3 ~ 1.6 |
+| 0.3 – 0.2 | 1.2 ~ 1.4 |
+| 0.2 – 0.1 | 1.0 ~ 1.1 |
 
 ## Generation Results
 
@@ -61,7 +61,7 @@
 
 ![Patch Size 2](assets/patch_size_2.png)
 
-- **Image** 2k -> 50k -> 300k -> 450k-> 600k
+- **Training Progress:** 2K → 50K → 300K → 450K → 600K steps
 - **Issue:** Facial features, particularly the eyes, tend to collapse or become distorted.
 - **Observation:** Limited spatial detail makes accurate reconstruction of fine facial features challenging.
 
@@ -69,6 +69,12 @@
 
 ![Patch Size 1](assets/patch_size_1.png)
 
-- **Image** 10k -> 80k -> 110k
+- **Training Progress:** 10K → 80K → 110K steps
 - **Fine-tuning Result:** Fine-tuning with patch size 1 improved facial feature reconstruction.
 - **Improvement:** Eye and facial distortions were partially resolved, with better preservation of fine details.
+
+### Current Limitations
+
+- **Full-body Generation:** Full-body generation remains challenging due to insufficient full-body samples in the training dataset.
+- **Observation:** The current dataset contains insufficient full-body examples to learn consistent full-body composition and anatomical details.
+- **Future Work:** Increase the proportion and diversity of full-body images in the training dataset.
