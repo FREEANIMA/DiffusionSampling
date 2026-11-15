@@ -87,6 +87,7 @@ class UI:
             cfg_scale=float(p["cfg"]),
             steps=int(p["steps"]),
             seed=int(seed_text) if seed_text else -1,
+            fixed=bool(p.get("fixed", True)),
         )
 
         if p["mode"] == "txt2img":
@@ -175,6 +176,14 @@ class UI:
         def progress():
             return jsonify(self.handler.progress.snapshot())
         
+        @self.app.get("/api/logs")
+        def logs():
+            return jsonify({"lines": self.handler.console.drain()})
+        
+        @self.app.get("/api/tag_history")
+        def tag_history():
+            return jsonify({"items": self.handler.get_tag_history()})
+
     def run(self, host: str = "127.0.0.1", port: int = 7860,
             colab: bool | None = None, height: int = 1000):
         if colab is None:
@@ -195,7 +204,6 @@ class UI:
             # 셀이 막히지 않게 백그라운드 스레드로 실행
             threading.Thread(target=serve, daemon=True).start()
             output.serve_kernel_port_as_iframe(port, height=height)
-            # 새 탭으로 열려면: output.serve_kernel_port_as_window(port)
         else:
             print(f"MMDIT Local UI: http://{host}:{port}")
             serve()

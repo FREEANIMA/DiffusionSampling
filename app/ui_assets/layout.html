@@ -1,58 +1,133 @@
-<div class="ui-box">
-  <div class="ui-row">
-    <label>Mode</label>
-    <select id="mode">
-      <option value="txt2img">txt2img</option>
-      <option value="inpainting">inpainting</option>
-    </select>
-  </div>
-  <div class="ui-row" style="position:relative;">
-    <label>Tags</label>
-    <input id="tags" placeholder="예: woman, cinematic, ..." autocomplete="off">
-    <div id="ac" class="ac-list" style="display:none;"></div>
-  </div>
-  <div class="ui-row">
-    <label>NSFW</label>
-    <select id="nsfw"><option value="false">n</option><option value="true">y</option></select>
-  </div>
-  <div class="ui-row">
-    <label>Sampler</label>
-    <select id="sampler">
-      <option>euler</option><option>heun</option><option>ddim</option><option>ddpm_plus</option>
-    </select>
-  </div>
-  <div class="ui-row"><label>CFG</label><input id="cfg" value="4.0"></div>
-  <div class="ui-row"><label>Steps</label><input id="steps" value="30"></div>
-  <div class="ui-row"><label>Seed</label><input id="seed" value="-1"></div>
-
-  <div id="txt2img-box">
-    <div class="ui-row"><label>H</label><input id="H" value="1024"></div>
-    <div class="ui-row"><label>W</label><input id="W" value="1024"></div>
-  </div>
-
-  <div id="inpaint-box" style="display:none;">
-    <div class="ui-row"><label>Image Path</label><input id="img_path" placeholder="/path/to/image.png"></div>
-    <div class="ui-row"><label>Start T</label><input id="start_t" value="0.9"></div>
-    <div class="ui-row"><label>Brush</label><input id="brush" type="number" value="20"></div>
-    <div class="ui-row"><label></label><button id="load_image" type="button">Load Image</button></div>
-
-    <div id="mask-editor" style="display:none;">
-      <div style="position:relative; width:100%; line-height:0;">
-        <canvas id="bg-canvas" style="width:100%; height:auto;"></canvas>
-        <canvas id="mask-canvas" style="position:absolute; left:0; top:0; width:100%; height:100%; cursor:crosshair; touch-action:none;"></canvas>
-      </div>
-      <div class="ui-btns">
-        <button id="mask-clear" type="button">Clear Mask</button>
-        <button id="mask-finish" type="button">Finish Mask</button>
-      </div>
-      <div id="mask-status">대기 중...</div>
+<div class="app">
+  <header class="app-header">
+    <div class="logo">M</div>
+    <div>
+      <h1>MMDIT</h1>
+      <p>Text-to-image &amp; inpainting studio</p>
     </div>
-  </div>
+    <span class="badge"><i class="dot"></i>local</span>
+  </header>
 
-  <div class="ui-btns">
-    <button id="run">Generate</button>
-    <button id="clear_out">Clear</button>
+  <div class="app-grid">
+    <!-- 왼쪽: 설정 -->
+    <section class="card controls">
+      <div class="section-title">Prompt</div>
+
+      <div class="field">
+        <label for="mode">Mode</label>
+        <select id="mode">
+          <option value="txt2img">txt2img</option>
+          <option value="inpainting">inpainting</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <div class="label-row">
+          <label for="tags">Tags</label>
+          <label class="switch" title="켜면 LLM 태그 확장 없이 입력한 태그만 사용">
+            <input type="checkbox" id="fixed" checked>
+            <span class="track"></span>
+            <span class="switch-text">고정</span>
+          </label>
+        </div>
+        <div class="ac-wrap">
+          <input id="tags" placeholder="woman, cinematic, ..." autocomplete="off">
+          <div id="ac" class="ac-list" style="display:none;"></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="label-row">
+          <label>History</label>
+          <button id="history_refresh" type="button" class="icon-btn" title="새로고침">↻</button>
+        </div>
+        <div id="tag_history" class="history">
+          <span class="history-empty">기록 없음</span>
+        </div>
+      </div>
+
+      <div class="section-title">Sampling</div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="nsfw">NSFW</label>
+          <select id="nsfw">
+            <option value="false">n</option>
+            <option value="true">y</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="sampler">Sampler</label>
+          <select id="sampler">
+            <option>euler</option><option>heun</option><option>ddim</option><option>ddpm_plus</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div class="field"><label for="cfg">CFG</label><input id="cfg" value="4.0"></div>
+        <div class="field"><label for="steps">Steps</label><input id="steps" value="30"></div>
+        <div class="field"><label for="seed">Seed</label><input id="seed" value="-1"></div>
+      </div>
+
+      <div id="txt2img-box">
+        <div class="section-title">Size</div>
+        <div class="grid-2">
+          <div class="field"><label for="H">Height</label><input id="H" value="1024"></div>
+          <div class="field"><label for="W">Width</label><input id="W" value="1024"></div>
+        </div>
+      </div>
+
+      <div id="inpaint-box" style="display:none;">
+        <div class="section-title">Inpainting</div>
+
+        <div class="field">
+          <label for="img_path">Image path</label>
+          <div class="input-btn">
+            <input id="img_path" placeholder="/path/to/image.png">
+            <button id="load_image" type="button" class="btn">Load</button>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field"><label for="start_t">Start T</label><input id="start_t" value="0.9"></div>
+          <div class="field"><label for="brush">Brush</label><input id="brush" type="number" value="20"></div>
+        </div>
+
+        <div id="mask-editor" style="display:none;">
+          <div class="canvas-stack">
+            <canvas id="bg-canvas"></canvas>
+            <canvas id="mask-canvas"></canvas>
+          </div>
+          <div class="mask-bar">
+            <div class="btn-group">
+              <button id="mask-clear" type="button" class="btn">Clear</button>
+              <button id="mask-finish" type="button" class="btn">Finish mask</button>
+            </div>
+            <span id="mask-status">대기 중...</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="run" class="btn primary">Generate</button>
+        <button id="clear_out" class="btn ghost">Clear</button>
+      </div>
+    </section>
+
+    <!-- 오른쪽: 결과 -->
+    <section class="card output">
+      <div class="section-title">Result</div>
+      <progress id="bar" value="0" max="1" style="display:none;"></progress>
+      <div id="out"></div>
+      <!-- #result 는 script.js 가 #out 뒤에 자동 생성 -->
+      <div class="empty-state">
+        <div class="empty-icon">✦</div>
+        <div>생성된 이미지가 여기에 표시됩니다</div>
+      </div>
+
+      <div class="section-title console-title">Console</div>
+      <pre id="console"></pre>
+    </section>
   </div>
-  <progress id="bar" value="0" max="1" style="display:none; width:100%; margin-top:10px;"></progress>
-  <div id="out"></div>
 </div>

@@ -8,7 +8,7 @@ from src.utilities import sigma_schedular, steps_sampling
 INIT_PROMPT = "general img; "
 
 class Sampling:
-    def __init__(self, base_root, model, text_encoder, vae, config):
+    def __init__(self, base_root, model, text_encoder, vae, config, console=None):
         self.base_root = base_root
         self.shift: float = 3.0
         self.device = "cuda"
@@ -19,6 +19,8 @@ class Sampling:
         self.model = model
         self.text_encoder = text_encoder
         self.vae = vae
+
+        self.console = console
 
     def _snap(self, v, unit):
         return max(round(v / unit), 1) * unit
@@ -42,12 +44,8 @@ class Sampling:
     def sampling(self, tags, calculate_type, cfg_scale, steps, H, W, seed=None, on_step=None):
         if seed is None:
             seed = random.randint(0, 2**32 - 1)
-        print(f"seed: {seed}")
 
         cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=tags)
-        print(f"cond_emb: {cond_emb.shape}")
-        print(f"uncond_emb: {uncond_emb.shape}")
-
         gen = torch.Generator(device=self.device)
         gen.manual_seed(seed)
 
@@ -94,6 +92,7 @@ class Sampling:
         save_img_name = os.path.join(save_dir, "img.png")
 
         img.save(save_img_name)
-        print(f"img saved: {save_img_name}")
+
+        self.console.put(f"img saved: {save_img_name}")
 
         return img, save_img_name

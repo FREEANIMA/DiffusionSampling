@@ -30,7 +30,7 @@ NAS = [
 INIT_PROMPT = "general img; "
 
 class TagGenration:
-    def __init__(self, device="cuda", dtype=torch.bfloat16):
+    def __init__(self, device="cuda", dtype=torch.bfloat16, console=None):
         self.device = device
         self.dtype = dtype
 
@@ -61,6 +61,7 @@ class TagGenration:
         self.UNK_ID = self.vocab["<unk>"]
 
         self.id_to_tag = {v: k for k, v in self.vocab.items()}
+        self.console = console
 
     def _download(self):
         model_path = hf_hub_download(
@@ -160,6 +161,7 @@ class TagGenration:
         nsfw_text = f"nsfw: {str(nsfw).lower()}; "
         size_text = f"size: {H}x{W}; "
         merged, seen = [], set()
+
         for t in list(user_tags or []) + list(tags_infer):
             if t in ("<unk>", "<pad>", "<cls>", "<eos>"):
                 continue
@@ -183,21 +185,25 @@ class TagGenration:
         others_text = f"others: {', '.join(others)}; " if others else ""
         return [INIT_PROMPT + nsfw_text + size_text + text + others_text]
     
-    def tags_mapping_worker(self, tags: str, nsfw, H, W, device=None):
+    def tags_mapping_worker(self, tags: str, nsfw, H, W, device=None, fixed: bool = True):
         device = device or self.device
         nsfw_str = "nsfw" if nsfw else "general"
 
         user_tags = self.canonicalize(tag_list=tags.split(","))
 
-        # LLM 입력에는 vocab 에 있는 태그만 (<unk> 방지)
-        known = [t for t in user_tags if t in self.vocab]
-        dup_list = known + [nsfw_str]
-        random.shuffle(dup_list)
-        ids = self.to_ids(dup_list)
-        batch = torch.tensor([ids], dtype=torch.long, device=device)
-        tags_infer = self.sampling(batch)
-
-        return self.text_generation(tags_infer, nsfw, H, W, user_tags=user_tags)
+        if fixed:
+            tags_infer = []
+        else:
+            known = [t for t in user_tags if t in self.vocab]
+            dup_list = known + [nsfw_str]
+            random.shuffle(dup_list)
+            ids = self.to_ids(dup_list)
+            batch = torch.tensor([ids], dtype=torch.long, device=device)
+            tags_infer = self.sampling(batch)
+            if self.console is not None:
+                self.console.put(f"llm tags : {tags_infer}")
+                
+        return self.text_generation(tags_infer, nsfw, H, W, user_tags=user_tags), tags_infer
 
 def test():
     tag_g = TagGenration()

@@ -8,6 +8,7 @@ from ._download import fetch_ckpt_from_hf
 from .t5 import T5TextModel
 from .vae import VaeModel
 from .tags import TagGenration
+from .globals import console_q
 
 __all__ = [
     "default_device",
@@ -18,4 +19,5 @@ __all__ = [
     "T5TextModel",
     "VaeModel",
     "TagGenration",
+    "console_q"
 ]

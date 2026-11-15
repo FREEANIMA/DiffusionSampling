@@ -59,13 +59,6 @@ class Rope2D(nn.Module):
                     dim=0
                 ).item()
 
-                print(f"\n[{name}]")
-                print(f"Before: mean={before.mean().item():.6f}, std={before.std().item():.6f}")
-                print(f"After : mean={after.mean().item():.6f}, std={after.std().item():.6f}")
-                print(f"Mean abs diff: {(after - before).abs().mean().item():.6f}")
-                print(f"Max abs diff : {(after - before).abs().max().item():.6f}")
-                print(f"Cosine sim   : {cosine:.6f}")
-
             return q_out, k_out
 
         return rot(q), rot(k)

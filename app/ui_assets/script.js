@@ -34,7 +34,7 @@
   };
 
   const escapeHtml = (s) =>
-    String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
   const search = (raw) => {
     const q = key(raw);
@@ -92,6 +92,45 @@
     if (i !== undefined) { pick(acItems[+i]); e.preventDefault(); }
   });
   tagsEl.addEventListener('blur', () => setTimeout(closeAc, 100));
+
+  // ---------- Tag history ----------
+  const histEl = $('tag_history');
+  let histItems = [];
+
+  const renderHistory = () => {
+    if (!histItems.length) {
+      histEl.innerHTML = '<span class="history-empty">기록 없음</span>';
+      return;
+    }
+    histEl.innerHTML = histItems.map((it, i) =>
+      `<button type="button" class="history-item" data-i="${i}" title="${escapeHtml(it.input)}">
+         <span class="h-text">${escapeHtml(it.input || '(빈 입력)')}</span>
+         <span class="h-count">+${it.tags.length}</span>
+       </button>`
+    ).join('');
+  };
+
+  const loadHistory = async () => {
+    try {
+      const r = await fetch('api/tag_history');
+      const { items } = await r.json();
+      histItems = items.slice().reverse();   // 최신순
+      renderHistory();
+    } catch (_) {}
+  };
+
+  histEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.history-item');
+    if (!btn) return;
+    const it = histItems[+btn.dataset.i];
+    if (!it) return;
+    const base = it.input.split(',').map((s) => s.trim()).filter(Boolean);
+    tagsEl.value = [...new Set([...base, ...it.tags])].join(', ');
+    $('fixed').checked = true;   // 확장된 태그를 그대로 고정해서 사용
+  });
+
+  $('history_refresh').onclick = loadHistory;
+  loadHistory();
 
   // ---------- Mask ----------
   let localMask = null;
@@ -216,6 +255,7 @@
 
   $('clear_out').onclick = () => {
     $('out').textContent = '';
+    $('console').textContent = '';
     const result = $('result');
     if (result) result.innerHTML = '';
   };
@@ -254,11 +294,26 @@
     $('bar').style.display = 'none';
   };
 
+  // ---------- Console ----------
+  const consoleEl = $('console');
+
+  setInterval(async () => {
+    try {
+      const r = await fetch('api/logs');
+      const { lines } = await r.json();
+      if (!lines.length) return;
+      const stick = consoleEl.scrollTop + consoleEl.clientHeight >= consoleEl.scrollHeight - 5;
+      consoleEl.textContent += lines.join('\n') + '\n';
+      if (stick) consoleEl.scrollTop = consoleEl.scrollHeight;
+    } catch (_) {}
+  }, 500);
+
   // ---------- Generate ----------
   $('run').onclick = async () => {
     const params = {
       mode: modeEl.value,
       tags: $('tags').value,
+      fixed: $('fixed').checked,
       nsfw: $('nsfw').value === 'true',
       sampler: $('sampler').value,
       cfg: $('cfg').value,
@@ -302,9 +357,6 @@
         throw new Error(data.error || 'Generation failed');
       }
 
-      const path = document.createElement('div');
-      path.textContent = `Saved: ${data.path}`;
-
       const img = document.createElement('img');
       img.src = `data:image/png;base64,${data.image}`;
       img.style.maxWidth = '512px';
@@ -312,7 +364,7 @@
       img.style.border = '1px solid #ccc';
       img.style.marginTop = '8px';
 
-      result.append(path, img);
+      result.append(img);
       $('out').textContent = 'done';
 
     } catch (e) {
@@ -321,6 +373,7 @@
     } finally {
       stopPoll();
       runBtn.disabled = false;
+      loadHistory();
     }
   };
 

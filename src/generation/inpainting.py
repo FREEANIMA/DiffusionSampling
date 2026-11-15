@@ -10,7 +10,7 @@ from src.utilities import sigma_schedular, steps_sampling, img_resize
 INIT_PROMPT = "general img; "
 
 class InPaint:
-    def __init__(self, base_root, model, text_encoder, vae, config):
+    def __init__(self, base_root, model, text_encoder, vae, config, console=None):
         self.base_root = base_root
         self.shift: float = 3.0
         self.device = "cuda"
@@ -22,6 +22,7 @@ class InPaint:
         self.model = model
         self.text_encoder = text_encoder
         self.vae = vae
+        self.console= console
 
     @torch.inference_mode()
     def vae_encode(self, img):
@@ -142,7 +143,7 @@ class InPaint:
         grid_save_name = os.path.join(save_dir, "comparison_grid.png")
         grid_img.save(grid_save_name)
 
-        print(f"img saved: {save_img_name}")
-        print(f"grid saved: {grid_save_name}")
+        self.console.put(f"img saved: {save_img_name}")
+        self.console.put(f"grid saved: {grid_save_name}")
 
         return img_out, save_img_name

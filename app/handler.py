@@ -2,8 +2,9 @@ from typing import Optional
 import torch
 from PIL import Image
 from src.generation import Sampling, InPaint
-from common import T5TextModel, VaeModel, TagGenration
+from common import T5TextModel, VaeModel, TagGenration, console_q
 from networks import load_mmdit_dcae
+from collections import deque
 
 def _parse_seed(seed) -> Optional[int]:
     return None if seed in (None, "", -1, "-1") else int(seed)
@@ -32,11 +33,13 @@ class Handler:
         self.device = device
         self.dtype = dtype
 
+        self.console = console_q()
+
         self.model, self.config = load_mmdit_dcae()
         self.model = self.model.to(device=device, dtype=dtype)
-        self.text_encoder = T5TextModel(device=device, dtype=dtype)
-        self.vae = VaeModel(device=device, dtype=torch.float32)
-        self.tag_generation = TagGenration(device=device, dtype=dtype)
+        self.text_encoder = T5TextModel(device=device, dtype=dtype, console=self.console)
+        self.vae = VaeModel(device=device, dtype=torch.float32, console=self.console)
+        self.tag_generation = TagGenration(device=device, dtype=dtype, console=self.console)
 
         self.f = self.config["compression_ratio"]
         self.patch_size = self.config["patch_size"]
@@ -44,6 +47,8 @@ class Handler:
         self._sampler: Optional[Sampling] = None
         self._inpainter: Optional[InPaint] = None
         self.progress = Progress()
+
+        self.tags_infer_cached = deque(maxlen=64)
 
     @property
     def sampler(self) -> Sampling:
@@ -54,6 +59,7 @@ class Handler:
                 text_encoder=self.text_encoder, 
                 vae=self.vae, 
                 config=self.config,
+                console=self.console
             )
         return self._sampler
 
@@ -66,6 +72,7 @@ class Handler:
                 text_encoder=self.text_encoder, 
                 vae=self.vae, 
                 config=self.config,
+                console=self.console
             )
         return self._inpainter
 
@@ -73,24 +80,39 @@ class Handler:
         return max(unit, int(round(x / unit)) * unit)
 
     def _fit_size(self, H: int, W: int) -> tuple[int, int]:
-        """긴 변을 1024로 맞추고, 짧은 변은 unit 배수로 스냅."""
         unit = self.f * self.patch_size
         if H >= W:
             return 1024, self._snap(W * 1024 / H, unit)
         return self._snap(H * 1024 / W, unit), 1024
 
-    def generate_txt2img(self, tags_text:str, nsfw, calc_type, cfg_scale, H, W, steps, seed):
+    def get_tag_list(self) -> list[str]:
+        return self.tag_generation.get_ac_tags()
+
+    def get_tag_history(self) -> list[dict]:
+        return list(self.tags_infer_cached)
+
+    def _resolve_tags(self, tags_text, nsfw, H, W, fixed):
+        tags_reshape, tags_infer = self.tag_generation.tags_mapping_worker(
+            tags=tags_text, nsfw=bool(nsfw), H=H, W=W, fixed=bool(fixed),
+        )
+
+        if tags_infer:
+            self.tags_infer_cached.append({
+                "input": tags_text,
+                "tags": list(tags_infer),
+            })
+
+        self.console.put(f"final tags : {tags_reshape}")
+        return tags_reshape
+
+    def generate_txt2img(self, tags_text:str, nsfw, calc_type, cfg_scale, H, W, steps, seed, fixed):
         self.progress.reset()
         tags_text = tags_text.lower()
 
         H, W = self._fit_size(int(H), int(W))
 
-        tags_reshape = self.tag_generation.tags_mapping_worker(
-            tags=tags_text, nsfw=bool(nsfw), H=H, W=W,
-        )
-
-        print(f"final tags : {tags_reshape}")
-
+        tags_reshape = self._resolve_tags(tags_text, nsfw, H, W, fixed)
+        
         return self.sampler.sampling(
             tags=tags_reshape,
             calculate_type=calc_type,
@@ -100,22 +122,16 @@ class Handler:
             seed=_parse_seed(seed),
             on_step=self.progress.update,
         )
-
-    def get_tag_list(self) -> list[str]:
-        return self.tag_generation.get_ac_tags()
-
-    def generate_inpainting(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, mask=None, start_t: float = 0.9):
+    
+    def generate_inpainting(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, mask=None, start_t: float = 0.9):
         self.progress.reset()
         tags_text = tags_text.lower()
 
         with Image.open(img_path) as im:
             W0, H0 = im.size
         H, W = self._fit_size(H0, W0)
-        tags_reshape = self.tag_generation.tags_mapping_worker(
-            tags=tags_text, nsfw=bool(nsfw), H=H, W=W,
-        )
 
-        print(f"final tags : {tags_reshape}")
+        tags_reshape = self._resolve_tags(tags_text, nsfw, H, W, fixed)
 
         return self.inpainter.sampling(
             tags=tags_reshape,
@@ -128,3 +144,5 @@ class Handler:
             start_t=float(start_t),
             on_step=self.progress.update,
         )
+
+    
