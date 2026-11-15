@@ -90,10 +90,6 @@ class Handler:
         with Image.open(img_path) as im:
             W0, H0 = im.size
         H, W = self._fit_size(H0, W0)
-
-        if mask is not None:
-            mask = mask.resize((W0, H0), Image.Resampling.NEAREST)
-
         tags_reshape = self.tag_generation.tags_mapping_worker(
             tags=tags_text, nsfw=bool(nsfw), H=H, W=W,
         )
@@ -108,5 +104,6 @@ class Handler:
             steps=int(steps),
             seed=_parse_seed(seed),
             path=img_path,
+            mask=mask,
             start_t=float(start_t),
         )

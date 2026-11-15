@@ -7,8 +7,6 @@ import torch.nn.functional as F
 from PIL import Image
 
 from src.utilities import sigma_schedular, steps_sampling, img_resize
-from src.utilities.mask_ui import draw_mask_local, draw_mask_colab
-
 INIT_PROMPT = "general img; "
 
 class InPaint:
@@ -59,7 +57,7 @@ class InPaint:
         return (m_lat > 0.5).float()
 
     @torch.inference_mode()
-    def sampling(self, tags, calculate_type, cfg_scale, steps, start_t, seed=None, path=None):
+    def sampling(self, tags, calculate_type, cfg_scale, steps, start_t, seed=None, path=None, mask=None):
         if path is None:
             print("경로를 입력해 주세요")
             return
@@ -69,7 +67,14 @@ class InPaint:
 
         arr, H, W = img_resize(img_bytes, 1024, 2, 32)
         img_pil = Image.fromarray(arr)
-        mask_arr = draw_mask_colab(img_pil, brush=30)
+
+        if mask is None:
+            from src.utilities.mask_ui import draw_mask_colab
+            mask_arr = draw_mask_colab(img_pil, brush=30)
+        else:
+            mask = mask.convert("L")
+            mask = mask.resize((W, H), Image.Resampling.NEAREST)
+            mask_arr = np.array(mask, dtype=np.uint8)
 
         img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
         img = img.to(device=self.device, dtype=self.dtype)

@@ -106,6 +106,7 @@ class LocalUI:
 
             return self.handler.generate_inpainting(
                 img_path=img_path,
+                mask=mask,
                 start_t=float(p.get("start_t", 0.9)),
                 **common,
             )

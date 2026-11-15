@@ -1,0 +1,79 @@
+﻿[app]
+    [ui_assets]
+        layout.html
+        script.js
+        style.css
+    __init__.py
+    handler.py
+    ui_colab.py
+    ui_local.py
+[assets]
+    patch_size_1.png
+    patch_size_2.png
+    sample.png
+[common]
+    __init__.py
+    _download.py
+    t5.py
+    tags.py
+    utils.py
+    vae.py
+[networks]
+    [mmdit_dcae]
+        __init__.py
+        Block.py
+        Model.py
+        patch_embedding.py
+        Rope2D.py
+        sinusoidal_pos_emb.py
+    [tags_llm]
+        __init__.py
+        Block.py
+        Model.py
+        Rope1D.py
+    __init__.py
+[scripts]
+    [patch_size_1]
+        10k.png
+        110k.png
+        80k.png
+    [patch_size_2]
+        2k.png
+        300k.png
+        450k.png
+        50k.png
+        600k.png
+    [sample]
+        1.png
+        2.png
+        3.png
+        4.png
+        5.png
+        6.png
+        7.png
+    dup_metadata.py
+    img_merge.py
+    tags_plot.py
+    vocab_maker.py
+    vocab_matrix.py
+[src]
+    [generation]
+        __init__.py
+        inpainting.py
+        sample.py
+    [utilities]
+        [mask_ui]
+            __init__.py
+            draw_colab.py
+            draw_local.py
+        __init__.py
+        predict.py
+        resize_worker.py
+        sigma.py
+        solvers.py
+.env
+.gitignore
+main.py
+README.md
+requirements.txt
+version.py
