@@ -5,7 +5,6 @@ import os
 from datetime import datetime
 from tqdm.auto import tqdm
 from PIL import Image
-from tags_llm import TagsCoOC
 
 from src.utilities import (
     euler, heun, ddim, ddpm_plus, img_resize, draw_mask_colab
@@ -16,7 +15,6 @@ INIT_PROMPT = "general img; "
 class InPaint:
     def __init__(self, base_root, model, text_encoder, vae, config):
         self.base_root = base_root
-        self.cooc = TagsCoOC(base_root=base_root)
         self.shift: float = 3.0
         self.device = "cuda"
         self.dtype = torch.bfloat16
@@ -66,7 +64,7 @@ class InPaint:
         return u + cfg_scale * (c - u)
 
     @torch.inference_mode()
-    def steps_sampling(self, x, sigmas, latent, noise, mask_lat, caculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gen,):
+    def steps_sampling(self, x, sigmas, latent, noise, mask_lat, calculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gen,):
         self.model.eval()
         n = len(sigmas) - 1
 
@@ -82,11 +80,11 @@ class InPaint:
                     cfg_scale=cfg_scale,
                 )
 
-                if caculate_type == "euler":
+                if calculate_type == "euler":
                     x = euler(x, v, sigma, sigma_next)
-                elif caculate_type == "ddim":
+                elif calculate_type == "ddim":
                     x = ddim(x, v, sigma, sigma_next)
-                elif caculate_type == "heun":
+                elif calculate_type == "heun":
                     if i == n - 1:
                         x = euler(x, v, sigma, sigma_next)
                     else:
@@ -100,7 +98,7 @@ class InPaint:
                         )
                         x = heun(x, v, v2, sigma, sigma_next)
                         del x_e, v2
-                elif caculate_type == "ddpm_plus":
+                elif calculate_type == "ddpm_plus":
                     z = torch.randn(
                         x.shape, generator=gen,
                         device=x.device, dtype=x.dtype
@@ -108,7 +106,7 @@ class InPaint:
                     x = ddpm_plus(x, v, z, sigma, sigma_next)
                     del z
                 else:
-                    raise ValueError(f"Unsupported sampling method: {caculate_type}")
+                    raise ValueError(f"Unsupported sampling method: {calculate_type}")
 
                 del v
                 sigma_view = sigma.view(1, 1, 1, 1)
@@ -181,7 +179,7 @@ class InPaint:
             latent=latent,
             noise=noise,
             mask_lat=mask_lat,
-            caculate_type=caculate_type,
+            calculate_type=calculate_type,
             cfg_scale=cfg_scale,
             cond_emb=cond_emb, cond_mask=cond_mask,
             uncond_emb=uncond_emb, uncond_mask=uncond_mask,
