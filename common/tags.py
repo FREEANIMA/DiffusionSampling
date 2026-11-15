@@ -84,12 +84,10 @@ class TagGenration:
     def build_tag_maps(self, tags_type_df, min_count=20):
         s = tags_type_df[["tag", "type", "dup", "count"]].drop_duplicates(subset="tag", keep="first")
 
-        dup_map = dict(zip(s["tag"].tolist(), s["dup"].fillna(s["tag"]).tolist()))   # 전체 유지
+        dup_map = dict(zip(s["tag"], s["dup"].fillna(s["tag"])))
 
-        rare = s["count"].fillna(0) < min_count
-        type_map = dict(zip(s.loc[~rare, "tag"].tolist(), s.loc[~rare, "type"].tolist()))
-
-        self.common_tags = set(s.loc[~rare, "tag"].tolist())
+        common = s[s["count"].fillna(0) >= min_count]
+        type_map = dict(zip(common["tag"], common["type"]))
 
         return type_map, dup_map
     
