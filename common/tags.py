@@ -56,7 +56,6 @@ class TagGenration:
 
         self.type_map, self.dup_map = self.build_tag_maps(tags_type_df=tags_type_df)
 
-
         self.PAD_ID = self.vocab["<pad>"]
         self.CLS_ID = self.vocab["<cls>"]
         self.EOS_ID = self.vocab["<eos>"]

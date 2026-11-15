@@ -114,29 +114,10 @@ class Sampling:
         return img
 
     @torch.inference_mode()
-    def sampling(self, user_tags, nsfw, calculate_type, cfg_scale, H, W, steps, seed=None, nas=None):
-        unit = self.f * self.patch_size
-
-        if H >= W:
-            scale = 1024 / H
-            H, W = 1024, self._snap(W * scale, unit=unit)
-        else:
-            scale = 1024 / W
-            H, W = self._snap(H * scale, unit=unit), 1024
-
-        # seed를 먼저 확정: 태그 추천과 노이즈에 같이 사용
+    def sampling(self, tags, calculate_type, cfg_scale, steps, H, W, seed=None):
         if seed is None:
             seed = random.randint(0, 2**32 - 1)
         print(f"seed: {seed}")
-
-        tags = self.cooc.tags_mapping_worker(
-            user_tags=user_tags,
-            nsfw=nsfw,
-            H=H, W=W,
-            selection=nas or {},
-            seed=seed,
-        )
-        print(f"tags: {tags}")
 
         cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=tags)
         print(f"cond_emb: {cond_emb.shape}")

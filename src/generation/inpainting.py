@@ -139,7 +139,7 @@ class InPaint:
         return (m_lat > 0.5).float()
 
     @torch.inference_mode()
-    def sampling(self, user_tags, nsfw, caculate_type, cfg_scale, steps, start_t, seed=None, path=None):
+    def sampling(self, user_tags, nsfw, calculate_type, cfg_scale, steps, start_t, seed=None, path=None):
         if path is None:
             print("경로를 입력해 주세요")       
             return 
