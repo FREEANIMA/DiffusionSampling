@@ -61,6 +61,7 @@
 
 ![Patch Size 2](assets/patch_size_2.png)
 
+- **Image** 2k -> 50k -> 300k -> 450k-> 600k
 - **Issue:** Facial features, particularly the eyes, tend to collapse or become distorted.
 - **Observation:** Limited spatial detail makes accurate reconstruction of fine facial features challenging.
 
@@ -68,5 +69,6 @@
 
 ![Patch Size 1](assets/patch_size_1.png)
 
+- **Image** 10k -> 80k -> 110k
 - **Fine-tuning Result:** Fine-tuning with patch size 1 improved facial feature reconstruction.
 - **Improvement:** Eye and facial distortions were partially resolved, with better preservation of fine details.
