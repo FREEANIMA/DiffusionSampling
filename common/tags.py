@@ -111,7 +111,7 @@ class TagGenration:
         return [self.CLS_ID] + body
 
     @torch.inference_mode()
-    def sampling(self, batch, max_new=256, temperature=1.0, top_k=50, top_p=0.95):
+    def sampling(self, batch, max_new=256, temperature=0.7, top_k=20, top_p=0.8):
         ids = batch
         generated = []
 
