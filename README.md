@@ -1,29 +1,48 @@
-## MMDIT
+# MMDIT
+
 ![MMDIT](assets/sample.png)
 
 ## Architecture
-- Autoencoder: DC-AE f32c32 (compression ratio 32 / 32 latent channels)
-- Text encoder: T5 Large
-- Backbone: MMDiT with joint attention (custom implementation, none basemodel)
-- Paramters: 4B
+
+- **Autoencoder:** DC-AE f32c32 (32× compression, 32 latent channels)
+- **Text Encoder:** T5-Large
+- **Backbone:** MMDiT with Joint Attention
+- **Implementation:** Custom implementation (no pretrained base model)
+- **Parameters:** 4B
 
 ## Environment
-- Framework: PyTorch (no custom CUDA kernels)
-- GPU: RTX PRO 6000 (96GB VRAM), Google Colab
+
+- **Framework:** PyTorch (no custom CUDA kernels)
+- **GPU:** NVIDIA RTX PRO 6000 (96GB VRAM)
+- **Platform:** Google Colab
 
 ## Training
-- Hardware: 1x RTX PRO 6000 (96GB)
-- Batch: micro-batch 4 × grad accumulation 16 = effective batch 64
-- Speed: ~2.3 s / optimizer step
-- Max resolution: 1024 × 1024
-- Dataset: 2M images
-- Objective: flow matching (shift 3.0)
-- Precision: bf16
-- Optimizer: AdamW, lr 1e-4, EMA OK
-- Stage 1 (pre-training): 600K steps, patch size 2
-- Stage 2 (fine-tuning): 11K steps, patch size 1 (Reset Patch embedding Weights, Out proj Weights)
 
-## Loss by Noise Level
+### Configuration
+
+- **Batch Size:** Micro-batch 4 × Gradient Accumulation 16 = Effective Batch 64
+- **Training Speed:** ~2.3 s / optimizer step
+- **Max Resolution:** 1024 × 1024
+- **Dataset:** 2M images
+- **Objective:** Flow Matching (shift = 3.0)
+- **Precision:** BF16
+- **Optimizer:** AdamW
+- **Learning Rate:** 1e-4
+- **EMA:** Enabled
+
+### Training Stages
+
+| Stage | Description | Steps | Patch Size |
+|:---:|---|---:|:---:|
+| Stage 1 | Pre-training | 600K | 2 |
+| Stage 2 | Fine-tuning | 11K | 1 |
+
+**Stage 2 Notes:**
+- Reset patch embedding weights.
+- Reset output projection weights.
+
+### Loss by Noise Level
+
 | Noise Level | Average Loss |
 |:---:|---:|
 | 1.0 – 0.9 | 4.1765 |
@@ -36,4 +55,18 @@
 | 0.3 – 0.2 | 1.3906 |
 | 0.2 – 0.1 | 1.2685 |
 
-## Patch Size 2 + DC-AE f32c32
+## Generation Results
+
+### Patch Size 2 + DC-AE f32c32
+
+![Patch Size 2](assets/patch_size_2.png)
+
+- **Issue:** Facial features, particularly the eyes, tend to collapse or become distorted.
+- **Observation:** Limited spatial detail makes accurate reconstruction of fine facial features challenging.
+
+### Patch Size 1 + DC-AE f32c32
+
+![Patch Size 1](assets/patch_size_1.png)
+
+- **Fine-tuning Result:** Fine-tuning with patch size 1 improved facial feature reconstruction.
+- **Improvement:** Eye and facial distortions were partially resolved, with better preservation of fine details.
