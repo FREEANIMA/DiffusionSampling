@@ -180,7 +180,7 @@ class Handler:
         left, top = int(left), int(top)
         return left, top, left + int(side), top + int(side)
 
-    def generate_detailering(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, box=None, start_t: float = 0.7):
+    def generate_detailering(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, box=None, start_t: float = 0.7):
         SIZE = 1024
         if img_path is None:
             raise ValueError("경로를 입력해 주세요")
