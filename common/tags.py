@@ -81,14 +81,18 @@ class TagGenration:
 
         return model_path, vocab_path, tags_type_path
 
+    def build_tag_maps(self, tags_type_df, min_count=20):
+        s = tags_type_df[["tag", "type", "dup", "count"]].drop_duplicates(subset="tag", keep="first")
 
-    def build_tag_maps(self, tags_type_df):
-        s = tags_type_df[["tag", "type", "dup"]].drop_duplicates(subset="tag", keep="first")
-        type_map = dict(zip(s["tag"].tolist(), s["type"].tolist()))
-        dup_map = dict(zip(s["tag"].tolist(), s["dup"].fillna(s["tag"]).tolist()))
+        dup_map = dict(zip(s["tag"].tolist(), s["dup"].fillna(s["tag"]).tolist()))   # 전체 유지
+
+        rare = s["count"].fillna(0) < min_count
+        type_map = dict(zip(s.loc[~rare, "tag"].tolist(), s.loc[~rare, "type"].tolist()))
+
+        self.common_tags = set(s.loc[~rare, "tag"].tolist())
 
         return type_map, dup_map
-
+    
     def canonicalize(self, tag_list: list):
         out = []
         seen = set()
