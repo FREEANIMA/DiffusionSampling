@@ -107,18 +107,18 @@ class Handler:
     def get_tag_history(self) -> list[dict]:
         return list(self.tags_infer_cached)
 
-    def _resolve_tags(self, tags_text, nsfw, H, W, fixed):
+    def _resolve_tags(self, tags_text, nsfw, H, W, fixed, record=True, label="final tags"):
         tags_reshape, tags_infer = self.tag_generation.tags_mapping_worker(
             tags=tags_text, nsfw=bool(nsfw), H=H, W=W, fixed=bool(fixed),
         )
 
-        if tags_infer:
+        if tags_infer and record:
             self.tags_infer_cached.append({
                 "input": tags_text,
                 "tags": list(tags_infer),
             })
 
-        self.console.put(f"final tags : {tags_reshape}")
+        self.console.put(f"{label} : {tags_reshape}")
         return tags_reshape
 
     def generate_txt2img(self, tags_text:str, nsfw, calc_type, cfg_scale, H, W, steps, seed, fixed):
@@ -180,7 +180,9 @@ class Handler:
         left, top = int(left), int(top)
         return left, top, left + int(side), top + int(side)
 
-    def generate_detailering(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, box=None, start_t: float = 0.7):
+    def generate_detailering(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed,
+                             img_path, fixed, box=None, start_t: float = 0.7,
+                             neg_tags_text: str = "", n_cfg_scale: float = 0.0):
         SIZE = 1024
         if img_path is None:
             raise ValueError("경로를 입력해 주세요")
@@ -189,6 +191,7 @@ class Handler:
 
         self.progress.reset()
         tags_text = tags_text.lower()
+        neg_tags_text = (neg_tags_text or "").strip().lower()
 
         img = Image.open(img_path).convert("RGB")
         left, top, right, bottom = box
@@ -205,10 +208,25 @@ class Handler:
         img_bytes = buf.getvalue()
 
         H, W = SIZE, SIZE
+
+        # positive
         tags_reshape = self._resolve_tags(tags_text, nsfw, H, W, fixed)
+
+        # negative (텍스트가 있고 n_cfg_scale != 0 일 때만)
+        n_cfg_scale = float(n_cfg_scale)
+        neg_tags_reshape = None
+        if neg_tags_text and n_cfg_scale != 0.0:
+            neg_tags_reshape = self._resolve_tags(
+                neg_tags_text, nsfw, H, W, True,      # fixed=True: LLM 확장 없이 입력 그대로
+                record=False, label="negative tags",
+            )
+        else:
+            n_cfg_scale = 0.0
 
         img_out = self.detailer.sampling(
             tags=tags_reshape,
+            neg_tags=neg_tags_reshape,
+            n_cfg_scale=n_cfg_scale,
             calculate_type=calc_type,
             cfg_scale=float(cfg_scale),
             steps=int(steps),

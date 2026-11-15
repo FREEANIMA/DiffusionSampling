@@ -96,6 +96,17 @@
           <div class="field" id="brush-field"><label for="brush">Brush</label><input id="brush" type="number" value="20"></div>
         </div>
 
+        <!-- detailer 전용 -->
+        <div id="detailer-box" style="display:none;">
+          <div class="field">
+            <label for="neg_tags">Negative tags</label>
+            <input id="neg_tags" placeholder="positive에서 강조할 슬롯만 뺀 태그" autocomplete="off">
+          </div>
+          <div class="grid-2">
+            <div class="field"><label for="n_cfg">Neg CFG</label><input id="n_cfg" value="0"></div>
+          </div>
+        </div>
+
         <div id="mask-editor" style="display:none;">
           <div class="canvas-stack">
             <canvas id="bg-canvas"></canvas>

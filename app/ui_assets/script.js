@@ -315,7 +315,7 @@
   };
 
   // ---------- UI ----------
-  const START_T_DEFAULT = { inpainting: '0.9', detailer: '0.9' };
+  const START_T_DEFAULT = { inpainting: '0.9', detailer: '0.85' };
 
   const applyMode = () => {
     const m = modeEl.value;
@@ -327,6 +327,7 @@
     $('inpaint-title').textContent = isDet ? 'Detailer' : 'Inpainting';
     $('brush-field').style.display = isDet ? 'none' : 'block';
     $('mask-finish').style.display = isDet ? 'none' : 'inline-block';
+    $('detailer-box').style.display = isDet ? 'block' : 'none';
     if (START_T_DEFAULT[m]) $('start_t').value = START_T_DEFAULT[m];
   };
 
@@ -411,6 +412,8 @@
       W: $('W').value,
       img_path: $('img_path').value,
       start_t: $('start_t').value,
+      neg_tags: $('neg_tags').value,
+      n_cfg: $('n_cfg').value,
       mask: localMask,
       rect: rect,
     };

@@ -76,7 +76,7 @@ class UI:
 
         with Image.open(io.BytesIO(raw)) as img:
             return img.convert("L")
-        
+
     def _generate(self, p: dict):
         seed_text = str(p.get("seed", "-1")).strip()
 
@@ -122,12 +122,14 @@ class UI:
             return self.handler.generate_detailering(
                 img_path=img_path,
                 box=box,
-                start_t=float(p.get("start_t", 0.9)),
+                start_t=float(p.get("start_t", 0.85)),
+                neg_tags_text=str(p.get("neg_tags", "") or ""),
+                n_cfg_scale=float(p.get("n_cfg", 0) or 0),
                 **common,
             )
 
         raise ValueError(f"Unknown mode: {p['mode']}")
-    
+
     def _register_routes(self):
 
         @self.app.get("/")
@@ -189,11 +191,11 @@ class UI:
         @self.app.get("/api/progress")
         def progress():
             return jsonify(self.handler.progress.snapshot())
-        
+
         @self.app.get("/api/logs")
         def logs():
             return jsonify({"lines": self.handler.console.drain()})
-        
+
         @self.app.get("/api/tag_history")
         def tag_history():
             return jsonify({"items": self.handler.get_tag_history()})
