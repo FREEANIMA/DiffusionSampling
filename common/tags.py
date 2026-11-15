@@ -33,7 +33,8 @@ class TagGenration:
     def __init__(self, device="cuda", dtype=torch.bfloat16, console=None):
         self.device = device
         self.dtype = dtype
-
+        self.MIN_COUNT = 15
+        
         ckpt_path, vocab_path, tags_type_path = self._download()
 
         with open(vocab_path, "r", encoding="utf-8") as f:
@@ -62,7 +63,6 @@ class TagGenration:
 
         self.id_to_tag = {v: k for k, v in self.vocab.items()}
         self.console = console
-        self.MIN_COUNT = 15
 
     def _download(self):
         model_path = hf_hub_download(
