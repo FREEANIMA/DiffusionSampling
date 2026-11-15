@@ -61,7 +61,6 @@
 
 ![Patch Size 2](assets/patch_size_2.png)
 
-- **Training Progress:** 2K → 50K → 300K → 450K → 600K steps
 - **Issue:** Facial features, particularly the eyes, tend to collapse or become distorted.
 - **Observation:** Limited spatial detail makes accurate reconstruction of fine facial features challenging.
 
@@ -69,7 +68,6 @@
 
 ![Patch Size 1](assets/patch_size_1.png)
 
-- **Training Progress:** 10K → 80K → 110K steps
 - **Fine-tuning Result:** Fine-tuning with patch size 1 improved facial feature reconstruction.
 - **Improvement:** Eye and facial distortions were partially resolved, with better preservation of fine details.
 
