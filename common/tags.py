@@ -5,8 +5,9 @@ import pandas as pd
 import json
 import random
 from dataclasses import asdict, is_dataclass
-from networks import load_tags_llm
 from networks.tags_llm import Model
+from huggingface_hub import hf_hub_download
+from version import HUGGINGFACE
 
 NAS = [
     "style",
@@ -35,7 +36,7 @@ class TagGenration:
         self.device = device
         self.dtype = dtype
 
-        ckpt_path, vocab_path, tags_type_path = load_tags_llm()
+        ckpt_path, vocab_path, tags_type_path = self._download()
 
         with open(vocab_path, "r", encoding="utf-8") as f:
             self.vocab = json.load(f)
@@ -62,6 +63,26 @@ class TagGenration:
         self.UNK_ID = self.vocab["<unk>"]
 
         self.id_to_tag = {v: k for k, v in self.vocab.items()}
+
+    def _download(self):
+        model_path = hf_hub_download(
+            repo_id=f"{HUGGINGFACE}/tags_llm",
+            filename="model.pt",
+            repo_type="model",
+        )
+        vocab_path = hf_hub_download(
+            repo_id=f"{HUGGINGFACE}/tags_llm",
+            filename="vocab.json",
+            repo_type="model",
+        )
+        tags_type_path = hf_hub_download(
+            repo_id=f"{HUGGINGFACE}/tags_llm",
+            filename="tags_type.parquet",
+            repo_type="model",
+        )
+
+        return model_path, vocab_path, tags_type_path
+
 
     def build_tag_maps(self, tags_type_df):
         s = tags_type_df[["tag", "type", "dup"]].drop_duplicates(subset="tag", keep="first")
