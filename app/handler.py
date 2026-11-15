@@ -223,4 +223,5 @@ class Handler:
             img_out=img_out,
             square=box,
             save_dir=os.path.join(self.base_root, "detailer"),
+            img_in=crop_img,
         )

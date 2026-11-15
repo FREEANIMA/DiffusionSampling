@@ -110,13 +110,12 @@ class Detailering:
 
         return self.vae_decode(x)
 
-    def merge_img(self, origin_img, img_out, square, save_dir, feather=16):
+    def merge_img(self, origin_img, img_out, square, save_dir, feather=16, img_in=None):
         left, top, right, bottom = square
         w, h = right - left, bottom - top
 
         out = origin_img.convert("RGB").copy()
         patch = img_out.convert("RGB").resize((w, h), Image.Resampling.LANCZOS)
-
 
         f = max(1, min(feather, w // 4, h // 4))
         alpha = Image.new("L", (w, h), 0)
@@ -132,7 +131,10 @@ class Detailering:
         save_img_name = os.path.join(save_dir, "merged.png")
         out.save(save_img_name)
         img_out.save(os.path.join(save_dir, "patch.png"))
+        if img_in is not None:
+            img_in.save(os.path.join(save_dir, "input.png"))
 
-        self.console.put(f"merged saved: {save_img_name}")
+        if self.console:
+            self.console.put(f"merged saved: {save_img_name}")
 
         return out, save_img_name
