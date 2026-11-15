@@ -111,7 +111,7 @@ class TagGenration:
         return [self.CLS_ID] + body
 
     @torch.inference_mode()
-    def sampling(self, batch, max_new=256, temperature=0.8, top_k=50, top_p=0.9):
+    def sampling(self, batch, max_new=256, temperature=1.0, top_k=50, top_p=0.95, min_new=16):
         ids = batch
         generated = []
 
@@ -119,10 +119,12 @@ class TagGenration:
             logits, past = self.text_model(x=ids, attn_mask=None, use_cache=True)
             next_logits = logits[:, -1, :]            # (1, V)
 
-            for _ in range(max_new):
+            for step in range(max_new):
                 next_logits = next_logits.float() / max(temperature, 1e-5)
-                for bad in (self.PAD_ID, self.CLS_ID):
+                for bad in (self.PAD_ID, self.CLS_ID, self.UNK_ID):
                     next_logits[:, bad] = float("-inf")
+                if step < min_new:                    # 최소 길이 동안 EOS 차단
+                    next_logits[:, self.EOS_ID] = float("-inf")
 
                 if top_k is not None and top_k > 0:
                     kth = torch.topk(next_logits, min(top_k, next_logits.size(-1))).values[:, -1:]
@@ -132,7 +134,7 @@ class TagGenration:
                     sorted_logits, sorted_idx = torch.sort(next_logits, descending=True)
                     probs = torch.softmax(sorted_logits, dim=-1)
                     cum = probs.cumsum(dim=-1)
-                    remove = cum - probs > top_p      # 첫 토큰은 항상 유지
+                    remove = cum - probs > top_p
                     sorted_logits = sorted_logits.masked_fill(remove, float("-inf"))
                     next_logits = torch.full_like(next_logits, float("-inf")).scatter(1, sorted_idx, sorted_logits)
 
@@ -147,8 +149,7 @@ class TagGenration:
                 logits, past = self.text_model(x=next_id, attn_mask=None, past_kv=past, use_cache=True)
                 next_logits = logits[:, -1, :]
 
-        tags_infer = [self.id_to_tag.get(i, f"<{i}>") for i in generated]
-        return tags_infer
+        return [self.id_to_tag.get(i, f"<{i}>") for i in generated]
     
     def text_generation(self, tags_infer, nsfw, H, W, user_tags=None):
         nsfw_text = f"nsfw: {str(nsfw).lower()}; "
