@@ -5,6 +5,8 @@ from src.generation import Sampling, InPainting
 from common import T5TextModel, VaeModel, TagGenration, console_q
 from networks import load_mmdit_dcae
 from collections import deque
+import os
+import io
 
 def _parse_seed(seed) -> Optional[int]:
     return None if seed in (None, "", -1, "-1") else int(seed)
@@ -124,10 +126,18 @@ class Handler:
         )
     
     def generate_inpainting(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, mask=None, start_t: float = 0.9):
+        if img_path is None:
+            raise ValueError("경로를 입력해 주세요")
+        if mask is None:
+            raise ValueError("mask가 필요합니다.")
+
         self.progress.reset()
         tags_text = tags_text.lower()
 
-        with Image.open(img_path) as im:
+        with open(img_path, "rb") as f:
+            img_bytes = f.read()
+
+        with Image.open(io.BytesIO(img_bytes)) as im:
             W0, H0 = im.size
         H, W = self._fit_size(H0, W0)
 
@@ -139,10 +149,56 @@ class Handler:
             cfg_scale=float(cfg_scale),
             steps=int(steps),
             seed=_parse_seed(seed),
-            path=img_path,
             mask=mask,
+            img_bytes=img_bytes,
             start_t=float(start_t),
             on_step=self.progress.update,
+            save_dir=os.path.join(self.base_root, "inpainting")
         )
 
-    
+    def generate_detailering(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, mask=None, start_t: float = 0.6, margin: float = 0.5):
+        if img_path is None:
+            raise ValueError("경로를 입력해 주세요")
+        if mask is None:
+            raise ValueError("mask가 필요합니다.")
+
+        self.progress.reset()
+        tags_text = tags_text.lower()
+
+        img = Image.open(img_path).convert("RGB")
+        mask = mask.convert("L")
+        if mask.size != img.size:
+            mask = mask.resize(img.size, Image.Resampling.NEAREST)
+
+        box = self._crop_box(mask, margin)
+        crop_img = img.crop(box)
+        crop_mask = mask.crop(box)
+
+        buf = io.BytesIO()
+        crop_img.save(buf, format="PNG")
+        img_bytes = buf.getvalue()
+
+        W0, H0 = crop_img.size
+        H, W = self._fit_size(H0, W0)
+
+        tags_reshape = self._resolve_tags(tags_text, nsfw, H, W, fixed)
+
+        img_out, save_img_name = self.inpainter.sampling(
+            tags=tags_reshape,
+            calculate_type=calc_type,
+            cfg_scale=float(cfg_scale),
+            steps=int(steps),
+            seed=_parse_seed(seed),
+            mask=crop_mask,
+            img_bytes=img_bytes,
+            start_t=float(start_t),
+            on_step=self.progress.update,
+            save_dir=os.path.join(self.base_root, "detailer")
+        )
+
+        return self.inpainter.merge_img(
+            origin_img=img,
+            img_out=img_out,
+            square=box,
+            save_dir=os.path.join(self.base_root, "detailer"),
+        )

@@ -97,7 +97,7 @@ class UI:
                 **common,
             )
 
-        if p["mode"] == "inpainting":
+        if p["mode"] in ("inpainting", "detailer"):
             img_path = str(p["img_path"]).strip()
 
             if not img_path or not Path(img_path).is_file():
@@ -105,15 +105,24 @@ class UI:
 
             mask = self._b64_to_pil(p.get("mask") or "")
 
-            return self.handler.generate_inpainting(
+            if p["mode"] == "inpainting":
+                return self.handler.generate_inpainting(
+                    img_path=img_path,
+                    mask=mask,
+                    start_t=float(p.get("start_t", 0.9)),
+                    **common,
+                )
+
+            return self.handler.generate_detailering(
                 img_path=img_path,
                 mask=mask,
-                start_t=float(p.get("start_t", 0.9)),
+                start_t=float(p.get("start_t", 0.6)),
+                margin=float(p.get("margin", 0.5)),
                 **common,
             )
 
         raise ValueError(f"Unknown mode: {p['mode']}")
-
+    
     def _register_routes(self):
 
         @self.app.get("/")

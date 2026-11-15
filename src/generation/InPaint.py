@@ -18,6 +18,7 @@ class InPainting:
         self.f = config["compression_ratio"]
         self.in_channels = config["in_channels"]
         self.patch_size = config["patch_size"]
+        self.allowable_size = config["allowable_size"]
 
         self.model = model
         self.text_encoder = text_encoder
@@ -58,14 +59,8 @@ class InPainting:
         return (m_lat > 0.5).float()
 
     @torch.inference_mode()
-    def sampling(self, tags, calculate_type, cfg_scale, steps, start_t, seed=None, path=None, mask=None, on_step=None):
-        if path is None:
-            raise ValueError("경로를 입력해 주세요")
-
-        with open(path, "rb") as f:
-            img_bytes = f.read()
-
-        arr, H, W = img_resize(img_bytes, 1024, 2, 32)
+    def sampling(self, tags, calculate_type, cfg_scale, steps, img_bytes, start_t, seed=None, mask=None, on_step=None, save_dir=None):
+        arr, H, W = img_resize(img_bytes, self.allowable_size, self.patch_size, self.f)
         img_pil = Image.fromarray(arr)
 
         # 변경 후
@@ -127,23 +122,32 @@ class InPainting:
         )
 
         img_out = self.vae_decode(x)
-        mask_visual = Image.fromarray(mask_arr).convert("RGB")
-        img_out_resized = img_out.resize((W, H), Image.Resampling.LANCZOS)
-        grid_img = Image.new("RGB", (W * 3, H), (255, 255, 255))
-        grid_img.paste(img_pil, (0, 0))
-        grid_img.paste(mask_visual, (W, 0))
-        grid_img.paste(img_out_resized, (W * 2, 0))
 
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        save_dir = os.path.join(self.base_root, "inpainting", stamp)
+        save_dir = os.path.join(save_dir, stamp)
         os.makedirs(save_dir, exist_ok=True)
 
         save_img_name = os.path.join(save_dir, "img.png")
         img_out.save(save_img_name)
-        grid_save_name = os.path.join(save_dir, "comparison_grid.png")
-        grid_img.save(grid_save_name)
 
         self.console.put(f"img saved: {save_img_name}")
-        self.console.put(f"grid saved: {grid_save_name}")
 
         return img_out, save_img_name
+
+    def merge_img(self, origin_img, img_out, square, save_dir):
+        left, top, right, bottom = square
+
+        out = origin_img.convert("RGB").copy()
+        patch = img_out.convert("RGB").resize((right - left, bottom - top), Image.Resampling.LANCZOS)
+        out.paste(patch, (left, top))
+
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        save_dir = os.path.join(save_dir, stamp)
+        os.makedirs(save_dir, exist_ok=True)
+
+        save_img_name = os.path.join(save_dir, "merged.png")
+        out.save(save_img_name)
+
+        self.console.put(f"merged saved: {save_img_name}")
+
+        return out, save_img_name

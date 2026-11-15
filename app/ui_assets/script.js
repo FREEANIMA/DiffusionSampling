@@ -247,11 +247,20 @@
   };
 
   // ---------- UI ----------
-  modeEl.onchange = () => {
-    const isT2I = modeEl.value === 'txt2img';
+  const START_T_DEFAULT = { inpainting: '0.9', detailer: '0.6' };
+
+  const applyMode = () => {
+    const m = modeEl.value;
+    const isT2I = m === 'txt2img';
     $('txt2img-box').style.display = isT2I ? 'block' : 'none';
     $('inpaint-box').style.display = isT2I ? 'none' : 'block';
+    $('margin-field').style.display = m === 'detailer' ? 'block' : 'none';
+    $('inpaint-title').textContent = m === 'detailer' ? 'Detailer' : 'Inpainting';
+    if (START_T_DEFAULT[m]) $('start_t').value = START_T_DEFAULT[m];
   };
+
+  modeEl.onchange = applyMode;
+  applyMode();
 
   $('clear_out').onclick = () => {
     $('out').textContent = '';
@@ -323,10 +332,11 @@
       W: $('W').value,
       img_path: $('img_path').value,
       start_t: $('start_t').value,
+      margin: $('margin').value,
       mask: localMask,
     };
 
-    if (params.mode === 'inpainting' && !localMask) {
+    if (params.mode !== 'txt2img' && !localMask) {
       $('out').textContent = '마스크를 그린 뒤 Finish Mask를 눌러주세요.';
       return;
     }
