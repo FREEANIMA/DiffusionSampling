@@ -5,12 +5,13 @@
         style.css
     __init__.py
     handler.py
-    ui_colab.py
-    ui_local.py
+    ui.py
 [assets]
     patch_size_1.png
     patch_size_2.png
     sample.png
+    train_loop_1.png
+    train_loop_2.png
 [common]
     __init__.py
     _download.py
@@ -62,10 +63,6 @@
         inpainting.py
         sample.py
     [utilities]
-        [mask_ui]
-            __init__.py
-            draw_colab.py
-            draw_local.py
         __init__.py
         predict.py
         resize_worker.py
@@ -75,5 +72,7 @@
 .gitignore
 main.py
 README.md
+README_HF.md
 requirements.txt
+tree.txt
 version.py
