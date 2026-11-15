@@ -205,7 +205,7 @@ class Handler:
         img_bytes = buf.getvalue()
 
         H, W = SIZE, SIZE
-        tags_reshape = [self.tag_generation.INIT_PROMPT] 
+        tags_reshape = self._resolve_tags(tags_text, nsfw, H, W, fixed)
 
         img_out = self.detailer.sampling(
             tags=tags_reshape,
