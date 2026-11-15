@@ -78,3 +78,11 @@
 - **Full-body Generation:** Full-body generation remains challenging due to insufficient full-body samples in the training dataset.
 - **Observation:** The current dataset contains insufficient full-body examples to learn consistent full-body composition and anatomical details.
 - **Future Work:** Increase the proportion and diversity of full-body images in the training dataset.
+
+### Train Architecture
+- **Use Cache**
+- **Cpu Multi Threading**
+
+![loop1](assets/train_loop_1.png)
+
+![loop1](assets/train_loop_2.png)
