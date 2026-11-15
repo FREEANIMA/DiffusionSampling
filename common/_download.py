@@ -1,7 +1,6 @@
 from pathlib import Path
 from huggingface_hub import hf_hub_download, try_to_load_from_cache, HfApi
 
-
 def fetch_ckpt_from_hf(repo_id, filename):
     cached = try_to_load_from_cache(repo_id=repo_id, filename=filename, repo_type="model")
 
@@ -17,8 +16,7 @@ def fetch_ckpt_from_hf(repo_id, filename):
     local_sha = Path(cached).parent.name
     if local_sha == remote_sha:
         return cached
-
-    # 3) 다를 때만 질문
+    
     ans = input(
         f"[{repo_id}/{filename}] 새 버전이 있어요.\n"
         f"  local : {local_sha[:8]}\n"
