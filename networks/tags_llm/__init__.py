@@ -1,5 +1,4 @@
-from common import load_model as _load_model, fetch_ckpt_from_hf
-from .Model import Model
+from common import load_model as fetch_ckpt_from_hf
 from version import HUGGINGFACE
 
 def load():
@@ -18,4 +17,4 @@ def load():
 
     return model_path, vocab_path, tags_type_path
 
-__all__ = ["Model", "load"]
+__all__ = ["load"]
