@@ -62,6 +62,7 @@ class TagGenration:
 
         self.id_to_tag = {v: k for k, v in self.vocab.items()}
         self.console = console
+        self.MIN_COUNT = 15
 
     def _download(self):
         model_path = hf_hub_download(
@@ -82,12 +83,12 @@ class TagGenration:
 
         return model_path, vocab_path, tags_type_path
 
-    def build_tag_maps(self, tags_type_df, min_count=20):
+    def build_tag_maps(self, tags_type_df):
         s = tags_type_df[["tag", "type", "dup", "count"]].drop_duplicates(subset="tag", keep="first")
 
         dup_map = dict(zip(s["tag"], s["dup"].fillna(s["tag"])))
 
-        common = s[s["count"].fillna(0) >= min_count]
+        common = s[s["count"].fillna(0) >= self.MIN_COUNT]
         type_map = dict(zip(common["tag"], common["type"]))
 
         return type_map, dup_map
@@ -191,7 +192,7 @@ class TagGenration:
 
         user_tags = self.canonicalize(tag_list=tags.split(","))
 
-        if fixed:
+        if fixed and (len(user_tags) >= self.MIN_COUNT):
             tags_infer = []
         else:
             known = [t for t in user_tags if t in self.vocab]
