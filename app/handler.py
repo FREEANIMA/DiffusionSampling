@@ -170,6 +170,16 @@ class Handler:
             save_dir=os.path.join(self.base_root, "inpainting")
         )
 
+    def _square_box(self, box, W, H):
+        left, top, right, bottom = box
+        cx, cy = (left + right) / 2, (top + bottom) / 2
+        side = min(max(right - left, bottom - top), W, H)
+
+        left = min(max(cx - side / 2, 0), W - side)
+        top = min(max(cy - side / 2, 0), H - side)
+        left, top = int(left), int(top)
+        return left, top, left + int(side), top + int(side)
+        
     def generate_detailering(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, box=None, start_t: float = 0.7):
         self.console.put("detailer : cfg 1.0 static")
         cfg_scale = 1
