@@ -103,9 +103,8 @@ class UI:
             if not img_path or not Path(img_path).is_file():
                 raise FileNotFoundError(f"Image not found: {img_path}")
 
-            mask = self._b64_to_pil(p.get("mask") or "")
-
             if p["mode"] == "inpainting":
+                mask = self._b64_to_pil(p.get("mask") or "")
                 return self.handler.generate_inpainting(
                     img_path=img_path,
                     mask=mask,
@@ -113,11 +112,17 @@ class UI:
                     **common,
                 )
 
+            r = p.get("rect")
+            if not r:
+                raise ValueError("사각형 영역이 필요합니다.")
+
+            x, y = int(r["x"]), int(r["y"])
+            box = (x, y, x + int(r["w"]), y + int(r["h"]))
+
             return self.handler.generate_detailering(
                 img_path=img_path,
-                mask=mask,
+                box=box,
                 start_t=float(p.get("start_t", 0.9)),
-                margin=float(p.get("margin", 0.5)),
                 **common,
             )
 

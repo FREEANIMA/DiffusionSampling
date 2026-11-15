@@ -4,7 +4,7 @@ from datetime import datetime
 import numpy as np
 import torch
 import torch.nn.functional as F
-from PIL import Image
+from PIL import Image, ImageFilter
 
 from src.utilities import sigma_schedular, steps_sampling, img_resize
 INIT_PROMPT = "general img; "
@@ -109,12 +109,19 @@ class Detailering:
 
         return self.vae_decode(x)
 
-    def merge_img(self, origin_img, img_out, square, save_dir):
+    def merge_img(self, origin_img, img_out, square, save_dir, feather=16):
         left, top, right, bottom = square
+        w, h = right - left, bottom - top
 
         out = origin_img.convert("RGB").copy()
-        patch = img_out.convert("RGB").resize((right - left, bottom - top), Image.Resampling.LANCZOS)
-        out.paste(patch, (left, top))
+        patch = img_out.convert("RGB").resize((w, h), Image.Resampling.LANCZOS)
+
+        f = max(1, min(feather, w // 4, h // 4))
+        alpha = Image.new("L", (w, h), 0)
+        alpha.paste(255, (f, f, w - f, h - f))
+        alpha = alpha.filter(ImageFilter.GaussianBlur(f / 2))
+
+        out.paste(patch, (left, top), alpha)
 
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         save_dir = os.path.join(save_dir, stamp)
@@ -122,6 +129,7 @@ class Detailering:
 
         save_img_name = os.path.join(save_dir, "merged.png")
         out.save(save_img_name)
+        img_out.save(os.path.join(save_dir, "patch.png"))
 
         self.console.put(f"merged saved: {save_img_name}")
 

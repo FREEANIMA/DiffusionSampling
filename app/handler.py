@@ -169,21 +169,23 @@ class Handler:
             save_dir=os.path.join(self.base_root, "inpainting")
         )
 
-    def generate_detailering(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, mask=None, start_t: float = 0.6, margin: float = 0.5):
+    def generate_detailering(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, box=None, start_t: float = 0.9):
         if img_path is None:
             raise ValueError("경로를 입력해 주세요")
-        if mask is None:
-            raise ValueError("mask가 필요합니다.")
+        if box is None:
+            raise ValueError("영역(box)이 필요합니다.")
 
         self.progress.reset()
         tags_text = tags_text.lower()
 
         img = Image.open(img_path).convert("RGB")
-        mask = mask.convert("L")
-        if mask.size != img.size:
-            mask = mask.resize(img.size, Image.Resampling.NEAREST)
+        left, top, right, bottom = box
+        left, top = max(int(left), 0), max(int(top), 0)
+        right, bottom = min(int(right), img.width), min(int(bottom), img.height)
+        if right - left < 8 or bottom - top < 8:
+            raise ValueError("선택한 영역이 너무 작거나 이미지 밖이에요.")
+        box = (left, top, right, bottom)
 
-        box = self._crop_box(mask, margin)
         crop_img = img.crop(box)
 
         buf = io.BytesIO()

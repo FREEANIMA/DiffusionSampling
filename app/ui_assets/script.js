@@ -132,10 +132,14 @@
   $('history_refresh').onclick = loadHistory;
   loadHistory();
 
-  // ---------- Mask ----------
-  let localMask = null;
+  // ---------- Mask / Rect ----------
+  let localMask = null;   // inpainting: brush 마스크 (dataURL)
+  let rect = null;        // detailer: {x, y, w, h} (원본 이미지 픽셀 좌표)
+  let rectStart = null;
   let sourceImage = null;
   let drawing = false;
+
+  const isDetailer = () => modeEl.value === 'detailer';
 
   $('load_image').onclick = async () => {
     try {
@@ -160,8 +164,11 @@
         mask.getContext('2d').clearRect(0, 0, mask.width, mask.height);
 
         $('mask-editor').style.display = 'block';
-        $('mask-status').textContent = '이미지 로드 완료.';
+        $('mask-status').textContent = isDetailer()
+          ? '이미지 로드 완료. 드래그로 영역을 선택하세요.'
+          : '이미지 로드 완료.';
         localMask = null;
+        rect = null;
       };
 
       sourceImage.onerror = () => {
@@ -186,6 +193,7 @@
     ];
   };
 
+  // inpainting: brush
   const draw = (e) => {
     const [x, y] = getXY(e);
     ctx.lineWidth = Number($('brush').value) || 20;
@@ -198,29 +206,77 @@
     ctx.moveTo(x, y);
   };
 
+  // detailer: 사각형
+  const drawRect = (a, b) => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const x = Math.min(a[0], b[0]);
+    const y = Math.min(a[1], b[1]);
+    const w = Math.abs(a[0] - b[0]);
+    const h = Math.abs(a[1] - b[1]);
+    ctx.fillStyle = 'rgba(255,0,0,0.25)';
+    ctx.fillRect(x, y, w, h);
+    ctx.lineWidth = Math.max(2, canvas.width / 400);
+    ctx.strokeStyle = 'rgba(255,0,0,0.95)';
+    ctx.strokeRect(x, y, w, h);
+    return { x, y, w, h };
+  };
+
   canvas.addEventListener('pointerdown', (e) => {
     if (!sourceImage) return;
 
     drawing = true;
     canvas.setPointerCapture(e.pointerId);
+    localMask = null;
+    rect = null;
+
+    if (isDetailer()) {
+      rectStart = getXY(e);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      $('mask-status').textContent = '영역 선택 중...';
+      return;
+    }
 
     const [x, y] = getXY(e);
     ctx.beginPath();
     ctx.moveTo(x, y);
     draw(e);
-
-    localMask = null;
     $('mask-status').textContent = '마스크 수정 중...';
   });
 
-  canvas.addEventListener('pointermove', (e) => { if (drawing) draw(e); });
-  canvas.addEventListener('pointerup', () => { drawing = false; });
-  canvas.addEventListener('pointercancel', () => { drawing = false; });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!drawing) return;
+    if (isDetailer()) drawRect(rectStart, getXY(e));
+    else draw(e);
+  });
+
+  const endDraw = (e) => {
+    if (!drawing) return;
+    drawing = false;
+
+    if (isDetailer() && rectStart) {
+      const r = drawRect(rectStart, getXY(e));
+      if (r.w >= 8 && r.h >= 8) {
+        rect = {
+          x: Math.round(r.x), y: Math.round(r.y),
+          w: Math.round(r.w), h: Math.round(r.h),
+        };
+        $('mask-status').textContent = `영역 선택 완료 (${rect.w}×${rect.h})`;
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        $('mask-status').textContent = '영역이 너무 작아요. 다시 드래그하세요.';
+      }
+      rectStart = null;
+    }
+  };
+
+  canvas.addEventListener('pointerup', endDraw);
+  canvas.addEventListener('pointercancel', () => { drawing = false; rectStart = null; });
 
   $('mask-clear').onclick = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     localMask = null;
-    $('mask-status').textContent = '마스크 초기화 완료.';
+    rect = null;
+    $('mask-status').textContent = '초기화 완료.';
   };
 
   $('mask-finish').onclick = () => {
@@ -252,14 +308,25 @@
   const applyMode = () => {
     const m = modeEl.value;
     const isT2I = m === 'txt2img';
+    const isDet = m === 'detailer';
+
     $('txt2img-box').style.display = isT2I ? 'block' : 'none';
     $('inpaint-box').style.display = isT2I ? 'none' : 'block';
-    $('margin-field').style.display = m === 'detailer' ? 'block' : 'none';
-    $('inpaint-title').textContent = m === 'detailer' ? 'Detailer' : 'Inpainting';
+    $('inpaint-title').textContent = isDet ? 'Detailer' : 'Inpainting';
+    $('brush-field').style.display = isDet ? 'none' : 'block';
+    $('mask-finish').style.display = isDet ? 'none' : 'inline-block';
     if (START_T_DEFAULT[m]) $('start_t').value = START_T_DEFAULT[m];
   };
 
-  modeEl.onchange = applyMode;
+  modeEl.onchange = () => {
+    applyMode();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    localMask = null;
+    rect = null;
+    $('mask-status').textContent = isDetailer()
+      ? '드래그로 영역을 선택하세요.'
+      : '마스크를 그린 뒤 Finish mask를 눌러주세요.';
+  };
   applyMode();
 
   $('clear_out').onclick = () => {
@@ -332,12 +399,16 @@
       W: $('W').value,
       img_path: $('img_path').value,
       start_t: $('start_t').value,
-      margin: $('margin').value,
       mask: localMask,
+      rect: rect,
     };
 
-    if (params.mode !== 'txt2img' && !localMask) {
+    if (params.mode === 'inpainting' && !localMask) {
       $('out').textContent = '마스크를 그린 뒤 Finish Mask를 눌러주세요.';
+      return;
+    }
+    if (params.mode === 'detailer' && !rect) {
+      $('out').textContent = '드래그로 사각형 영역을 선택해 주세요.';
       return;
     }
 
