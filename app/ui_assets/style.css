@@ -9,3 +9,36 @@
   background: #fff; border: 1px solid #bbb; border-radius: 4px; max-height: 220px; overflow-y: auto; }
 .ac-item { padding: 5px 8px; cursor: pointer; }
 .ac-item:hover, .ac-item.on { background: #333; color: #fff; }
+
+#mask-editor {
+  margin-top: 10px;
+}
+
+#mask-editor > div:first-child {
+  position: relative;
+  width: 100%;
+  line-height: 0;
+  margin-top: 10px;
+}
+
+#bg-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+#mask-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+#mask-status {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #333;
+}

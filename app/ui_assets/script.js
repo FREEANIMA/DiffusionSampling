@@ -1,3 +1,4 @@
+
 (() => {
   const $ = (id) => document.getElementById(id);
   const modeEl = $('mode');
@@ -94,6 +95,123 @@
   });
   tagsEl.addEventListener('blur', () => setTimeout(closeAc, 100));
 
+  // ---------- Local Mask ----------
+  let localMask = null;
+  let sourceImage = null;
+  let drawing = false;
+
+  if (window.LOCAL_MODE) {
+      $('load_image').onclick = async () => {
+          try {
+              const response = await fetch('/api/load_image', {
+                  method: 'POST',
+                  headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify({path: $('img_path').value})
+              });
+
+              const data = await response.json();
+              if (!response.ok || !data.success) throw new Error(data.error);
+
+              sourceImage = new Image();
+              sourceImage.onload = () => {
+                  const bg = $('bg-canvas');
+                  const mask = $('mask-canvas');
+
+                  bg.width = mask.width = sourceImage.width;
+                  bg.height = mask.height = sourceImage.height;
+
+                  bg.getContext('2d').drawImage(sourceImage, 0, 0);
+                  mask.getContext('2d').clearRect(0, 0, mask.width, mask.height);
+
+                  $('mask-editor').style.display = 'block';
+                  $('mask-status').textContent = '이미지 로드 완료.';
+                  localMask = null;
+              };
+
+              sourceImage.onerror = () => {
+                  $('mask-status').textContent = '이미지 로드 실패.';
+              };
+
+              sourceImage.src = `data:image/png;base64,${data.image}`;
+
+          } catch (e) {
+              $('out').textContent = `failed: ${e.message}`;
+          }
+      };
+
+      const canvas = $('mask-canvas');
+      const ctx = canvas.getContext('2d');
+
+      const getXY = (e) => {
+          const r = canvas.getBoundingClientRect();
+          return [
+              (e.clientX - r.left) * canvas.width / r.width,
+              (e.clientY - r.top) * canvas.height / r.height
+          ];
+      };
+
+      const draw = (e) => {
+          const [x, y] = getXY(e);
+          ctx.lineWidth = Number($('brush').value) || 20;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.strokeStyle = 'rgba(255,0,0,0.6)';
+          ctx.lineTo(x, y);
+          ctx.stroke();
+      };
+
+      canvas.addEventListener('pointerdown', (e) => {
+          if (!sourceImage) return;
+
+          drawing = true;
+          canvas.setPointerCapture(e.pointerId);
+
+          const [x, y] = getXY(e);
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          draw(e);
+
+          localMask = null;
+          $('mask-status').textContent = '마스크 수정 중...';
+      });
+
+      canvas.addEventListener('pointermove', (e) => {
+          if (drawing) draw(e);
+      });
+
+      canvas.addEventListener('pointerup', () => drawing = false);
+      canvas.addEventListener('pointercancel', () => drawing = false);
+
+      $('mask-clear').onclick = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          localMask = null;
+          $('mask-status').textContent = '마스크 초기화 완료.';
+      };
+
+      $('mask-finish').onclick = () => {
+          const output = document.createElement('canvas');
+          output.width = canvas.width;
+          output.height = canvas.height;
+
+          const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const outCtx = output.getContext('2d');
+          const outPixels = outCtx.createImageData(canvas.width, canvas.height);
+
+          for (let i = 0; i < pixels.data.length; i += 4) {
+              const value = pixels.data[i + 3] > 30 ? 255 : 0;
+              outPixels.data[i] = value;
+              outPixels.data[i + 1] = value;
+              outPixels.data[i + 2] = value;
+              outPixels.data[i + 3] = 255;
+          }
+
+          outCtx.putImageData(outPixels, 0, 0);
+          localMask = output.toDataURL('image/png');
+
+          $('mask-status').textContent = '마스크 생성 완료.';
+      };
+  }
+
   // ---------- 기존 UI ----------
   modeEl.onchange = () => {
     const isT2I = modeEl.value === 'txt2img';
@@ -122,7 +240,13 @@
           W: $('W').value,
           img_path: $('img_path').value,
           start_t: $('start_t').value,
+          mask: localMask,
       };
+
+      if (window.LOCAL_MODE && params.mode === 'inpainting' && !localMask) {
+          $('out').textContent = '마스크를 그린 뒤 Finish Mask를 눌러주세요.';
+          return;
+      }
 
       // Colab 방식 유지
       if (!window.LOCAL_MODE) {

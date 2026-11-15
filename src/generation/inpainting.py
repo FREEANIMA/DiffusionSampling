@@ -6,9 +6,8 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 
-from src.utilities import (
-    sigma_schedular, steps_sampling, img_resize, draw_mask_colab
-)
+from src.utilities import sigma_schedular, steps_sampling, img_resize
+from src.utilities.mask_ui import draw_mask_local, draw_mask_colab
 
 INIT_PROMPT = "general img; "
 

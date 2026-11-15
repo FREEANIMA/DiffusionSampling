@@ -31,8 +31,22 @@
   </div>
 
   <div id="inpaint-box" style="display:none;">
-    <div class="ui-row"><label>Image Path</label><input id="img_path" placeholder="/content/xxx.png"></div>
+    <div class="ui-row"><label>Image Path</label><input id="img_path" placeholder="/path/to/image.png"></div>
     <div class="ui-row"><label>Start T</label><input id="start_t" value="0.9"></div>
+    <div class="ui-row"><label>Brush</label><input id="brush" type="number" value="20"></div>
+    <div class="ui-row"><label></label><button id="load_image" type="button">Load Image</button></div>
+
+    <div id="mask-editor" style="display:none;">
+      <div style="position:relative; width:100%; line-height:0;">
+        <canvas id="bg-canvas" style="width:100%; height:auto;"></canvas>
+        <canvas id="mask-canvas" style="position:absolute; left:0; top:0; width:100%; height:100%; cursor:crosshair; touch-action:none;"></canvas>
+      </div>
+      <div class="ui-btns">
+        <button id="mask-clear" type="button">Clear Mask</button>
+        <button id="mask-finish" type="button">Finish Mask</button>
+      </div>
+      <div id="mask-status">대기 중...</div>
+    </div>
   </div>
 
   <div class="ui-btns">

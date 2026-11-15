@@ -12,7 +12,6 @@ from PIL import Image
 
 from .handler import Handler
 
-
 class LocalUI:
     ASSET_DIR = Path(__file__).with_name("ui_assets")
 
@@ -63,6 +62,19 @@ class LocalUI:
         img.save(buf, format="PNG")
         return base64.b64encode(buf.getvalue()).decode("ascii")
 
+    @staticmethod
+    def _b64_to_pil(data: str) -> Image.Image:
+        if not data:
+            raise ValueError("Mask data is empty.")
+
+        if "," in data:
+            data = data.split(",", 1)[1]
+
+        raw = base64.b64decode(data, validate=True)
+
+        with Image.open(io.BytesIO(raw)) as img:
+            return img.convert("L")
+
     def _generate(self, p: dict):
         seed_text = str(p.get("seed", "-1")).strip()
 
@@ -90,6 +102,8 @@ class LocalUI:
                     f"Image not found: {img_path}"
                 )
 
+            mask = self._b64_to_pil(p.get("mask", ""))
+
             return self.handler.generate_inpainting(
                 img_path=img_path,
                 start_t=float(p.get("start_t", 0.9)),
@@ -106,6 +120,31 @@ class LocalUI:
                 self._render_page(),
                 mimetype="text/html",
             )
+
+        @self.app.post("/api/load_image")
+        def load_image():
+            try:
+                params = request.get_json(force=True)
+                img_path = str(params.get("path", "")).strip()
+
+                if not img_path or not Path(img_path).is_file():
+                    raise FileNotFoundError(
+                        f"Image not found: {img_path}"
+                    )
+
+                with Image.open(img_path) as img:
+                    img = img.convert("RGB")
+
+                return jsonify({
+                    "success": True,
+                    "image": self._pil_to_b64(img),
+                })
+
+            except Exception as e:
+                return jsonify({
+                    "success": False,
+                    "error": f"{type(e).__name__}: {e}",
+                }), 400
 
         @self.app.post("/api/generate")
         def generate():
@@ -128,11 +167,7 @@ class LocalUI:
                     "error": f"{type(e).__name__}: {e}",
                 }), 500
 
-    def run(
-        self,
-        host: str = "127.0.0.1",
-        port: int = 7860,
-    ):
+    def run(self, host: str = "127.0.0.1", port: int = 7860):
         print(f"MMDIT Local UI: http://{host}:{port}")
 
         self.app.run(

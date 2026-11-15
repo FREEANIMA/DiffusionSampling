@@ -84,12 +84,15 @@ class Handler:
         v = self.tag_generation.vocab
         return sorted(t for t in v if not (t.startswith("<") and t.endswith(">")))
 
-    def generate_inpainting(self, tags_text:str, nsfw, calc_type, cfg_scale, steps, seed, img_path, start_t: float = 0.9):
+    def generate_inpainting(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, mask=None, start_t: float = 0.9):
         tags_text = tags_text.lower()
 
         with Image.open(img_path) as im:
             W0, H0 = im.size
         H, W = self._fit_size(H0, W0)
+
+        if mask is not None:
+            mask = mask.resize((W0, H0), Image.Resampling.NEAREST)
 
         tags_reshape = self.tag_generation.tags_mapping_worker(
             tags=tags_text, nsfw=bool(nsfw), H=H, W=W,
