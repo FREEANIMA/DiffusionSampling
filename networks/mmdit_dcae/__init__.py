@@ -10,7 +10,7 @@ VERSION_CODE = sum(
 def load():
     path = fetch_ckpt_from_hf(
         repo_id=f"{HUGGINGFACE}/VER{VERSION_CODE}",
-        filename="model.pt",
+        filename="ema_model.pt",
     )
     return _load_model(Model, path)
 
