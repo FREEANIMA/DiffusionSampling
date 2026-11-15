@@ -47,6 +47,7 @@ class Handler:
         self.patch_size = self.config["patch_size"]
 
         self._sampler: Optional[Sampling] = None
+        self._detailer: Optional[Detailering] = None
         self._inpainter: Optional[InPainting] = None
         self.progress = Progress()
 
@@ -54,8 +55,8 @@ class Handler:
 
     @property
     def detailer(self) -> Detailering:
-        if self._sampler is None:
-            self._sampler = Detailering(
+        if self._detailer is None:
+            self._detailer = Detailering(
                 base_root=self.base_root, 
                 model=self.model,
                 text_encoder=self.text_encoder, 
@@ -63,7 +64,7 @@ class Handler:
                 config=self.config,
                 console=self.console
             )
-        return self._sampler
+        return self._detailer
     
     @property
     def sampler(self) -> Sampling:
@@ -138,7 +139,7 @@ class Handler:
             on_step=self.progress.update,
         )
     
-    def generate_inpainting(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, mask=None, start_t: float = 0.9):
+    def generate_inpainting(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, mask=None, start_t: float = 0.8):
         if img_path is None:
             raise ValueError("경로를 입력해 주세요")
         if mask is None:
@@ -169,7 +170,17 @@ class Handler:
             save_dir=os.path.join(self.base_root, "inpainting")
         )
 
-    def generate_detailering(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, box=None, start_t: float = 0.9):
+    def _square_box(self, box, W, H):
+        left, top, right, bottom = box
+        cx, cy = (left + right) / 2, (top + bottom) / 2
+        side = min(max(right - left, bottom - top), W, H)
+
+        left = min(max(cx - side / 2, 0), W - side)
+        top = min(max(cy - side / 2, 0), H - side)
+        left, top = int(left), int(top)
+        return left, top, left + int(side), top + int(side)
+
+    def generate_detailering(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, box=None, start_t: float = 0.7):
         if img_path is None:
             raise ValueError("경로를 입력해 주세요")
         if box is None:
@@ -184,7 +195,8 @@ class Handler:
         right, bottom = min(int(right), img.width), min(int(bottom), img.height)
         if right - left < 8 or bottom - top < 8:
             raise ValueError("선택한 영역이 너무 작거나 이미지 밖이에요.")
-        box = (left, top, right, bottom)
+
+        box = self._square_box((left, top, right, bottom), img.width, img.height)
 
         crop_img = img.crop(box)
 

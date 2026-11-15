@@ -107,6 +107,7 @@ class Detailering:
             after_step=after_step,
         )
 
+
         return self.vae_decode(x)
 
     def merge_img(self, origin_img, img_out, square, save_dir, feather=16):
@@ -115,6 +116,7 @@ class Detailering:
 
         out = origin_img.convert("RGB").copy()
         patch = img_out.convert("RGB").resize((w, h), Image.Resampling.LANCZOS)
+
 
         f = max(1, min(feather, w // 4, h // 4))
         alpha = Image.new("L", (w, h), 0)
