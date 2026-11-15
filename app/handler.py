@@ -107,9 +107,9 @@ class Handler:
     def get_tag_history(self) -> list[dict]:
         return list(self.tags_infer_cached)
 
-    def _resolve_tags(self, tags_text, nsfw, H, W, fixed, record=True, label="final tags"):
+    def _resolve_tags(self, tags_text, nsfw, H, W, fixed, record=True, isnegative=False, label="final tags"):
         tags_reshape, tags_infer = self.tag_generation.tags_mapping_worker(
-            tags=tags_text, nsfw=bool(nsfw), H=H, W=W, fixed=bool(fixed),
+            tags=tags_text, nsfw=bool(nsfw), H=H, W=W, fixed=bool(fixed), isnegative=isnegative,
         )
 
         if tags_infer and record:
@@ -209,16 +209,14 @@ class Handler:
 
         H, W = SIZE, SIZE
 
-        # positive
         tags_reshape = self._resolve_tags(tags_text, nsfw, H, W, fixed)
 
-        # negative (텍스트가 있고 n_cfg_scale != 0 일 때만)
         n_cfg_scale = float(n_cfg_scale)
         neg_tags_reshape = None
         if neg_tags_text and n_cfg_scale != 0.0:
             neg_tags_reshape = self._resolve_tags(
-                neg_tags_text, nsfw, H, W, True,      # fixed=True: LLM 확장 없이 입력 그대로
-                record=False, label="negative tags",
+                neg_tags_text, nsfw, H, W, True,
+                record=False, label="negative tags", isnegative=True,
             )
         else:
             n_cfg_scale = 0.0

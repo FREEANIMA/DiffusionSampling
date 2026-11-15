@@ -188,7 +188,7 @@ class TagGenration:
         others_text = f"others: {', '.join(others)}; " if others else ""
         return [self.INIT_PROMPT + nsfw_text + size_text + text + others_text]
     
-    def tags_mapping_worker(self, tags: str, nsfw, H, W, device=None, fixed: bool = True):
+    def tags_mapping_worker(self, tags: str, nsfw, H, W, device=None, fixed: bool = True, isnegative=False):
         device = device or self.device
         nsfw_str = "nsfw" if nsfw else "general"
 
@@ -204,12 +204,13 @@ class TagGenration:
 
             return tags_infer
 
-        if fixed:
-            if len(user_tags) < self.MIN_FIXED_TAGS:
-                self.console.put(f"tags 수 부족({len(user_tags)}/{self.MIN_FIXED_TAGS}): 안정을 위해 tag sampling")
-                tags_infer = tags_s()
-            else:
-                tags_infer = []
+        if isnegative:
+            tags_infer = []
+        elif fixed and len(user_tags) < self.MIN_FIXED_TAGS:
+            self.console.put(f"tags 수 부족({len(user_tags)}/{self.MIN_FIXED_TAGS}): 안정을 위해 tag sampling")
+            tags_infer = tags_s()
+        elif fixed:
+            tags_infer = []
         else:
             tags_infer = tags_s()
                 

@@ -13,7 +13,6 @@ from PIL import Image
 
 from .handler import Handler
 
-
 class UI:
     ASSET_DIR = Path(__file__).with_name("ui_assets")
 
