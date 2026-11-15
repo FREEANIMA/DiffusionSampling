@@ -11,3 +11,4 @@ tiktoken
 protobuf
 opencv-python
 matplotlib
+flask

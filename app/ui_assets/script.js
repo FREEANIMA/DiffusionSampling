@@ -101,22 +101,85 @@
     $('inpaint-box').style.display = isT2I ? 'none' : 'block';
   };
 
-  $('clear_out').onclick = () => { $('out').textContent = ''; };
 
-  $('run').onclick = () => {
-    window.ui_params = {
-      mode: modeEl.value,
-      tags: $('tags').value,
-      nsfw: $('nsfw').value === 'true',
-      sampler: $('sampler').value,
-      cfg: $('cfg').value,
-      steps: $('steps').value,
-      seed: $('seed').value,
-      H: $('H').value,
-      W: $('W').value,
-      img_path: $('img_path').value,
-      start_t: $('start_t').value,
-    };
-    $('out').textContent = 'running...';
+  $('clear_out').onclick = () => {
+      $('out').textContent = '';
+
+      const result = $('result');
+      if (result) result.innerHTML = '';
   };
+
+  $('run').onclick = async () => {
+      const params = {
+          mode: modeEl.value,
+          tags: $('tags').value,
+          nsfw: $('nsfw').value === 'true',
+          sampler: $('sampler').value,
+          cfg: $('cfg').value,
+          steps: $('steps').value,
+          seed: $('seed').value,
+          H: $('H').value,
+          W: $('W').value,
+          img_path: $('img_path').value,
+          start_t: $('start_t').value,
+      };
+
+      // Colab 방식 유지
+      if (!window.LOCAL_MODE) {
+          window.ui_params = params;
+          $('out').textContent = 'running...';
+          return;
+      }
+
+      const runBtn = $('run');
+      runBtn.disabled = true;
+      $('out').textContent = 'running...';
+
+      let result = $('result');
+
+      if (!result) {
+          result = document.createElement('div');
+          result.id = 'result';
+          $('out').after(result);
+      }
+
+      result.innerHTML = '';
+
+      try {
+          const response = await fetch('/api/generate', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(params),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok || !data.success) {
+              throw new Error(data.error || 'Generation failed');
+          }
+
+          const path = document.createElement('div');
+          path.textContent = `Saved: ${data.path}`;
+
+          const img = document.createElement('img');
+          img.src = `data:image/png;base64,${data.image}`;
+          img.style.maxWidth = '512px';
+          img.style.width = '100%';
+          img.style.border = '1px solid #ccc';
+          img.style.marginTop = '8px';
+
+          result.append(path, img);
+
+          $('out').textContent = 'done';
+
+      } catch (e) {
+          $('out').textContent = `failed: ${e.message}`;
+
+      } finally {
+          runBtn.disabled = false;
+      }
+  };
+
 })();
