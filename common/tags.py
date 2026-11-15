@@ -150,40 +150,48 @@ class TagGenration:
         tags_infer = [self.id_to_tag.get(i, f"<{i}>") for i in generated]
         return tags_infer
     
-    def text_generation(self, tags_infer: list, nsfw, H, W):
+    def text_generation(self, tags_infer, nsfw, H, W, user_tags=None):
         nsfw_text = f"nsfw: {str(nsfw).lower()}; "
         size_text = f"size: {H}x{W}; "
+        merged, seen = [], set()
+        for t in list(user_tags or []) + list(tags_infer):
+            if t in ("<unk>", "<pad>", "<cls>", "<eos>"):
+                continue
+            rep = self.dup_map.get(t, t)
+            if rep not in seen:
+                seen.add(rep)
+                merged.append(t)
 
-        grouped = {}
-        others = []
-        for tag in tags_infer:
+        grouped, others = {}, []
+        for tag in merged:
             _type = self.type_map.get(tag)
             if _type is None or pd.isna(_type) or not str(_type).strip():
                 others.append(tag)
             else:
                 grouped.setdefault(_type, []).append(tag)
 
-        # NAS 순서대로 먼저, NAS에 없는 type은 뒤에 등장 순서대로
         ordered_types = [t for t in NAS if t in grouped]
         ordered_types += [t for t in grouped if t not in NAS]
 
         text = "".join(f"{t}: {', '.join(grouped[t])}; " for t in ordered_types)
         others_text = f"others: {', '.join(others)}; " if others else ""
-
-        total = INIT_PROMPT + nsfw_text + size_text + text + others_text
-        return [total]
+        return [INIT_PROMPT + nsfw_text + size_text + text + others_text]
     
     def tags_mapping_worker(self, tags: str, nsfw, H, W, device=None):
         device = device or self.device
         nsfw_str = "nsfw" if nsfw else "general"
-        tag_list = tags.split(", ")
-        dup_list = self.canonicalize(tag_list=tag_list) + [nsfw_str]
+
+        user_tags = self.canonicalize(tag_list=tags.split(","))
+
+        # LLM 입력에는 vocab 에 있는 태그만 (<unk> 방지)
+        known = [t for t in user_tags if t in self.vocab]
+        dup_list = known + [nsfw_str]
         random.shuffle(dup_list)
         ids = self.to_ids(dup_list)
         batch = torch.tensor([ids], dtype=torch.long, device=device)
         tags_infer = self.sampling(batch)
 
-        return self.text_generation(tags_infer, nsfw, H, W)
+        return self.text_generation(tags_infer, nsfw, H, W, user_tags=user_tags)
 
 def test():
     tag_g = TagGenration()

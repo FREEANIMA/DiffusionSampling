@@ -67,6 +67,8 @@ class Handler:
             tags=tags_text, nsfw=bool(nsfw), H=H, W=W,
         )
 
+        print(f"final tags : {tags_reshape}")
+
         return self.sampler.sampling(
             tags=tags_reshape,
             calculate_type=calc_type,
@@ -84,6 +86,8 @@ class Handler:
         tags_reshape = self.tag_generation.tags_mapping_worker(
             tags=tags_text, nsfw=bool(nsfw), H=H, W=W,
         )
+
+        print(f"final tags : {tags_reshape}")
 
         return self.inpainter.sampling(
             tags=tags_reshape,
