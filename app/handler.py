@@ -30,8 +30,11 @@ class Handler:
     def sampler(self) -> Sampling:
         if self._sampler is None:
             self._sampler = Sampling(
-                base_root=self.base_root, model=self.model,
-                text_encoder=self.text_encoder, vae=self.vae, config=self.config,
+                base_root=self.base_root, 
+                model=self.model,
+                text_encoder=self.text_encoder, 
+                vae=self.vae, 
+                config=self.config,
             )
         return self._sampler
 
@@ -39,8 +42,11 @@ class Handler:
     def inpainter(self) -> InPaint:
         if self._inpainter is None:
             self._inpainter = InPaint(
-                base_root=self.base_root, model=self.model,
-                text_encoder=self.text_encoder, vae=self.vae, config=self.config,
+                base_root=self.base_root, 
+                model=self.model,
+                text_encoder=self.text_encoder, 
+                vae=self.vae, 
+                config=self.config,
             )
         return self._inpainter
 
@@ -62,7 +68,7 @@ class Handler:
         )
 
         return self.sampler.sampling(
-            user_tags=tags_reshape,
+            tags=tags_reshape,
             calculate_type=calc_type,
             cfg_scale=float(cfg_scale),
             H=H, W=W,
@@ -80,7 +86,7 @@ class Handler:
         )
 
         return self.inpainter.sampling(
-            user_tags=tags_reshape,
+            tags=tags_reshape,
             nsfw=bool(nsfw),
             calculate_type=calc_type,
             cfg_scale=float(cfg_scale),

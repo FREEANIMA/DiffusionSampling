@@ -1,13 +1,13 @@
-import torch
-import torch.nn.functional as F
-import numpy as np
 import os
 from datetime import datetime
-from tqdm.auto import tqdm
+
+import numpy as np
+import torch
+import torch.nn.functional as F
 from PIL import Image
 
 from src.utilities import (
-    euler, heun, ddim, ddpm_plus, img_resize, draw_mask_colab
+    sigma_schedular, steps_sampling, img_resize, draw_mask_colab
 )
 
 INIT_PROMPT = "general img; "
@@ -26,11 +26,6 @@ class InPaint:
         self.text_encoder = text_encoder
         self.vae = vae
 
-    def sigma_schedular(self, step, device):
-        t = torch.linspace(0.999, 1e-3, step + 1, device=device)
-        s = self.shift
-        return s * t / (1 + (s - 1) * t)
-
     @torch.inference_mode()
     def vae_encode(self, img):
         return self.vae.encoder(img)
@@ -45,78 +40,6 @@ class InPaint:
         cond_emb, cond_mask = self.text_encoder.encoder(tags)
         uncond_emb, uncond_mask = self.text_encoder.encoder([INIT_PROMPT])
         return cond_emb, uncond_emb, cond_mask, uncond_mask
-
-    @torch.inference_mode()
-    def predict(self, model, x, sigma, cond_emb, cond_mask,
-                uncond_emb, uncond_mask, cfg_scale):
-        x_in = x.to(self.dtype)
-        sig = sigma.expand(x.shape[0])
-        with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
-            cond_out, _ = model.forward(
-                x=x_in, sigma=sig, txt_emb=cond_emb, txt_mask=cond_mask,
-            )
-            if cfg_scale == 1.0:
-                return cond_out.float()
-            uncond_out, _ = model.forward(
-                x=x_in, sigma=sig, txt_emb=uncond_emb, txt_mask=uncond_mask,
-            )
-        c, u = cond_out.float(), uncond_out.float()
-        return u + cfg_scale * (c - u)
-
-    @torch.inference_mode()
-    def steps_sampling(self, x, sigmas, latent, noise, mask_lat, calculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gen,):
-        self.model.eval()
-        n = len(sigmas) - 1
-
-        try:
-            for i in tqdm(range(n), desc="sampling"):
-                sigma, sigma_next = sigmas[i], sigmas[i + 1]
-
-                v = self.predict(
-                    model=self.model,
-                    x=x, sigma=sigma,
-                    cond_emb=cond_emb, cond_mask=cond_mask,
-                    uncond_emb=uncond_emb, uncond_mask=uncond_mask,
-                    cfg_scale=cfg_scale,
-                )
-
-                if calculate_type == "euler":
-                    x = euler(x, v, sigma, sigma_next)
-                elif calculate_type == "ddim":
-                    x = ddim(x, v, sigma, sigma_next)
-                elif calculate_type == "heun":
-                    if i == n - 1:
-                        x = euler(x, v, sigma, sigma_next)
-                    else:
-                        x_e = euler(x, v, sigma, sigma_next)
-                        v2 = self.predict(
-                            model=self.model,
-                            x=x_e, sigma=sigma_next,
-                            cond_emb=cond_emb, cond_mask=cond_mask,
-                            uncond_emb=uncond_emb, uncond_mask=uncond_mask,
-                            cfg_scale=cfg_scale,
-                        )
-                        x = heun(x, v, v2, sigma, sigma_next)
-                        del x_e, v2
-                elif calculate_type == "ddpm_plus":
-                    z = torch.randn(
-                        x.shape, generator=gen,
-                        device=x.device, dtype=x.dtype
-                    )
-                    x = ddpm_plus(x, v, z, sigma, sigma_next)
-                    del z
-                else:
-                    raise ValueError(f"Unsupported sampling method: {calculate_type}")
-
-                del v
-                sigma_view = sigma.view(1, 1, 1, 1)
-                orig_latent_t = (1 - sigma_view) * latent + sigma_view * noise
-                x = (1 - mask_lat) * orig_latent_t + mask_lat * x
-
-        finally:
-            torch.cuda.empty_cache()
-
-        return x
 
     def mask_generation(self, mask_arr, latent):
         if isinstance(mask_arr, np.ndarray):
@@ -137,11 +60,11 @@ class InPaint:
         return (m_lat > 0.5).float()
 
     @torch.inference_mode()
-    def sampling(self, user_tags, nsfw, calculate_type, cfg_scale, steps, start_t, seed=None, path=None):
+    def sampling(self, tags, calculate_type, cfg_scale, steps, start_t, seed=None, path=None):
         if path is None:
-            print("경로를 입력해 주세요")       
-            return 
-        
+            print("경로를 입력해 주세요")
+            return
+
         with open(path, "rb") as f:
             img_bytes = f.read()
 
@@ -155,55 +78,58 @@ class InPaint:
         latent = self.vae_encode(img)                      # (1,C,h,w)
         mask_lat = self.mask_generation(mask_arr, latent)  # (1,1,h,w)
 
-        noise = torch.randn_like(latent)
-
-        sigmas = self.sigma_schedular(step=steps, device=self.device)
-        start_idx = int(torch.argmin((sigmas - start_t).abs()).item())
-        sigmas = sigmas[start_idx:]
-        start_sigma = sigmas[0] 
-        orig_at_start = (1 - start_sigma) * latent + start_sigma * noise
-        x_t = (1 - mask_lat) * latent + mask_lat * orig_at_start
-
-        tags = self.cooc.tags_mapping_worker(
-            user_tags=user_tags, nsfw=nsfw, H=H, W=W
-        )
-        cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=tags)
-
+        # seed 를 noise 에도 적용 (재현 가능)
         gen = torch.Generator(device=self.device)
         if seed is not None:
             gen.manual_seed(seed)
+        noise = torch.randn(
+            latent.shape, generator=gen, device=latent.device, dtype=latent.dtype
+        )
 
-        x = self.steps_sampling(
+        sigmas = sigma_schedular(step=steps, device=self.device, shift=self.shift)
+        start_idx = int(torch.argmin((sigmas - start_t).abs()).item())
+        sigmas = sigmas[start_idx:]
+        start_sigma = sigmas[0]
+        orig_at_start = (1 - start_sigma) * latent + start_sigma * noise
+        x_t = (1 - mask_lat) * latent + mask_lat * orig_at_start
+
+        cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=tags)
+
+        def after_step(x, sigma, sigma_next):
+            s = sigma.view(1, 1, 1, 1)
+            orig_t = (1 - s) * latent + s * noise
+            return (1 - mask_lat) * orig_t + mask_lat * x
+
+        x = steps_sampling(
+            model=self.model,
             x=x_t,
             sigmas=sigmas,
-            latent=latent,
-            noise=noise,
-            mask_lat=mask_lat,
             calculate_type=calculate_type,
             cfg_scale=cfg_scale,
             cond_emb=cond_emb, cond_mask=cond_mask,
             uncond_emb=uncond_emb, uncond_mask=uncond_mask,
             gen=gen,
+            dtype=self.dtype,
+            after_step=after_step,
         )
 
         img_out = self.vae_decode(x)
         mask_visual = Image.fromarray(mask_arr).convert("RGB")
         img_out_resized = img_out.resize((W, H), Image.Resampling.LANCZOS)
         grid_img = Image.new("RGB", (W * 3, H), (255, 255, 255))
-        
-        # 4. 이미지 붙여넣기
-        grid_img.paste(img_pil, (0, 0))              # 1번째: 원본
-        grid_img.paste(mask_visual, (W, 0))          # 2번째: 마스크
-        grid_img.paste(img_out_resized, (W * 2, 0))  # 3번째: 결과물
+        grid_img.paste(img_pil, (0, 0))
+        grid_img.paste(mask_visual, (W, 0))
+        grid_img.paste(img_out_resized, (W * 2, 0))
+
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         save_dir = os.path.join(self.base_root, "inpainting", stamp)
         os.makedirs(save_dir, exist_ok=True)
-    
+
         save_img_name = os.path.join(save_dir, "img.png")
         img_out.save(save_img_name)
         grid_save_name = os.path.join(save_dir, "comparison_grid.png")
         grid_img.save(grid_save_name)
-        
+
         print(f"img saved: {save_img_name}")
         print(f"grid saved: {grid_save_name}")
 

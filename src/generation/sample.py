@@ -3,7 +3,7 @@ from tqdm.auto import tqdm
 from datetime import datetime
 import torch
 import random
-from src.utilities import euler, heun, ddim, ddpm_plus
+from src.utilities import sigma_schedular, steps_sampling
 
 INIT_PROMPT = "general img; "
 
@@ -20,29 +20,8 @@ class Sampling:
         self.text_encoder = text_encoder
         self.vae = vae
 
-    def sigma_schedular(self, step, device):
-        t = torch.linspace(0.999, 1e-3, step + 1, device=device)
-        s = self.shift
-        return s * t / (1 + (s - 1) * t)
-
     def _snap(self, v, unit):
         return max(round(v / unit), 1) * unit
-
-    @torch.inference_mode()
-    def predict(self, model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_mask, cfg_scale):
-        x_in = x.to(self.dtype)
-        sig = sigma.expand(x.shape[0])
-        with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
-            cond_out, cond_stats = model.forward(
-                x=x_in, sigma=sig, txt_emb=cond_emb, txt_mask=cond_mask,
-            )
-            if cfg_scale == 1.0:
-                return cond_out.float(), cond_stats
-            uncond_out, _ = model.forward(
-                x=x_in, sigma=sig, txt_emb=uncond_emb, txt_mask=uncond_mask,
-            )
-        c, u = cond_out.float(), uncond_out.float()
-        return u + cfg_scale * (c - u), cond_stats
 
     @torch.inference_mode()
     def text_encode(self, tags):
@@ -50,60 +29,6 @@ class Sampling:
         uncond_emb, uncond_mask = self.text_encoder.encoder([INIT_PROMPT])
 
         return cond_emb, uncond_emb, cond_mask, uncond_mask
-        
-    @torch.inference_mode()
-    def steps_sampling(self, x, steps, calculate_type, cfg_scale, cond_emb, uncond_emb, cond_mask, uncond_mask, gen, sigmas):
-        self.model.eval()
-
-        try:
-            for i in tqdm(range(steps), desc="sampling"):
-                sigma, sigma_next = sigmas[i], sigmas[i + 1]
-
-                v, _ = self.predict(
-                    model=self.model,
-                    x=x, sigma=sigma,
-                    cond_emb=cond_emb, cond_mask=cond_mask,
-                    uncond_emb=uncond_emb, uncond_mask=uncond_mask,
-                    cfg_scale=cfg_scale,
-                )
-
-                if calculate_type == "euler":
-                    x = euler(x, v, sigma, sigma_next)
-
-                elif calculate_type == "ddim":
-                    x = ddim(x, v, sigma, sigma_next)
-
-                elif calculate_type == "heun":
-                    if i == steps - 1:
-                        x = euler(x, v, sigma, sigma_next)
-                    else:
-                        x_e = euler(x, v, sigma, sigma_next)
-
-                        v2, _ = self.predict(
-                            model=self.model,
-                            x=x_e, sigma=sigma_next,
-                            cond_emb=cond_emb, cond_mask=cond_mask,
-                            uncond_emb=uncond_emb, uncond_mask=uncond_mask,
-                            cfg_scale=cfg_scale,
-                        )
-
-                        x = heun(x, v, v2, sigma, sigma_next)
-                        del x_e, v2
-
-                elif calculate_type == "ddpm_plus":
-                    z = torch.randn(
-                        x.shape, generator=gen,
-                        device=x.device, dtype=x.dtype
-                    )
-                    x = ddpm_plus(x, v, z, sigma, sigma_next)
-                    del z
-
-                del v
-
-        finally:
-            torch.cuda.empty_cache()
-
-        return x
     
     @torch.inference_mode()
     def vae_decode(self, x):
@@ -135,11 +60,12 @@ class Sampling:
         )
 
         x = noise
-        sigmas = self.sigma_schedular(step=steps, device=self.device)
+        sigmas = sigma_schedular(step=steps, device=self.device, shift=self.shift)
 
-        x = self.steps_sampling(
-            x=x,
-            steps=steps,
+        x = steps_sampling(
+            model=self.model,
+            x=noise,
+            sigmas=sigmas,
             calculate_type=calculate_type,
             cfg_scale=cfg_scale,
             cond_emb=cond_emb,
@@ -147,7 +73,7 @@ class Sampling:
             uncond_emb=uncond_emb,
             uncond_mask=uncond_mask,
             gen=gen,
-            sigmas=sigmas,
+            dtype=self.dtype,
         )
         img = self.vae_decode(x)
 
