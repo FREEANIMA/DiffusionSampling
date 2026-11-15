@@ -60,7 +60,9 @@ class Handler:
             return 1024, self._snap(W * 1024 / H, unit)
         return self._snap(H * 1024 / W, unit), 1024
 
-    def generate_txt2img(self, tags_text, nsfw, calc_type, cfg_scale, H, W, steps, seed):
+    def generate_txt2img(self, tags_text:str, nsfw, calc_type, cfg_scale, H, W, steps, seed):
+        tags_text = tags_text.lower()
+
         H, W = self._fit_size(int(H), int(W))
 
         tags_reshape = self.tag_generation.tags_mapping_worker(
@@ -78,7 +80,9 @@ class Handler:
             seed=_parse_seed(seed),
         )
 
-    def generate_inpainting(self, tags_text, nsfw, calc_type, cfg_scale, steps, seed, img_path, start_t: float = 0.9):
+    def generate_inpainting(self, tags_text:str, nsfw, calc_type, cfg_scale, steps, seed, img_path, start_t: float = 0.9):
+        tags_text = tags_text.lower()
+
         with Image.open(img_path) as im:
             W0, H0 = im.size
         H, W = self._fit_size(H0, W0)
