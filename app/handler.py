@@ -38,6 +38,7 @@ class Handler:
         self.dtype = dtype
 
         self.console = console_q()
+        self.model, self.config = load_mmdit_dcae()
 
         position = input("model upload on gpu(y or n): ") == "y"
         if position:
@@ -61,7 +62,6 @@ class Handler:
 
         g.INIT_DEVICE = init_device
 
-        self.model, self.config = load_mmdit_dcae()
         self.model = self.model.to(device=init_device, dtype=dtype)
         self.text_encoder = T5TextModel(init_device=init_device, device=self.device, dtype=dtype, console=self.console)
         self.vae = VaeModel(init_device=init_device, device=self.device, dtype=torch.float32, console=self.console)
