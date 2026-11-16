@@ -3,7 +3,7 @@ from tqdm.auto import tqdm
 from datetime import datetime
 import torch
 import random
-from src.utilities import sigma_schedular, steps_sampling
+from src.utilities import sigma_schedular, steps_sampling, gpu_context
 
 INIT_PROMPT = "general img; "
 
@@ -16,6 +16,7 @@ class Sampling:
         self.f = config["compression_ratio"]
         self.in_channels = config["in_channels"]
         self.patch_size = config["patch_size"]
+
         self.model = model
         self.text_encoder = text_encoder
         self.vae = vae
@@ -27,15 +28,16 @@ class Sampling:
 
     @torch.inference_mode()
     def text_encode(self, tags):
-        cond_emb, cond_mask = self.text_encoder.encoder(tags)
-        uncond_emb, uncond_mask = self.text_encoder.encoder([INIT_PROMPT])
+        with gpu_context(self.text_encoder, self.device):
+            cond_emb, cond_mask = self.text_encoder.encoder(tags)
+            uncond_emb, uncond_mask = self.text_encoder.encoder([INIT_PROMPT])
 
         return cond_emb, uncond_emb, cond_mask, uncond_mask
     
     @torch.inference_mode()
     def vae_decode(self, x):
-        with torch.inference_mode():
-            decoded = self.vae.decoder(x)        
+        with gpu_context(self.vae, self.device):
+            decoded = self.vae.decoder(x)
 
         img = self.vae._tensor_to_pil(decoded)
         return img
@@ -46,6 +48,8 @@ class Sampling:
             seed = random.randint(0, 2**32 - 1)
 
         cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=tags)
+
+
         gen = torch.Generator(device=self.device)
         gen.manual_seed(seed)
 
@@ -70,20 +74,25 @@ class Sampling:
                 on_step(min(done, total), total)
             return x
 
-        x = steps_sampling(
-            model=self.model,
-            x=noise,
-            sigmas=sigmas,
-            calculate_type=calculate_type,
-            cfg_scale=cfg_scale,
-            cond_emb=cond_emb,
-            cond_mask=cond_mask,
-            uncond_emb=uncond_emb,
-            uncond_mask=uncond_mask,
-            gen=gen,
-            dtype=self.dtype,
-            after_step=after_step,
-        )
+        with gpu_context(self.model, self.device):
+            x = steps_sampling(
+                model=self.model,
+                x=noise,
+                sigmas=sigmas,
+                calculate_type=calculate_type,
+                cfg_scale=cfg_scale,
+                cond_emb=cond_emb,
+                cond_mask=cond_mask,
+                uncond_emb=uncond_emb,
+                uncond_mask=uncond_mask,
+                gen=gen,
+                dtype=self.dtype,
+                after_step=after_step,
+            )
+
+        del cond_emb, uncond_emb, cond_mask, uncond_mask
+        del noise, sigmas
+
         img = self.vae_decode(x)
 
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")

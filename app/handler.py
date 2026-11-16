@@ -7,6 +7,7 @@ from networks import load_mmdit_dcae
 from collections import deque
 import os
 import io
+from src.utilities import gpu_context
 
 def _parse_seed(seed) -> Optional[int]:
     return None if seed in (None, "", -1, "-1") else int(seed)
@@ -38,10 +39,10 @@ class Handler:
         self.console = console_q()
 
         self.model, self.config = load_mmdit_dcae()
-        self.model = self.model.to(device=device, dtype=dtype)
-        self.text_encoder = T5TextModel(device=device, dtype=dtype, console=self.console)
-        self.vae = VaeModel(device=device, dtype=torch.float32, console=self.console)
-        self.tag_generation = TagGenration(device=device, dtype=dtype, console=self.console)
+        self.model = self.model.to(device="cpu", dtype=dtype)
+        self.text_encoder = T5TextModel(device="cpu", dtype=dtype, console=self.console)
+        self.vae = VaeModel(device="cpu", dtype=torch.float32, console=self.console)
+        self.tag_generation = TagGenration(device="cpu", dtype=dtype, console=self.console)
 
         self.f = self.config["compression_ratio"]
         self.patch_size = self.config["patch_size"]
@@ -108,9 +109,10 @@ class Handler:
         return list(self.tags_infer_cached)
 
     def _resolve_tags(self, tags_text, nsfw, H, W, fixed, record=True, isnegative=False, label="final tags"):
-        tags_reshape, tags_infer = self.tag_generation.tags_mapping_worker(
-            tags=tags_text, nsfw=bool(nsfw), H=H, W=W, fixed=bool(fixed), isnegative=isnegative,
-        )
+        with gpu_context(self.tag_generation, self.device):
+            tags_reshape, tags_infer = self.tag_generation.tags_mapping_worker(
+                tags=tags_text, nsfw=bool(nsfw), H=H, W=W, fixed=bool(fixed), isnegative=isnegative,
+            )
 
         if tags_infer and record:
             self.tags_infer_cached.append({
@@ -119,6 +121,7 @@ class Handler:
             })
 
         self.console.put(f"{label} : {tags_reshape}")
+
         return tags_reshape
 
     def generate_txt2img(self, tags_text:str, nsfw, calc_type, cfg_scale, H, W, steps, seed, fixed):

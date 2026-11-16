@@ -6,7 +6,7 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 
-from src.utilities import sigma_schedular, steps_sampling, img_resize
+from src.utilities import sigma_schedular, steps_sampling, img_resize, gpu_context
 INIT_PROMPT = "general img; "
 
 class InPainting:
@@ -27,18 +27,24 @@ class InPainting:
 
     @torch.inference_mode()
     def vae_encode(self, img):
-        return self.vae.encoder(img)
-
-    @torch.inference_mode()
-    def vae_decode(self, latent):
-        decoded = self.vae.decoder(latent)
-        return self.vae._tensor_to_pil(decoded)
+        with gpu_context(self.vae, self.device):
+            return self.vae.encoder(img)
 
     @torch.inference_mode()
     def text_encode(self, tags):
-        cond_emb, cond_mask = self.text_encoder.encoder(tags)
-        uncond_emb, uncond_mask = self.text_encoder.encoder([INIT_PROMPT])
+        with gpu_context(self.text_encoder, self.device):
+            cond_emb, cond_mask = self.text_encoder.encoder(tags)
+            uncond_emb, uncond_mask = self.text_encoder.encoder([INIT_PROMPT])
+
         return cond_emb, uncond_emb, cond_mask, uncond_mask
+    
+    @torch.inference_mode()
+    def vae_decode(self, x):
+        with gpu_context(self.vae, self.device):
+            decoded = self.vae.decoder(x)
+
+        img = self.vae._tensor_to_pil(decoded)
+        return img
 
     def mask_generation(self, mask_arr, latent):
         if isinstance(mask_arr, np.ndarray):
@@ -106,18 +112,22 @@ class InPainting:
             orig_t = (1 - s) * latent + s * noise
             return (1 - mask_lat) * orig_t + mask_lat * x
 
-        x = steps_sampling(
-            model=self.model,
-            x=x_t,
-            sigmas=sigmas,
-            calculate_type=calculate_type,
-            cfg_scale=cfg_scale,
-            cond_emb=cond_emb, cond_mask=cond_mask,
-            uncond_emb=uncond_emb, uncond_mask=uncond_mask,
-            gen=gen,
-            dtype=self.dtype,
-            after_step=after_step,
-        )
+        with gpu_context(self.model, self.device):
+            x = steps_sampling(
+                model=self.model,
+                x=x_t,
+                sigmas=sigmas,
+                calculate_type=calculate_type,
+                cfg_scale=cfg_scale,
+                cond_emb=cond_emb, cond_mask=cond_mask,
+                uncond_emb=uncond_emb, uncond_mask=uncond_mask,
+                gen=gen,
+                dtype=self.dtype,
+                after_step=after_step,
+            )
+
+        del cond_emb, uncond_emb, cond_mask, uncond_mask
+        del latent, mask_lat, noise, x_t, orig_at_start, sigmas
 
         img_out = self.vae_decode(x)
 

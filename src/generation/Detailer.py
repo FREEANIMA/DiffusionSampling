@@ -6,7 +6,7 @@ import torch
 import torch.nn.functional as F
 from PIL import Image, ImageFilter
 
-from src.utilities import sigma_schedular, steps_sampling, img_pad
+from src.utilities import sigma_schedular, steps_sampling, img_pad, gpu_context
 INIT_PROMPT = "general img; "
 
 class Detailering:
@@ -30,34 +30,20 @@ class Detailering:
         return self.vae.encoder(img)
 
     @torch.inference_mode()
-    def vae_decode(self, latent):
-        decoded = self.vae.decoder(latent)
-        return self.vae._tensor_to_pil(decoded)
-
-    def mask_generation(self, mask_arr, latent):
-        if isinstance(mask_arr, np.ndarray):
-            m = torch.from_numpy(mask_arr).float()
-        else:
-            m = mask_arr.float()
-
-        if m.max() > 1.0:
-            m = m / 255.0
-
-        if m.ndim == 2:
-            m = m[None, None]
-        elif m.ndim == 3:
-            m = m[None]
-
-        m = m.to(latent.device, latent.dtype)
-        m_lat = F.interpolate(m, size=latent.shape[-2:], mode="nearest")
-        return (m_lat > 0.5).float()
-
-    @torch.inference_mode()
     def text_encode(self, tags):
-        cond_emb, cond_mask = self.text_encoder.encoder(tags)
-        uncond_emb, uncond_mask = self.text_encoder.encoder([INIT_PROMPT])
+        with gpu_context(self.text_encoder, self.device):
+            cond_emb, cond_mask = self.text_encoder.encoder(tags)
+            uncond_emb, uncond_mask = self.text_encoder.encoder([INIT_PROMPT])
 
         return cond_emb, uncond_emb, cond_mask, uncond_mask
+    
+    @torch.inference_mode()
+    def vae_decode(self, x):
+        with gpu_context(self.vae, self.device):
+            decoded = self.vae.decoder(x)
+
+        img = self.vae._tensor_to_pil(decoded)
+        return img
 
     @torch.inference_mode()
     def sampling(self, tags, calculate_type, cfg_scale, steps, img_bytes, start_t, seed=None, on_step=None):
@@ -73,12 +59,14 @@ class Detailering:
         img = torch.from_numpy(arr).permute(2, 0, 1).float()
         img = img.div_(255.0).unsqueeze(0)
         img = img.to(device=self.device, dtype=self.dtype)
-        latent = self.vae_encode(img)
-        latent = self.vae.upscale_latent(
-            latent,
-            max_side=32,
-            mode="bilinear",
-        )
+
+        with gpu_context(self.vae, self.device):
+            latent = self.vae_encode(img)
+            latent = self.vae.upscale_latent(
+                latent,
+                max_side=32,
+                mode="bilinear",
+            )
 
         gen = torch.Generator(device=self.device)
         if seed is not None:
@@ -120,20 +108,24 @@ class Detailering:
 
             return x
 
-        x = steps_sampling(
-            model=self.model,
-            x=x_t,
-            sigmas=sigmas,
-            calculate_type=calculate_type,
-            cfg_scale=cfg_scale,
-            cond_emb=cond_emb,
-            cond_mask=cond_mask,
-            uncond_emb=uncond_emb,
-            uncond_mask=uncond_mask,
-            gen=gen,
-            dtype=self.dtype,
-            after_step=after_step,
-        )
+        with gpu_context(self.model, self.device):
+            x = steps_sampling(
+                model=self.model,
+                x=x_t,
+                sigmas=sigmas,
+                calculate_type=calculate_type,
+                cfg_scale=cfg_scale,
+                cond_emb=cond_emb,
+                cond_mask=cond_mask,
+                uncond_emb=uncond_emb,
+                uncond_mask=uncond_mask,
+                gen=gen,
+                dtype=self.dtype,
+                after_step=after_step,
+            )
+
+        del cond_emb, uncond_emb, cond_mask, uncond_mask
+        del img, latent, noise, sigmas, x_t
 
         img_out = self.vae_decode(x)
         scale = 2
