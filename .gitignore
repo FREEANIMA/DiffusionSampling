@@ -8,9 +8,10 @@ data/metadata
 .env
 venv/
 scripts/
-
 .vscode/
 .idea/
 
+helper
+generation
 *.tmp
 tree.txt
