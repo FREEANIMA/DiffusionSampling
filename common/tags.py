@@ -16,23 +16,18 @@ class TagGenration:
         self.SAMPLE_RETRY = 5  # 재샘플링 최대 횟수
 
         self.NAS = [
-            "style",
-            "person_count",
-            "gender",
-            "species",
-            "hair_color",
-            "hair_length",
-            "hair_style",
-            "eye_color",
-            "body_type",
-            "clothing",
-            "accessory",
-            "background",
-            "pose",
-            "expression",
-            "composition",
-            "gaze",
-            "sex_act"
+            "style", "person_count", "gender", "species", "hair_color", "hair_length", "hair_style", "eye_color",
+            "body_type", "clothing", "accessory", "background", "pose", "expression", "composition", "gaze", "sex_act"
+        ]
+
+        self.TYPES = self.NAS + [
+            t for t in [
+                "accessory", "age", "animal", "background", "bdsm", "body_part", "body_type", "breast_size",
+                "character", "clothing", "composition", "expression", "eye_color", "eye_state", "fluid",
+                "focus", "food", "footwear", "gaze", "gender", "genital", "genre", "hair_color", "hair_length", "hair_style",
+                "meme", "meta", "nudity_level", "object", "other", "person_count", "pose", "sex_act", "sex_position",
+                "skin", "species", "style", "swimwear", "time_weather", "underwear", "weapon",
+            ] if t not in self.NAS
         ]
 
         self.INIT_PROMPT = "general img; "
@@ -48,7 +43,7 @@ class TagGenration:
         chk = torch.load(ckpt_path, map_location="cpu", weights_only=True)
         config = chk["config"]
         param = asdict(config) if is_dataclass(config) else dict(config)
-        param["vocab_size"] = vocab_size 
+        param["vocab_size"] = vocab_size
 
         self.text_model = Model(**param)
         self.text_model.load_state_dict(chk["model"])
@@ -164,7 +159,7 @@ class TagGenration:
     def text_generation(self, tags_infer, nsfw, H, W, user_tags=None):
         """
         반환: (result_text_list, valid_tag_count)
-        - valid_tag_count: NAS 충돌 제거 후 최종 유효 태그 수 (중복 제거 기준)
+        - valid_tag_count: TYPES 충돌 제거 후 최종 유효 태그 수 (중복 제거 기준)
         """
         nsfw_text = f"nsfw: {str(nsfw).lower()}; "
         size_text = f"size: {H}x{W}; "
@@ -178,30 +173,30 @@ class TagGenration:
                 seen.add(rep)
                 merged.append(t)
 
-        # ── NAS 타입 충돌 제거 (user_tags 우선, tags_infer만 정리) ──
+        # ── TYPES 타입 충돌 제거 (user_tags 우선, tags_infer만 정리) ──
         user_tag_set = set(user_tags or [])
-        used_nas = set()
+        used_types = set()
 
-        # 1) user_tags가 점유한 NAS 타입 먼저 등록 (유저 태그는 전부 유지)
+        # 1) user_tags가 점유한 type 먼저 등록 (유저 태그는 전부 유지)
         for t in (user_tags or []):
             _type = self.type_map.get(t)
-            if _type in self.NAS:
-                used_nas.add(_type)
+            if _type in self.TYPES:
+                used_types.add(_type)
 
-        # 2) merged 순회하며 tags_infer의 NAS 충돌만 제거
+        # 2) merged 순회하며 tags_infer의 type 충돌만 제거
         filtered = []
         for t in merged:
             _type = self.type_map.get(t)
-            if _type in self.NAS:
+            if _type in self.TYPES:
                 if t in user_tag_set:
                     filtered.append(t)      # 유저 태그는 무조건 유지
                     continue
-                if _type in used_nas:
-                    continue                # 이미 점유된 NAS 타입 → tags_infer는 버림
-                used_nas.add(_type)         # tags_infer가 처음 점유
+                if _type in used_types:
+                    continue                # 이미 점유된 type → tags_infer는 버림
+                used_types.add(_type)       # tags_infer가 처음 점유
                 filtered.append(t)
             else:
-                filtered.append(t)          # NAS 아님 / type 없음 → 그대로
+                filtered.append(t)          # type 없음/목록 밖 → 그대로
 
         merged = filtered
         valid_tag_count = len(set(merged))  # 최종 유효 태그 수
@@ -214,8 +209,9 @@ class TagGenration:
             else:
                 grouped.setdefault(_type, []).append(tag)
 
-        ordered_types = [t for t in self.NAS if t in grouped]
-        ordered_types += [t for t in grouped if t not in self.NAS]
+        # TYPES 순서 기준 정렬 (TYPES = NAS + 나머지 → NAS가 자동으로 앞)
+        ordered_types = [t for t in self.TYPES if t in grouped]
+        ordered_types += [t for t in grouped if t not in self.TYPES]
 
         text = "".join(f"{t}: {', '.join(grouped[t])}; " for t in ordered_types)
         others_text = f"others: {', '.join(others)}; " if others else ""
