@@ -30,7 +30,7 @@ python -m pip install -r requirements.txt
 
 ### Configuration
 
-- **Batch Size:** Micro-batch 4 × Gradient Accumulation 16 = Effective Batch 64
+- **Batch Size:** Micro-batch 4 × Gradient Accumulation 8 = Effective Batch 32
 - **Training Speed:** ~2.3 s / optimizer step
 - **Max Resolution:** 1024 × 1024
 - **Dataset:** 2M images
