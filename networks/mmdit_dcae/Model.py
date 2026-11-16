@@ -210,13 +210,13 @@ class Model(nn.Module):
             s = ci * CHUNK
             e = min(s + CHUNK, n)
             for b in self.blocks[s:e]:
-                b.to(device, non_blocking=True)
+                b.to(device)
 
         def _unload(ci):
             s = ci * CHUNK
             e = min(s + CHUNK, n)
             for b in self.blocks[s:e]:
-                b.to("cpu", non_blocking=True)
+                b.to("cpu")
 
         _load(0)
 
