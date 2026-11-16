@@ -120,7 +120,7 @@ class TagGenration:
         return [self.CLS_ID] + body
 
     @torch.inference_mode()
-    def sampling(self, batch, max_new=256, temperature=0.7, top_k=30, top_p=0.9, min_new=8):
+    def sampling(self, batch, max_new=256, temperature=0.7, top_k=30, top_p=0.9, min_new=16):
         ids = batch
         generated = []
 
@@ -132,7 +132,7 @@ class TagGenration:
                 next_logits = next_logits.float() / max(temperature, 1e-5)
                 for bad in (self.PAD_ID, self.CLS_ID, self.UNK_ID):
                     next_logits[:, bad] = float("-inf")
-                if step < min_new:                    # 최소 길이 동안 EOS 차단
+                if step < min_new:
                     next_logits[:, self.EOS_ID] = float("-inf")
 
                 if top_k is not None and top_k > 0:
@@ -188,33 +188,57 @@ class TagGenration:
         others_text = f"others: {', '.join(others)}; " if others else ""
         return [self.INIT_PROMPT + nsfw_text + size_text + text + others_text]
     
-    def tags_mapping_worker(self, tags: str, nsfw, H, W, device=None, fixed: bool = True, isnegative=False):
-        device = device or self.device
-        nsfw_str = "nsfw" if nsfw else "general"
+    def text_generation(self, tags_infer, nsfw, H, W, user_tags=None):
+        nsfw_text = f"nsfw: {str(nsfw).lower()}; "
+        size_text = f"size: {H}x{W}; "
+        merged, seen = [], set()
 
-        user_tags = self.canonicalize(tag_list=tags.split(","))
+        for t in list(user_tags or []) + list(tags_infer):
+            if t in ("<unk>", "<pad>", "<cls>", "<eos>"):
+                continue
+            rep = self.dup_map.get(t, t)
+            if rep not in seen:
+                seen.add(rep)
+                merged.append(t)
 
-        def tags_s():
-            known = [t for t in user_tags if t in self.vocab]
-            dup_list = known + [nsfw_str]
-            random.shuffle(dup_list)
-            ids = self.to_ids(dup_list)
-            batch = torch.tensor([ids], dtype=torch.long, device=device)
-            tags_infer = self.sampling(batch)
+        user_tag_set = set(user_tags or [])
+        used_nas = set()
 
-            return tags_infer
+        for t in (user_tags or []):
+            _type = self.type_map.get(t)
+            if _type in self.NAS:
+                used_nas.add(_type)
 
-        if isnegative:
-            tags_infer = []
-        elif fixed and len(user_tags) < self.MIN_FIXED_TAGS:
-            self.console.put(f"tags 수 부족({len(user_tags)}/{self.MIN_FIXED_TAGS}): 안정을 위해 tag sampling")
-            tags_infer = tags_s()
-        elif fixed:
-            tags_infer = []
-        else:
-            tags_infer = tags_s()
-                
-        return self.text_generation(tags_infer, nsfw, H, W, user_tags=user_tags), tags_infer
+        filtered = []
+        for t in merged:
+            _type = self.type_map.get(t)
+            if _type in self.NAS:
+                if t in user_tag_set:
+                    filtered.append(t)
+                    continue
+                if _type in used_nas:
+                    continue 
+                used_nas.add(_type)
+                filtered.append(t)
+            else:
+                filtered.append(t)
+
+        merged = filtered
+
+        grouped, others = {}, []
+        for tag in merged:
+            _type = self.type_map.get(tag)
+            if _type is None or pd.isna(_type) or not str(_type).strip():
+                others.append(tag)
+            else:
+                grouped.setdefault(_type, []).append(tag)
+
+        ordered_types = [t for t in self.NAS if t in grouped]
+        ordered_types += [t for t in grouped if t not in self.NAS]
+
+        text = "".join(f"{t}: {', '.join(grouped[t])}; " for t in ordered_types)
+        others_text = f"others: {', '.join(others)}; " if others else ""
+        return [self.INIT_PROMPT + nsfw_text + size_text + text + others_text]
 
 def test():
     tag_g = TagGenration()
