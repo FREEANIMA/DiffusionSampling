@@ -1,9 +1,15 @@
+import torch
 from contextlib import contextmanager
 
 @contextmanager
 def gpu_context(module, device="cuda"):
-    module.to(device=device)
+    original_device = next(module.parameters()).device
+
+    if original_device != torch.device(device):
+        module.to(device=device)
+
     try:
         yield module
     finally:
-        module.to(device="cpu")
+        if original_device != torch.device(device):
+            module.to(device=original_device)

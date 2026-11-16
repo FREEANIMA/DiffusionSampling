@@ -304,7 +304,7 @@
         $('mask-editor').style.display = 'block';
 
         $('mask-status').textContent = isDetailer()
-          ? '이미지 로드 완료. 드래그로 영역을 선택하세요.'
+          ? '이미지 로드 완료. 드래그로 영역을 선택하세요. (64px 단위)'
           : '이미지 로드 완료.';
 
         localMask = null;
@@ -342,26 +342,41 @@
   };
 
   // ---------------------------------------------------------
-  // Detailer Rectangle
+  // Detailer Rectangle (64px 배수로 스냅)
   // ---------------------------------------------------------
+
+  const UNIT = 64; // patch_size(2) * compression_ratio(32)
+
+  // len을 UNIT 배수로 반올림하되, 이미지 안에 들어가는 최대치(room)로 제한
+  const snapLen = (len, room) => {
+    const maxLen = Math.floor(room / UNIT) * UNIT;
+    if (maxLen < UNIT) return 0;
+    return Math.min(maxLen, Math.max(UNIT, Math.round(len / UNIT) * UNIT));
+  };
 
   const drawRect = (a, b) => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const x = Math.max(0, Math.min(a[0], b[0]));
-    const y = Math.max(0, Math.min(a[1], b[1]));
-    const right = Math.min(canvas.width, Math.max(a[0], b[0]));
-    const bottom = Math.min(canvas.height, Math.max(a[1], b[1]));
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
 
-    const w = right - x;
-    const h = bottom - y;
+    // 시작점 고정, 드래그 방향으로만 늘어남
+    const w = snapLen(Math.abs(dx), dx >= 0 ? canvas.width - a[0] : a[0]);
+    const h = snapLen(Math.abs(dy), dy >= 0 ? canvas.height - a[1] : a[1]);
 
-    ctx.fillStyle = 'rgba(255,0,0,0.25)';
-    ctx.fillRect(x, y, w, h);
+    let x = Math.round(dx >= 0 ? a[0] : a[0] - w);
+    let y = Math.round(dy >= 0 ? a[1] : a[1] - h);
+    x = Math.max(0, Math.min(x, canvas.width - w));
+    y = Math.max(0, Math.min(y, canvas.height - h));
 
-    ctx.lineWidth = Math.max(2, canvas.width / 400);
-    ctx.strokeStyle = 'rgba(255,0,0,0.95)';
-    ctx.strokeRect(x, y, w, h);
+    if (w > 0 && h > 0) {
+      ctx.fillStyle = 'rgba(255,0,0,0.25)';
+      ctx.fillRect(x, y, w, h);
+
+      ctx.lineWidth = Math.max(2, canvas.width / 400);
+      ctx.strokeStyle = 'rgba(255,0,0,0.95)';
+      ctx.strokeRect(x, y, w, h);
+    }
 
     return { x, y, w, h };
   };
@@ -398,7 +413,8 @@
     if (!drawing) return;
 
     if (isDetailer()) {
-      drawRect(rectStart, getXY(e));
+      const r = drawRect(rectStart, getXY(e));
+      $('mask-status').textContent = `영역 선택 중... ${r.w}×${r.h}`;
     } else {
       draw(e);
     }
@@ -411,7 +427,7 @@
     if (isDetailer() && rectStart) {
       const r = drawRect(rectStart, getXY(e));
 
-      if (r.w >= 8 && r.h >= 8) {
+      if (r.w >= UNIT && r.h >= UNIT) {
         rect = {
           x: Math.round(r.x),
           y: Math.round(r.y),
@@ -535,7 +551,7 @@
     rectStart = null;
 
     $('mask-status').textContent = isDetailer()
-      ? '드래그로 영역을 선택하세요.'
+      ? '드래그로 영역을 선택하세요. (64px 단위)'
       : '마스크를 그린 뒤 Finish mask를 눌러주세요.';
   };
 

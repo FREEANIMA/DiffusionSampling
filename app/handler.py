@@ -39,10 +39,17 @@ class Handler:
         self.console = console_q()
 
         self.model, self.config = load_mmdit_dcae()
-        self.model = self.model.to(device="cpu", dtype=dtype)
-        self.text_encoder = T5TextModel(device="cpu", dtype=dtype, console=self.console)
+
+        position = input("model upload on gpu(y or n): ") == "y"
+        if position:
+            init_device = self.device
+        else:
+            init_device = "cpu"
+        
+        self.model = self.model.to(device=init_device, dtype=dtype)
+        self.text_encoder = T5TextModel(device=init_device, dtype=dtype, console=self.console)
         self.vae = VaeModel(device="cpu", dtype=torch.float32, console=self.console)
-        self.tag_generation = TagGenration(device="cpu", dtype=dtype, console=self.console)
+        self.tag_generation = TagGenration(device=init_device, dtype=dtype, console=self.console)
 
         self.f = self.config["compression_ratio"]
         self.patch_size = self.config["patch_size"]
@@ -182,14 +189,20 @@ class Handler:
         self.progress.reset()
         img = Image.open(img_path).convert("RGB")
 
+        unit = self.f * self.patch_size  # 32 * 2 = 64
+
         left, top, right, bottom = box
         left, top = max(int(left), 0), max(int(top), 0)
         right, bottom = min(int(right), img.width), min(int(bottom), img.height)
 
-        if right - left < 8 or bottom - top < 8:
-            raise ValueError("선택한 영역이 너무 작거나 이미지 밖이에요.")
+        # 좌상단 고정, 크기를 unit 배수로 내림 (이미지 밖으로 나가지 않음)
+        w = (right - left) // unit * unit
+        h = (bottom - top) // unit * unit
 
-        box = (left, top, right, bottom)
+        if w < unit or h < unit:
+            raise ValueError(f"선택한 영역이 너무 작거나 이미지 밖이에요. (최소 {unit}px)")
+
+        box = (left, top, left + w, top + h)
         crop_img = img.crop(box)
 
         buf = io.BytesIO()
@@ -197,7 +210,7 @@ class Handler:
         img_bytes = buf.getvalue()
 
         tags_reshape = [self.tag_generation.INIT_PROMPT]
-        self.console.put(f"{tags_reshape}")
+        self.console.put(f"{tags_reshape} box={box} ({w}x{h})")
 
         img_out = self.detailer.sampling(
             tags=tags_reshape,

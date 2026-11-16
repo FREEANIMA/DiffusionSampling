@@ -3,10 +3,9 @@ from datetime import datetime
 
 import numpy as np
 import torch
-import torch.nn.functional as F
 from PIL import Image, ImageFilter
 
-from src.utilities import sigma_schedular, steps_sampling, img_pad, gpu_context
+from src.utilities import sigma_schedular, steps_sampling, img_resize, gpu_context
 INIT_PROMPT = "general img; "
 
 class Detailering:
@@ -47,26 +46,12 @@ class Detailering:
 
     @torch.inference_mode()
     def sampling(self, tags, calculate_type, cfg_scale, steps, img_bytes, start_t, seed=None, on_step=None):
-
-        arr, H, W, padding = img_pad(
-            img_bytes,
-            self.patch_size,
-            self.f,
-        )
-
-        left, top, right, bottom = padding
-
-        img = torch.from_numpy(arr).permute(2, 0, 1).float()
-        img = img.div_(255.0).unsqueeze(0)
+        arr, H, W = img_resize(img_bytes, self.allowable_size, self.patch_size, self.f)
+        img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
         img = img.to(device=self.device, dtype=self.dtype)
 
         with gpu_context(self.vae, self.device):
             latent = self.vae_encode(img)
-            latent = self.vae.upscale_latent(
-                latent,
-                max_side=32,
-                mode="bilinear",
-            )
 
         gen = torch.Generator(device=self.device)
         if seed is not None:
@@ -127,20 +112,7 @@ class Detailering:
         del cond_emb, uncond_emb, cond_mask, uncond_mask
         del img, latent, noise, sigmas, x_t
 
-        img_out = self.vae_decode(x)
-        scale = 2
-
-        original_w = W - left - right
-        original_h = H - top - bottom
-
-        img_out = img_out.crop((
-            left * scale,
-            top * scale,
-            (left + original_w) * scale,
-            (top + original_h) * scale,
-        ))
-
-        return img_out
+        return self.vae_decode(x)
 
     def merge_img(self, origin_img, img_out, square, save_dir, feather=16, img_in=None):
         left, top, right, bottom = square
