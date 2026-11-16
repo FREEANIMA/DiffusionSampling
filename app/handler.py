@@ -194,6 +194,7 @@ class Handler:
         img_bytes = buf.getvalue()
 
         tags_reshape = [self.tag_generation.INIT_PROMPT]
+        self.console.put(f"{tags_reshape}")
 
         img_out = self.detailer.sampling(
             tags=tags_reshape,
