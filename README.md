@@ -96,4 +96,6 @@
 
 ![inpainting](assets/inpainting.png)
 
-![result](asserts/inpaintbf.png)
+- **Result**
+
+![result](assets/inpaintbf.png)
