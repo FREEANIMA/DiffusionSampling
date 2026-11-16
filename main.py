@@ -3,14 +3,12 @@ from huggingface_hub import login
 
 COLAB_ROOT = "/content/drive/MyDrive/model/mmdit_sampling"
 
-
 def is_colab() -> bool:
     try:
         import google.colab  # noqa: F401
         return True
     except ImportError:
         return False
-
 
 def get_root() -> str:
     if is_colab():
@@ -23,7 +21,6 @@ def get_root() -> str:
         return COLAB_ROOT
 
     return os.path.dirname(os.path.abspath(__file__))
-
 
 def hf_login():
     token = os.environ.get("HF_TOKEN")
