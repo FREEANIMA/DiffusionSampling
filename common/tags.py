@@ -13,6 +13,7 @@ class TagGenration:
         self.dtype = dtype
         self.MIN_TAG_FREQ = 15
         self.MIN_FIXED_TAGS = 15
+        self.SAMPLE_RETRY = 5  # 재샘플링 최대 횟수
 
         self.NAS = [
             "style",
@@ -159,8 +160,12 @@ class TagGenration:
                 next_logits = logits[:, -1, :]
 
         return [self.id_to_tag.get(i, f"<{i}>") for i in generated]
-    
+
     def text_generation(self, tags_infer, nsfw, H, W, user_tags=None):
+        """
+        반환: (result_text_list, valid_tag_count)
+        - valid_tag_count: NAS 충돌 제거 후 최종 유효 태그 수 (중복 제거 기준)
+        """
         nsfw_text = f"nsfw: {str(nsfw).lower()}; "
         size_text = f"size: {H}x{W}; "
         merged, seen = [], set()
@@ -173,57 +178,33 @@ class TagGenration:
                 seen.add(rep)
                 merged.append(t)
 
-        grouped, others = {}, []
-        for tag in merged:
-            _type = self.type_map.get(tag)
-            if _type is None or pd.isna(_type) or not str(_type).strip():
-                others.append(tag)
-            else:
-                grouped.setdefault(_type, []).append(tag)
-
-        ordered_types = [t for t in self.NAS if t in grouped]
-        ordered_types += [t for t in grouped if t not in self.NAS]
-
-        text = "".join(f"{t}: {', '.join(grouped[t])}; " for t in ordered_types)
-        others_text = f"others: {', '.join(others)}; " if others else ""
-        return [self.INIT_PROMPT + nsfw_text + size_text + text + others_text]
-    
-    def text_generation(self, tags_infer, nsfw, H, W, user_tags=None):
-        nsfw_text = f"nsfw: {str(nsfw).lower()}; "
-        size_text = f"size: {H}x{W}; "
-        merged, seen = [], set()
-
-        for t in list(user_tags or []) + list(tags_infer):
-            if t in ("<unk>", "<pad>", "<cls>", "<eos>"):
-                continue
-            rep = self.dup_map.get(t, t)
-            if rep not in seen:
-                seen.add(rep)
-                merged.append(t)
-
+        # ── NAS 타입 충돌 제거 (user_tags 우선, tags_infer만 정리) ──
         user_tag_set = set(user_tags or [])
         used_nas = set()
 
+        # 1) user_tags가 점유한 NAS 타입 먼저 등록 (유저 태그는 전부 유지)
         for t in (user_tags or []):
             _type = self.type_map.get(t)
             if _type in self.NAS:
                 used_nas.add(_type)
 
+        # 2) merged 순회하며 tags_infer의 NAS 충돌만 제거
         filtered = []
         for t in merged:
             _type = self.type_map.get(t)
             if _type in self.NAS:
                 if t in user_tag_set:
-                    filtered.append(t)
+                    filtered.append(t)      # 유저 태그는 무조건 유지
                     continue
                 if _type in used_nas:
-                    continue 
-                used_nas.add(_type)
+                    continue                # 이미 점유된 NAS 타입 → tags_infer는 버림
+                used_nas.add(_type)         # tags_infer가 처음 점유
                 filtered.append(t)
             else:
-                filtered.append(t)
+                filtered.append(t)          # NAS 아님 / type 없음 → 그대로
 
         merged = filtered
+        valid_tag_count = len(set(merged))  # 최종 유효 태그 수
 
         grouped, others = {}, []
         for tag in merged:
@@ -238,7 +219,60 @@ class TagGenration:
 
         text = "".join(f"{t}: {', '.join(grouped[t])}; " for t in ordered_types)
         others_text = f"others: {', '.join(others)}; " if others else ""
-        return [self.INIT_PROMPT + nsfw_text + size_text + text + others_text]
+        return [self.INIT_PROMPT + nsfw_text + size_text + text + others_text], valid_tag_count
+
+    def tags_mapping_worker(self, tags: str, nsfw, H, W, device=None, fixed: bool = True, isnegative=False):
+        device = device or self.device
+        nsfw_str = "nsfw" if nsfw else "general"
+
+        user_tags = self.canonicalize(tag_list=tags.split(","))
+
+        def tags_s():
+            known = [t for t in user_tags if t in self.vocab]
+            dup_list = known + [nsfw_str]
+            random.shuffle(dup_list)
+            ids = self.to_ids(dup_list)
+            batch = torch.tensor([ids], dtype=torch.long, device=device)
+            tags_infer = self.sampling(batch)
+
+            return tags_infer
+
+        if isnegative:
+            tags_infer = []
+            result, _ = self.text_generation(tags_infer, nsfw, H, W, user_tags=user_tags)
+            return result, tags_infer
+
+        if not fixed:
+            tags_infer = tags_s()
+            result, _ = self.text_generation(tags_infer, nsfw, H, W, user_tags=user_tags)
+            return result, tags_infer
+
+        # fixed=True
+        if len(user_tags) >= self.MIN_FIXED_TAGS:
+            tags_infer = []
+            result, _ = self.text_generation(tags_infer, nsfw, H, W, user_tags=user_tags)
+            return result, tags_infer
+
+        # 태그 수 부족 → 재샘플링으로 MIN_FIXED_TAGS 채우기 (best-effort)
+        if self.console is not None:
+            self.console.put(f"tags 수 부족({len(user_tags)}/{self.MIN_FIXED_TAGS}): 안정을 위해 tag sampling")
+
+        best_result, best_infer, best_count = None, [], -1
+        for _ in range(self.SAMPLE_RETRY):
+            tags_infer = tags_s()
+            result, count = self.text_generation(tags_infer, nsfw, H, W, user_tags=user_tags)
+
+            if count > best_count:
+                best_result, best_infer, best_count = result, tags_infer, count
+
+            if count >= self.MIN_FIXED_TAGS:
+                break
+
+        if self.console is not None and best_count < self.MIN_FIXED_TAGS:
+            self.console.put(f"재샘플링 후에도 tags 부족({best_count}/{self.MIN_FIXED_TAGS})")
+
+        return best_result, best_infer
+
 
 def test():
     tag_g = TagGenration()
