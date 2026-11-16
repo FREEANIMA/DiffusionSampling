@@ -238,6 +238,10 @@ class Handler:
             start_t=float(start_t),
             on_step=self.progress.update,
         )
+        
+        if img_out.size != (w, h):
+            print(f"[fix] resize {img_out.size} -> ({w}, {h})")
+            img_out = img_out.resize((w, h), Image.Resampling.LANCZOS)
 
         return self.detailer.merge_img(
             origin_img=img,
