@@ -115,7 +115,7 @@ class TagGenration:
         return [self.CLS_ID] + body
 
     @torch.inference_mode()
-    def sampling(self, batch, max_new=256, temperature=0.7, top_k=30, top_p=0.9, min_new=16):
+    def sampling(self, batch, max_new=256, temperature=1.0, top_k=30, top_p=0.9, min_new=20):
         ids = batch
         generated = []
 
@@ -172,17 +172,14 @@ class TagGenration:
                 seen.add(rep)
                 merged.append(t)
 
-        # ── TYPES 타입 충돌 제거 (user_tags 우선, tags_infer만 정리) ──
         user_tag_set = set(user_tags or [])
         used_types = set()
 
-        # 1) user_tags가 점유한 type 먼저 등록 (유저 태그는 전부 유지)
         for t in (user_tags or []):
             _type = self.type_map.get(t)
             if _type in self.TYPES:
                 used_types.add(_type)
 
-        # 2) merged 순회하며 tags_infer의 type 충돌만 제거
         filtered = []
         for t in merged:
             _type = self.type_map.get(t)
