@@ -35,7 +35,9 @@ block chunk size (1~8, recommended 4):
 - Up to `2 × CHUNK` layers are resident with prefetch.
 
 Trade-off: VRAM drops from ~15GB to ~3GB, but inference is slower due to
-CPU-GPU PCIe transfers.
+CPU-GPU PCIe transfers. Output quality may also be slightly lower than full
+GPU mode (differences in floating-point precision and kernel accumulation
+order across CPU↔GPU transfers).
 
 ## Installation
 ```bash
