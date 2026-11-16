@@ -1,4 +1,7 @@
-# MMDIT
+# Diffusion MMDiT with DC-AE f32c32
+
+## Requirements
+- **Inference:** Min VRAM 15GB
 
 ![MMDIT](assets/sample.png)
 
