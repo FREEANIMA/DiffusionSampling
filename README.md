@@ -1,6 +1,6 @@
 # Diffusion MMDiT with DC-AE f32c32
 
-## Requirements
+## Inference Requirements
 - **Inference:** Min VRAM 15GB
 - **Storage:** Min 30GB free disk space (excluding `requirements.txt` packages)
 - **Environment:** Local & Google Colab supported
@@ -20,7 +20,7 @@ python -m pip install -r requirements.txt
 - **Implementation:** Custom implementation (no pretrained base model)
 - **Parameters:** 4B
 
-## Environment
+## Train Environment
 
 - **Framework:** PyTorch (no custom CUDA kernels)
 - **GPU:** NVIDIA RTX PRO 6000 (96GB VRAM)
