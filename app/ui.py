@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import io
 import json
+import logging
 import sys
 import threading
 import traceback
@@ -12,6 +13,7 @@ from flask import Flask, jsonify, request, Response
 from PIL import Image
 
 from .handler import Handler
+
 
 class UI:
     ASSET_DIR = Path(__file__).with_name("ui_assets")
@@ -206,6 +208,9 @@ class UI:
             colab = "google.colab" in sys.modules  # 자동 감지
 
         def serve():
+            # Werkzeug 액세스 로그 끄기 (에러는 유지)
+            logging.getLogger("werkzeug").setLevel(logging.ERROR)
+
             self.app.run(
                 host=host,
                 port=port,
