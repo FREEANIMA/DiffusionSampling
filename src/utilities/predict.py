@@ -3,13 +3,12 @@ from tqdm.auto import tqdm
 from .solvers import euler, heun, ddim, ddpm_plus
 
 @torch.inference_mode()
-def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_mask,
-                     cfg_scale, dtype, n_emb=None, n_mask=None, n_cfg_scale=0.0):
+def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_mask, cfg_scale, dtype):
     x_in = x.to(dtype)
     sig = sigma.expand(x.shape[0])
 
     use_cfg = cfg_scale != 1.0
-    use_neg = (n_emb is not None) and (n_cfg_scale != 0.0)
+
 
     def fwd(emb, mask):
         out, _ = model.forward(x=x_in, sigma=sig, txt_emb=emb, txt_mask=mask)
@@ -21,22 +20,16 @@ def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_ma
         if use_cfg:
             u = fwd(uncond_emb, uncond_mask)
             v = u + cfg_scale * (c - u)
-        if use_neg:
-            n = fwd(n_emb, n_mask)
-            v = v + n_cfg_scale * (c - n)
+
     return v
 
 @torch.inference_mode()
-def steps_sampling(model, x, sigmas, calculate_type, cfg_scale,
-                   cond_emb, cond_mask, uncond_emb, uncond_mask,
-                   gen, dtype, after_step=None,
-                   n_emb=None, n_mask=None, n_cfg_scale=0.0):
+def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gen, dtype, after_step=None):
     model.eval()
     n = len(sigmas) - 1
     kw = dict(model=model, cond_emb=cond_emb, cond_mask=cond_mask,
               uncond_emb=uncond_emb, uncond_mask=uncond_mask,
-              cfg_scale=cfg_scale, dtype=dtype,
-              n_emb=n_emb, n_mask=n_mask, n_cfg_scale=n_cfg_scale)
+              cfg_scale=cfg_scale, dtype=dtype)
 
     v_prev, sigma_prev = None, None
 

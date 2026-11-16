@@ -77,7 +77,30 @@ class UI:
             return img.convert("L")
 
     def _generate(self, p: dict):
-        seed_text = str(p.get("seed", "-1")).strip()
+        mode = p["mode"]
+
+        if mode in ("inpainting", "detailer"):
+            img_path = str(p.get("img_path", "")).strip()
+
+            if not img_path or not Path(img_path).is_file():
+                raise FileNotFoundError(f"Image not found: {img_path}")
+
+            if mode == "detailer":
+                r = p.get("rect")
+                if not r:
+                    raise ValueError("사각형 영역이 필요합니다.")
+
+                x, y = int(r["x"]), int(r["y"])
+                box = (x, y, x + int(r["w"]), y + int(r["h"]))
+
+                return self.handler.generate_detailering(
+                    calc_type=p["sampler"],
+                    steps=int(p["steps"]),
+                    seed=int(str(p.get("seed", "-1")).strip() or "-1"),
+                    img_path=img_path,
+                    box=box,
+                    start_t=float(p.get("start_t", 0.3)),
+                )
 
         common = dict(
             tags_text=p["tags"],
@@ -85,49 +108,27 @@ class UI:
             calc_type=p["sampler"],
             cfg_scale=float(p["cfg"]),
             steps=int(p["steps"]),
-            seed=int(seed_text) if seed_text else -1,
+            seed=int(str(p.get("seed", "-1")).strip() or "-1"),
             fixed=bool(p.get("fixed", True)),
         )
 
-        if p["mode"] == "txt2img":
+        if mode == "txt2img":
             return self.handler.generate_txt2img(
                 H=int(p["H"]),
                 W=int(p["W"]),
                 **common,
             )
 
-        if p["mode"] in ("inpainting", "detailer"):
-            img_path = str(p["img_path"]).strip()
-
-            if not img_path or not Path(img_path).is_file():
-                raise FileNotFoundError(f"Image not found: {img_path}")
-
-            if p["mode"] == "inpainting":
-                mask = self._b64_to_pil(p.get("mask") or "")
-                return self.handler.generate_inpainting(
-                    img_path=img_path,
-                    mask=mask,
-                    start_t=float(p.get("start_t", 0.9)),
-                    **common,
-                )
-
-            r = p.get("rect")
-            if not r:
-                raise ValueError("사각형 영역이 필요합니다.")
-
-            x, y = int(r["x"]), int(r["y"])
-            box = (x, y, x + int(r["w"]), y + int(r["h"]))
-
-            return self.handler.generate_detailering(
+        if mode == "inpainting":
+            mask = self._b64_to_pil(p.get("mask") or "")
+            return self.handler.generate_inpainting(
                 img_path=img_path,
-                box=box,
-                start_t=float(p.get("start_t", 0.85)),
-                neg_tags_text=str(p.get("neg_tags", "") or ""),
-                n_cfg_scale=float(p.get("n_cfg", 0) or 0),
+                mask=mask,
+                start_t=float(p.get("start_t", 0.9)),
                 **common,
             )
 
-        raise ValueError(f"Unknown mode: {p['mode']}")
+        raise ValueError(f"Unknown mode: {mode}")
 
     def _register_routes(self):
 

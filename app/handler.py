@@ -170,20 +170,13 @@ class Handler:
             save_dir=os.path.join(self.base_root, "inpainting")
         )
 
-    def generate_detailering(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, box=None, start_t: float = 0.7,
-                             neg_tags_text: str = "", n_cfg_scale: float = 0.0):
-        TARGET_W = 768
-        TARGET_H = 1024
-
+    def generate_detailering(self, calc_type, steps, seed, img_path, box=None, start_t: float = 0.3, cfg_scale=1.0):
         if img_path is None:
             raise ValueError("경로를 입력해 주세요")
         if box is None:
             raise ValueError("영역(box)이 필요합니다.")
 
         self.progress.reset()
-        tags_text = tags_text.lower()
-        neg_tags_text = (neg_tags_text or "").strip().lower()
-
         img = Image.open(img_path).convert("RGB")
 
         left, top, right, bottom = box
@@ -200,22 +193,10 @@ class Handler:
         crop_img.save(buf, format="PNG")
         img_bytes = buf.getvalue()
 
-        tags_reshape = self._resolve_tags(tags_text, nsfw, TARGET_H, TARGET_W, fixed)
-
-        n_cfg_scale = float(n_cfg_scale)
-        neg_tags_reshape = None
-        if neg_tags_text and n_cfg_scale != 0.0:
-            neg_tags_reshape = self._resolve_tags(
-                neg_tags_text, nsfw, TARGET_H, TARGET_W, True,
-                record=False, label="negative tags", isnegative=True,
-            )
-        else:
-            n_cfg_scale = 0.0
+        tags_reshape = [self.tag_generation.INIT_PROMPT]
 
         img_out = self.detailer.sampling(
             tags=tags_reshape,
-            neg_tags=neg_tags_reshape,
-            n_cfg_scale=n_cfg_scale,
             calculate_type=calc_type,
             cfg_scale=float(cfg_scale),
             steps=int(steps),
