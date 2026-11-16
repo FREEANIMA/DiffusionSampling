@@ -81,25 +81,33 @@ class VaeModel():
 
         return images
 
+
     @torch.no_grad()
-    def upscale_latent(self, latent, scale_factor=2.0, mode="bilinear"):
+    def upscale_latent(self, latent, max_side=32, mode="bilinear"):
         latent = latent.to(
             device=self.device,
             dtype=self.dtype,
             non_blocking=True,
         )
 
+        _, _, H, W = latent.shape
+
+        scale = max_side / max(H, W)
+
+        new_h = max(1, round(H * scale))
+        new_w = max(1, round(W * scale))
+
         if mode in ("bilinear", "bicubic"):
             latent = F.interpolate(
                 latent,
-                scale_factor=scale_factor,
+                size=(new_h, new_w),
                 mode=mode,
                 align_corners=False,
             )
         else:
             latent = F.interpolate(
                 latent,
-                scale_factor=scale_factor,
+                size=(new_h, new_w),
                 mode=mode,
             )
 

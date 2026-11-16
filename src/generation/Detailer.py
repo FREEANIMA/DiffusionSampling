@@ -62,8 +62,7 @@ class Detailering:
         return cond_emb, uncond_emb, cond_mask, uncond_mask, n_emb, n_mask
 
     @torch.inference_mode()
-    def sampling(self, tags, calculate_type, cfg_scale, steps, img_bytes, start_t,
-                seed=None, on_step=None, neg_tags=None, n_cfg_scale=0.0):
+    def sampling(self, tags, calculate_type, cfg_scale, steps, img_bytes, start_t, seed=None, on_step=None, neg_tags=None, n_cfg_scale=0.0):
 
         arr, H, W, padding = img_pad(
             img_bytes,
@@ -79,9 +78,10 @@ class Detailering:
         latent = self.vae_encode(img)
         latent = self.vae.upscale_latent(
             latent,
-            scale_factor=2.0,
+            max_side=32,
             mode="bilinear",
         )
+
         gen = torch.Generator(device=self.device)
         if seed is not None:
             gen.manual_seed(seed)
