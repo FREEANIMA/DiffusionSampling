@@ -100,4 +100,4 @@
 
 ![result](assets/inpaintbf.png)
 
-**git hub link ** https://github.com/FREEANIMA/DiffusionSampling.git
+- **GITHUB link** https://github.com/FREEANIMA/DiffusionSampling.git
