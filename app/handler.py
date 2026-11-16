@@ -49,7 +49,7 @@ class Handler:
         self.model = self.model.to(device=init_device, dtype=dtype)
         self.text_encoder = T5TextModel(device=init_device, dtype=dtype, console=self.console)
         self.vae = VaeModel(device="cpu", dtype=torch.float32, console=self.console)
-        self.tag_generation, self.text_model= TagGenration(device=init_device, dtype=dtype, console=self.console)
+        self.tag_generation = TagGenration(device=init_device, dtype=dtype, console=self.console)
 
         self.f = self.config["compression_ratio"]
         self.patch_size = self.config["patch_size"]
