@@ -24,3 +24,6 @@ class console_q:
                 out.append(self._q.get_nowait())
             except queue.Empty:
                 return out
+
+INIT_DEVICE = None
+BLOCK_CHUNK = None

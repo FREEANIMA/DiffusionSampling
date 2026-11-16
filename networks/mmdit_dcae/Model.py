@@ -7,6 +7,7 @@ from .patch_embedding import PatchEmbedding
 from .sinusoidal_pos_emb import SinusoidalPosEmb
 from .Rope2D import Rope2D
 from .Block import Block
+import common.globals as g
 
 class Model(nn.Module):
     def __init__(self, hidden_size, nhead, num_layers, dropout, pos_scale,
@@ -138,6 +139,120 @@ class Model(nn.Module):
         pred_velocity = self.patch_embedding.unpatchify(
             pred_velocity, MAX * p, MAX * p, out_channels=self.in_channels
         )
+        pred_velocity = pred_velocity[:, :, :H, :W]
+
+        return pred_velocity, _stats
+    
+    @torch.inference_mode()
+    def forward_cpu(self, x, sigma, txt_emb, txt_mask=None, collects_stats=False, attn_collects_stats=False):
+        B, C, H, W = x.shape
+        device = x.device
+        p = self.patch_size
+        h, w = H // p, W // p
+        MAX = self.max_side
+        assert h <= MAX and w <= MAX, f"token grid {h}x{w} > {MAX}x{MAX}"
+
+        pad_h, pad_w = (MAX - h) * p, (MAX - w) * p
+        if pad_h or pad_w:
+            x = F.pad(x, (0, pad_w, 0, pad_h))
+
+        img_emb = self.patch_embedding(x)
+        T_img = MAX * MAX
+
+        txt_emb = self.txt_emb(txt_emb)
+
+        sigma = sigma.to(device=device, dtype=torch.float32)
+        sigma_emb = self.sigma_proj(sigma * self.sigma_scale)
+        sigma_norm = self.sigma_norm(self.sigma_embed(sigma_emb))
+
+        # Mask
+        img_mask = torch.zeros(MAX, MAX, dtype=torch.bool, device=device)
+        img_mask[:h, :w] = True
+        img_mask = img_mask.reshape(1, T_img).expand(B, -1)
+
+        if txt_mask is None:
+            txt_mask = torch.ones(
+                B, txt_emb.shape[1],
+                dtype=torch.bool,
+                device=device
+            )
+        else:
+            txt_mask = txt_mask.to(device=device, dtype=torch.bool)
+
+        full_mask = torch.cat([img_mask, txt_mask], dim=1)
+
+        attn_mask = torch.zeros(
+            full_mask.shape,
+            dtype=img_emb.dtype,
+            device=device
+        )
+        attn_mask = attn_mask.masked_fill(
+            ~full_mask,
+            torch.finfo(img_emb.dtype).min
+        )
+        attn_mask = attn_mask[:, None, None, :]
+
+        param = {
+            "vec": sigma_norm,
+            "H": MAX,
+            "W": MAX,
+            "attn_mask": attn_mask,
+            "collects_stats": collects_stats,
+            "attn_collects_stats": attn_collects_stats,
+        }
+        _stats = {}
+
+        n = len(self.blocks)
+        CHUNK = max(1, getattr(g, "BLOCK_CHUNK", 1))
+        num_chunks = (n + CHUNK - 1) // CHUNK
+
+        def _load(ci):
+            s = ci * CHUNK
+            e = min(s + CHUNK, n)
+            for b in self.blocks[s:e]:
+                b.to(device, non_blocking=True)
+
+        def _unload(ci):
+            s = ci * CHUNK
+            e = min(s + CHUNK, n)
+            for b in self.blocks[s:e]:
+                b.to("cpu", non_blocking=True)
+
+        _load(0)
+
+        for ci in range(num_chunks):
+            if ci + 1 < num_chunks:
+                _load(ci + 1)
+
+            s = ci * CHUNK
+            e = min(s + CHUNK, n)
+            for j, b in enumerate(self.blocks[s:e]):
+                img_emb, txt_emb, stats = b(
+                    img_emb=img_emb,
+                    txt_emb=txt_emb,
+                    **param
+                )
+                _stats[s + j] = stats
+
+            if ci + 1 < num_chunks:
+                _unload(ci)
+
+        _unload(num_chunks - 1)
+
+        shift, scale = self.final_mod(sigma_norm).chunk(2, dim=-1)
+
+        x_final = self.norm(img_emb)
+        x_final = x_final * (1 + scale[:, None, :]) + shift[:, None, :]
+
+        pred_velocity = self.output_proj(x_final)
+
+        pred_velocity = self.patch_embedding.unpatchify(
+            pred_velocity,
+            MAX * p,
+            MAX * p,
+            out_channels=self.in_channels
+        )
+
         pred_velocity = pred_velocity[:, :, :H, :W]
 
         return pred_velocity, _stats

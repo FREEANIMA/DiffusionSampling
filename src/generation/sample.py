@@ -1,9 +1,9 @@
 import os
-from tqdm.auto import tqdm
 from datetime import datetime
 import torch
 import random
 from src.utilities import sigma_schedular, steps_sampling, gpu_context
+import common.globals as g
 
 INIT_PROMPT = "general img; "
 
@@ -44,11 +44,11 @@ class Sampling:
 
     @torch.inference_mode()
     def sampling(self, tags, calculate_type, cfg_scale, steps, H, W, seed=None, on_step=None):
+
         if seed is None:
             seed = random.randint(0, 2**32 - 1)
 
         cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=tags)
-
 
         gen = torch.Generator(device=self.device)
         gen.manual_seed(seed)
@@ -74,21 +74,28 @@ class Sampling:
                 on_step(min(done, total), total)
             return x
 
-        with gpu_context(self.model, self.device):
-            x = steps_sampling(
-                model=self.model,
-                x=noise,
-                sigmas=sigmas,
-                calculate_type=calculate_type,
-                cfg_scale=cfg_scale,
-                cond_emb=cond_emb,
-                cond_mask=cond_mask,
-                uncond_emb=uncond_emb,
-                uncond_mask=uncond_mask,
-                gen=gen,
-                dtype=self.dtype,
-                after_step=after_step,
-            )
+        if g.INIT_DEVICE == "cpu":
+            self.model.to(self.device)
+            self.model.blocks.to("cpu")
+            torch.cuda.empty_cache()   
+
+        x = steps_sampling(
+            model=self.model,
+            x=noise,
+            sigmas=sigmas,
+            calculate_type=calculate_type,
+            cfg_scale=cfg_scale,
+            cond_emb=cond_emb,
+            cond_mask=cond_mask,
+            uncond_emb=uncond_emb,
+            uncond_mask=uncond_mask,
+            gen=gen,
+            dtype=self.dtype,
+            after_step=after_step,
+        )
+
+        if g.INIT_DEVICE == "cpu":
+            self.model.to("cpu")
 
         del cond_emb, uncond_emb, cond_mask, uncond_mask
         del noise, sigmas

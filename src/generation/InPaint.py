@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from PIL import Image
+import common.globals as g
 
 from src.utilities import sigma_schedular, steps_sampling, img_resize, gpu_context
 INIT_PROMPT = "general img; "
@@ -112,19 +113,25 @@ class InPainting:
             orig_t = (1 - s) * latent + s * noise
             return (1 - mask_lat) * orig_t + mask_lat * x
 
-        with gpu_context(self.model, self.device):
-            x = steps_sampling(
-                model=self.model,
-                x=x_t,
-                sigmas=sigmas,
-                calculate_type=calculate_type,
-                cfg_scale=cfg_scale,
-                cond_emb=cond_emb, cond_mask=cond_mask,
-                uncond_emb=uncond_emb, uncond_mask=uncond_mask,
-                gen=gen,
-                dtype=self.dtype,
-                after_step=after_step,
-            )
+        if g.INIT_DEVICE == "cpu":
+            self.model.to(self.device)
+            self.model.blocks.to("cpu")
+            torch.cuda.empty_cache() 
+            
+        x = steps_sampling(
+            model=self.model,
+            x=x_t,
+            sigmas=sigmas,
+            calculate_type=calculate_type,
+            cfg_scale=cfg_scale,
+            cond_emb=cond_emb, cond_mask=cond_mask,
+            uncond_emb=uncond_emb, uncond_mask=uncond_mask,
+            gen=gen,
+            dtype=self.dtype,
+            after_step=after_step,
+        )
+        if g.INIT_DEVICE == "cpu":
+            self.model.to("cpu")
 
         del cond_emb, uncond_emb, cond_mask, uncond_mask
         del latent, mask_lat, noise, x_t, orig_at_start, sigmas

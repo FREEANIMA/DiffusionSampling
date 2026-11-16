@@ -1,6 +1,8 @@
 import torch
 from tqdm.auto import tqdm
 from .solvers import euler, heun, ddim, ddpm_plus
+from .move_device import gpu_context
+import common.globals as g
 
 @torch.inference_mode()
 def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_mask, cfg_scale, dtype):
@@ -8,13 +10,16 @@ def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_ma
     sig = sigma.expand(x.shape[0])
 
     use_cfg = cfg_scale != 1.0
-
-
+    
     def fwd(emb, mask):
-        out, _ = model.forward(x=x_in, sigma=sig, txt_emb=emb, txt_mask=mask)
+        if g.INIT_DEVICE == "cpu":
+            out, _ = model.forward_cpu(x=x_in, sigma=sig, txt_emb=emb, txt_mask=mask)
+        else:
+            out, _ = model.forward(x=x_in, sigma=sig, txt_emb=emb, txt_mask=mask)
+
         return out.float()
 
-    with torch.amp.autocast(device_type="cuda", dtype=dtype):
+    with torch.amp.autocast(device_type=x.device.type, dtype=dtype):
         c = fwd(cond_emb, cond_mask)
         v = c
         if use_cfg:

@@ -8,6 +8,7 @@ from collections import deque
 import os
 import io
 from src.utilities import gpu_context
+import common.globals as g
 
 def _parse_seed(seed) -> Optional[int]:
     return None if seed in (None, "", -1, "-1") else int(seed)
@@ -43,6 +44,22 @@ class Handler:
             init_device = self.device
         else:
             init_device = "cpu"
+            num_layers = len(self.model.blocks)
+            max_chunk = max(1, num_layers // 4)
+
+            print(f"[info] 1 block ≈ 0.27GB")
+            print(f"[info] CHUNK = number of layers loaded onto GPU at once")
+            print(f"[info] e.g. CHUNK=4 => 4 layers x {num_layers//4} rounds, "
+                f"up to 8 layers (~2.2GB) with prefetch")
+
+            while True:
+                raw = input(f"block chunk size (1~{max_chunk}, recommended 4): ").strip()
+                if raw.isdigit() and 1 <= int(raw) <= max_chunk:
+                    g.BLOCK_CHUNK = int(raw)
+                    break
+                print(f"Please enter an integer between 1 and {max_chunk}")
+
+        g.INIT_DEVICE = init_device
 
         self.model, self.config = load_mmdit_dcae()
         self.model = self.model.to(device=init_device, dtype=dtype)
