@@ -1,5 +1,6 @@
 from .solvers import heun, ddim, ddpm_plus, euler
 from .resize_worker import img_resize
+from .img_pad_insert import img_pad
 from .sigma import sigma_schedular
 from .predict import velocity_predict, steps_sampling
 
@@ -12,4 +13,5 @@ __all__ = [
     "sigma_schedular",
     "velocity_predict",
     "steps_sampling",
+    "img_pad",
 ]
