@@ -80,7 +80,20 @@
 ### Train Architecture
 - **Use Cache**
 - **Cpu Multi Threading**
+ 
+![inference](assets/train_loop.png)
 
-![loop1](assets/train_loop_1.png)
+### Inference Architecture
 
-![loop1](assets/train_loop_2.png)
+![inference](assets/inference.png)
+
+### UI
+- **Sampling**
+
+![sampling](assets/sampling.png)
+
+- **Inpainting**
+
+![inpainting](assets/inpainting.png)
+
+![result](asserts/inpaintbf.png)
