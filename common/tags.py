@@ -8,7 +8,7 @@ from huggingface_hub import hf_hub_download
 from version import HUGGINGFACE
 
 class TagGenration:
-    def __init__(self, device="cuda", dtype=torch.bfloat16, console=None):
+    def __init__(self, init_device, device="cuda", dtype=torch.bfloat16, console=None):
         self.device = device
         self.dtype = dtype
         self.MIN_TAG_FREQ = 15
@@ -32,7 +32,6 @@ class TagGenration:
 
         self.INIT_PROMPT = "general img; "
 
-
         ckpt_path, vocab_path, tags_type_path = self._download()
 
         with open(vocab_path, "r", encoding="utf-8") as f:
@@ -47,7 +46,7 @@ class TagGenration:
 
         self.text_model = Model(**param)
         self.text_model.load_state_dict(chk["model"])
-        self.text_model = self.text_model.to(device=device, dtype=dtype)
+        self.text_model = self.text_model.to(device=init_device, dtype=dtype)
         self.text_model.eval()
 
         tags_type_df = pd.read_parquet(tags_type_path)

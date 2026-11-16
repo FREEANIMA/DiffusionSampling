@@ -30,7 +30,7 @@ class Detailering:
 
     @torch.inference_mode()
     def text_encode(self, tags):
-        with gpu_context(self.text_encoder, self.device):
+        with gpu_context(self.text_encoder.text_encoder, self.device):
             cond_emb, cond_mask = self.text_encoder.encoder(tags)
             uncond_emb, uncond_mask = self.text_encoder.encoder([INIT_PROMPT])
 
@@ -38,7 +38,7 @@ class Detailering:
     
     @torch.inference_mode()
     def vae_decode(self, x):
-        with gpu_context(self.vae, self.device):
+        with gpu_context(self.vae.vae, self.device):
             decoded = self.vae.decoder(x)
 
         img = self.vae._tensor_to_pil(decoded)
@@ -50,7 +50,7 @@ class Detailering:
         img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
         img = img.to(device=self.device, dtype=self.dtype)
 
-        with gpu_context(self.vae, self.device):
+        with gpu_context(self.vae.vae, self.device):
             latent = self.vae_encode(img)
 
         gen = torch.Generator(device=self.device)

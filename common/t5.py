@@ -5,11 +5,12 @@ from transformers import (
 )
 
 class T5TextModel():
-    def __init__(self, model_name="google/t5-v1_1-large", device="cuda", dtype=torch.bfloat16, console=None):
+    def __init__(self, init_device, model_name="google/t5-v1_1-large", device="cuda", dtype=torch.bfloat16, console=None):
         self.max_length = 256
         self.model_name = model_name
         self.device = device
         self.dtype = dtype
+        self.init_device = init_device
         self.text_encoder, self.tokenizer = self.download_t5()
 
         if console is not None:
@@ -19,7 +20,7 @@ class T5TextModel():
         text_encoder = T5EncoderModel.from_pretrained(
             self.model_name,
             torch_dtype=self.dtype,
-            device_map=self.device,
+            device_map=self.init_device,
             use_safetensors=True,  
         )
 

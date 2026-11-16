@@ -27,12 +27,12 @@ class InPainting:
 
     @torch.inference_mode()
     def vae_encode(self, img):
-        with gpu_context(self.vae, self.device):
+        with gpu_context(self.vae.vae, self.device):
             return self.vae.encoder(img)
 
     @torch.inference_mode()
     def text_encode(self, tags):
-        with gpu_context(self.text_encoder, self.device):
+        with gpu_context(self.text_encoder.text_encoder, self.device):
             cond_emb, cond_mask = self.text_encoder.encoder(tags)
             uncond_emb, uncond_mask = self.text_encoder.encoder([INIT_PROMPT])
 
@@ -40,7 +40,7 @@ class InPainting:
     
     @torch.inference_mode()
     def vae_decode(self, x):
-        with gpu_context(self.vae, self.device):
+        with gpu_context(self.vae.vae, self.device):
             decoded = self.vae.decoder(x)
 
         img = self.vae._tensor_to_pil(decoded)

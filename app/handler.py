@@ -38,18 +38,17 @@ class Handler:
 
         self.console = console_q()
 
-        self.model, self.config = load_mmdit_dcae()
-
         position = input("model upload on gpu(y or n): ") == "y"
         if position:
             init_device = self.device
         else:
             init_device = "cpu"
-        
+
+        self.model, self.config = load_mmdit_dcae()
         self.model = self.model.to(device=init_device, dtype=dtype)
-        self.text_encoder = T5TextModel(device=init_device, dtype=dtype, console=self.console)
-        self.vae = VaeModel(device="cpu", dtype=torch.float32, console=self.console)
-        self.tag_generation = TagGenration(device=init_device, dtype=dtype, console=self.console)
+        self.text_encoder = T5TextModel(init_device=init_device, device=self.device, dtype=dtype, console=self.console)
+        self.vae = VaeModel(init_device=init_device, device=self.device, dtype=torch.float32, console=self.console)
+        self.tag_generation = TagGenration(init_device=init_device, device=self.device, dtype=dtype, console=self.console)
 
         self.f = self.config["compression_ratio"]
         self.patch_size = self.config["patch_size"]
