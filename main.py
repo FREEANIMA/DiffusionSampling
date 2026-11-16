@@ -1,4 +1,7 @@
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
 from huggingface_hub import login
 
 COLAB_ROOT = "/content/drive/MyDrive/model/mmdit_sampling"
@@ -9,6 +12,7 @@ def is_colab() -> bool:
         return True
     except ImportError:
         return False
+
 
 def get_root() -> str:
     if is_colab():
@@ -22,15 +26,37 @@ def get_root() -> str:
 
     return os.path.dirname(os.path.abspath(__file__))
 
-def hf_login():
+
+def load_env(root: str) -> None:
+    env_path = Path(root) / ".env"
+
+    if env_path.is_file():
+        load_dotenv(dotenv_path=env_path, override=False)
+        print(f"[ENV] loaded: {env_path}")
+    else:
+        print(f"[ENV] .env not found at {env_path}")
+
+
+def hf_login() -> None:
     token = os.environ.get("HF_TOKEN")
 
     if token:
         login(token=token)
+        print("[HF] logged in via HF_TOKEN")
+        return
+
+    try:
+        from huggingface_hub import whoami
+
+        info = whoami()
+        print(f"[HF] already logged in as {info.get('name')}")
+    except Exception:
+        print("[HF] not logged in. Set HF_TOKEN in .env or run `hf auth login`.")
 
 
 if __name__ == "__main__":
     ROOT = get_root()
+    load_env(ROOT)
     hf_login()
 
     from app.handler import Handler

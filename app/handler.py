@@ -49,7 +49,7 @@ class Handler:
         self.model = self.model.to(device=init_device, dtype=dtype)
         self.text_encoder = T5TextModel(device=init_device, dtype=dtype, console=self.console)
         self.vae = VaeModel(device="cpu", dtype=torch.float32, console=self.console)
-        self.tag_generation = TagGenration(device=init_device, dtype=dtype, console=self.console)
+        self.tag_generation, self.text_model= TagGenration(device=init_device, dtype=dtype, console=self.console)
 
         self.f = self.config["compression_ratio"]
         self.patch_size = self.config["patch_size"]
@@ -116,7 +116,7 @@ class Handler:
         return list(self.tags_infer_cached)
 
     def _resolve_tags(self, tags_text, nsfw, H, W, fixed, record=True, isnegative=False, label="final tags"):
-        with gpu_context(self.tag_generation, self.device):
+        with gpu_context(self.text_model, self.device):
             tags_reshape, tags_infer = self.tag_generation.tags_mapping_worker(
                 tags=tags_text, nsfw=bool(nsfw), H=H, W=W, fixed=bool(fixed), isnegative=isnegative,
             )
