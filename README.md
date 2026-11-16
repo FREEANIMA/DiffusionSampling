@@ -5,6 +5,38 @@
 - **Storage:** Min 30GB free disk space (excluding `requirements.txt` packages)
 - **Environment:** Local & Google Colab supported
 
+## Update
+### CPU Offloading Mode
+
+If your GPU has less than 15GB VRAM, run inference in CPU offloading mode.
+The model stays on CPU; transformer blocks are streamed to the GPU in chunks.
+
+On startup, choose `n`:
+
+```
+model upload on gpu (y or n): n
+```
+
+Then set the chunk size (layers loaded onto the GPU at once):
+
+```
+block chunk size (1~8, recommended 4):
+```
+
+| CHUNK | Layers on GPU | With prefetch | Approx. VRAM |
+|-------|---------------|---------------|--------------|
+| 1     | 1             | 2             | ~0.5GB       |
+| 2     | 2             | 4             | ~1.1GB       |
+| 4     | 4             | 8             | ~2.2GB       |
+| 8     | 8             | 16            | ~4.3GB       |
+
+- Larger chunk = faster, more VRAM.
+- Smaller chunk = safer on low VRAM.
+- Up to `2 × CHUNK` layers are resident with prefetch.
+
+Trade-off: VRAM drops from ~15GB to ~3GB, but inference is slower due to
+CPU-GPU PCIe transfers.
+
 ## Installation
 ```bash
 python -m pip install -r requirements.txt

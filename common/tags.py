@@ -264,7 +264,7 @@ class TagGenration:
                 break
 
         if self.console is not None and best_count < self.MIN_FIXED_TAGS:
-            self.console.put(f"재샘플링 후에도 tags 부족({best_count}/{self.MIN_FIXED_TAGS})")
+            self.console.put(f"재샘플링 후에도 tags 부족")
 
         return best_result, best_infer
 
