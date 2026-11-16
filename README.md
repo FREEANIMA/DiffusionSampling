@@ -2,6 +2,13 @@
 
 ## Requirements
 - **Inference:** Min VRAM 15GB
+- **Storage:** Min 30GB free disk space (excluding `requirements.txt` packages)
+- **Environment:** Local & Google Colab supported
+
+## Installation
+```bash
+python -m pip install -r requirements.txt
+```
 
 ![MMDIT](assets/sample.png)
 
