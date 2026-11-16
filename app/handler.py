@@ -131,16 +131,16 @@ class Handler:
     def get_tag_history(self) -> list[dict]:
         return list(self.tags_infer_cached)
 
-    def _resolve_tags(self, tags_text, nsfw, H, W, fixed, record=True, isnegative=False, label="final tags"):
+    def _resolve_tags(self, tags_text, nsfw, H, W, fixed, record=True, label="final tags"):
         with gpu_context(self.tag_generation.text_model, self.device):
-            tags_reshape, tags_infer = self.tag_generation.tags_mapping_worker(
-                tags=tags_text, nsfw=bool(nsfw), H=H, W=W, fixed=bool(fixed), isnegative=isnegative,
+            tags_reshape, final_tags = self.tag_generation.tags_mapping_worker(
+                tags=tags_text, nsfw=bool(nsfw), H=H, W=W, fixed=bool(fixed),
             )
 
-        if tags_infer and record:
+        if final_tags and record:
             self.tags_infer_cached.append({
                 "input": tags_text,
-                "tags": list(tags_infer),
+                "tags": list(final_tags),
             })
 
         self.console.put(f"{label} : {tags_reshape}")
