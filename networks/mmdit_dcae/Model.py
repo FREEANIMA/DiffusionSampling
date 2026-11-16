@@ -22,7 +22,6 @@ class Model(nn.Module):
         # txt
         self.txt_emb = nn.Linear(txt_hidden_size, hidden_size)
         
-        
         # patch
         self.patch_embedding = PatchEmbedding(
             in_channels=in_channels,
@@ -90,8 +89,7 @@ class Model(nn.Module):
         sigma = sigma.to(device=x.device, dtype=torch.float32)
         sigma_emb = self.sigma_proj(sigma * self.sigma_scale)
         sigma_norm = self.sigma_norm(self.sigma_embed(sigma_emb))
-
-        # 2) key mask: 유효 img 토큰 + 텍스트 (기존 [img, txt] 순서 유지)
+        
         img_mask = torch.zeros(MAX, MAX, dtype=torch.bool, device=x.device)
         img_mask[:h, :w] = True
         img_mask = img_mask.reshape(1, T_img).expand(B, -1)
@@ -102,7 +100,7 @@ class Model(nn.Module):
 
         attn_mask = torch.zeros(full_mask.shape, dtype=img_emb.dtype, device=x.device)
         attn_mask = attn_mask.masked_fill(~full_mask, torch.finfo(img_emb.dtype).min)
-        attn_mask = attn_mask[:, None, None, :]                       # (B, 1, 1, N)
+        attn_mask = attn_mask[:, None, None, :]
 
         param = {
             "vec"       : sigma_norm,
