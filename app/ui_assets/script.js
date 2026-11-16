@@ -206,31 +206,41 @@
     ctx.moveTo(x, y);
   };
 
-  // detailer: 정사각형 (드래그 방향 기준, 이미지 경계 안으로 제한)
   const drawRect = (a, b) => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const dx = b[0] - a[0];
-    const dy = b[1] - a[1];
-    const sx = dx >= 0 ? 1 : -1;
-    const sy = dy >= 0 ? 1 : -1;
+      const dx = b[0] - a[0];
+      const dy = b[1] - a[1];
 
-    // 드래그 방향으로 남은 공간
-    const maxSide = Math.min(
-      sx > 0 ? canvas.width - a[0] : a[0],
-      sy > 0 ? canvas.height - a[1] : a[1],
-    );
-    const side = Math.max(0, Math.min(Math.max(Math.abs(dx), Math.abs(dy)), maxSide));
+      const sx = dx >= 0 ? 1 : -1;
+      const sy = dy >= 0 ? 1 : -1;
 
-    const x = sx > 0 ? a[0] : a[0] - side;
-    const y = sy > 0 ? a[1] : a[1] - side;
+      // 목표 비율: W/H = 768/1024 = 3/4
+      const ratio = 3 / 4;
 
-    ctx.fillStyle = 'rgba(255,0,0,0.25)';
-    ctx.fillRect(x, y, side, side);
-    ctx.lineWidth = Math.max(2, canvas.width / 400);
-    ctx.strokeStyle = 'rgba(255,0,0,0.95)';
-    ctx.strokeRect(x, y, side, side);
-    return { x, y, w: side, h: side };
+      const maxH = Math.min(
+          sy > 0 ? canvas.height - a[1] : a[1],
+          (sx > 0 ? canvas.width - a[0] : a[0]) / ratio
+      );
+
+      const h = Math.min(
+          Math.max(Math.abs(dy), Math.abs(dx) / ratio),
+          maxH
+      );
+
+      const w = h * ratio;
+
+      const x = sx > 0 ? a[0] : a[0] - w;
+      const y = sy > 0 ? a[1] : a[1] - h;
+
+      ctx.fillStyle = 'rgba(255,0,0,0.25)';
+      ctx.fillRect(x, y, w, h);
+
+      ctx.lineWidth = Math.max(2, canvas.width / 400);
+      ctx.strokeStyle = 'rgba(255,0,0,0.95)';
+      ctx.strokeRect(x, y, w, h);
+
+      return { x, y, w, h };
   };
 
   canvas.addEventListener('pointerdown', (e) => {
