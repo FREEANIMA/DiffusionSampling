@@ -1,6 +1,18 @@
-
 (() => {
+  'use strict';
+
   const $ = (id) => document.getElementById(id);
+
+  // null-safe helpers
+  const setDisplay = (id, v) => {
+    const el = $(id);
+    if (el) el.style.display = v;
+  };
+  const setCols = (id, v) => {
+    const el = $(id);
+    if (el) el.style.gridTemplateColumns = v;
+  };
+
   const modeEl = $('mode');
 
   // =========================================================
@@ -37,9 +49,7 @@
         cur[j] = Math.min(
           prev[j] + 1,
           cur[j - 1] + 1,
-          prev[j - 1] + (
-            a[i - 1] === b[j - 1] ? 0 : 1
-          )
+          prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
         );
       }
 
@@ -70,7 +80,6 @@
 
   const search = (raw) => {
     const q = key(raw);
-
     if (!q) return [];
 
     const pre = [];
@@ -82,7 +91,6 @@
       } else if (k.includes(q)) {
         sub.push(t);
       }
-
       if (pre.length >= 8) break;
     }
 
@@ -125,10 +133,7 @@
     const v = tagsEl.value;
 
     const before = v.slice(0, start).replace(/\s+$/, '');
-    const sep = before
-      ? (before.endsWith(',') ? ' ' : ', ')
-      : '';
-
+    const sep = before ? (before.endsWith(',') ? ' ' : ', ') : '';
     const after = v.slice(end).replace(/^\s*,?\s*/, '');
 
     tagsEl.value = before + sep + tag + ', ' + after;
@@ -150,19 +155,16 @@
       acIdx = (acIdx + 1) % acItems.length;
       renderAc();
       e.preventDefault();
-
     } else if (e.key === 'ArrowUp') {
       acIdx = (acIdx - 1 + acItems.length) % acItems.length;
       renderAc();
       e.preventDefault();
-
     } else if (
       (e.key === 'Enter' || e.key === 'Tab') &&
       acIdx >= 0
     ) {
       pick(acItems[acIdx]);
       e.preventDefault();
-
     } else if (e.key === 'Escape') {
       closeAc();
     }
@@ -170,7 +172,6 @@
 
   acEl.addEventListener('mousedown', (e) => {
     const i = e.target.dataset.i;
-
     if (i !== undefined) {
       pick(acItems[+i]);
       e.preventDefault();
@@ -180,7 +181,6 @@
   tagsEl.addEventListener('blur', () => {
     setTimeout(closeAc, 100);
   });
-
 
   // =========================================================
   // Tag History
@@ -201,15 +201,12 @@
         class="history-item"
         data-i="${i}"
         title="${escapeHtml(it.input)}">
-
         <span class="h-text">
           ${escapeHtml(it.input || '(빈 입력)')}
         </span>
-
         <span class="h-count">
           +${it.tags.length}
         </span>
-
       </button>`
     ).join('');
   };
@@ -217,25 +214,21 @@
   const loadHistory = async () => {
     try {
       const r = await fetch('api/tag_history');
-
       if (!r.ok) throw new Error('History request failed');
 
       const data = await r.json();
-
       histItems = (data.items || []).slice().reverse();
-
       renderHistory();
-
-    } catch (_) {}
+    } catch (_) {
+      /* ignore */
+    }
   };
 
   histEl.addEventListener('click', (e) => {
     const btn = e.target.closest('.history-item');
-
     if (!btn) return;
 
     const it = histItems[+btn.dataset.i];
-
     if (!it) return;
 
     const base = it.input
@@ -243,18 +236,13 @@
       .map((s) => s.trim())
       .filter(Boolean);
 
-    tagsEl.value = [...new Set([
-      ...base,
-      ...it.tags,
-    ])].join(', ');
-
+    tagsEl.value = [...new Set([...base, ...it.tags])].join(', ');
     $('fixed').checked = true;
   });
 
   $('history_refresh').onclick = loadHistory;
 
   loadHistory();
-
 
   // =========================================================
   // Image / Mask / Detailer Rect
@@ -267,21 +255,18 @@
   let sourceImage = null;
   let drawing = false;
 
-  const isDetailer = () =>
-    modeEl.value === 'detailer';
+  const isDetailer = () => modeEl.value === 'detailer';
 
   const canvas = $('mask-canvas');
   const ctx = canvas.getContext('2d');
 
   const getXY = (e) => {
     const r = canvas.getBoundingClientRect();
-
     return [
       (e.clientX - r.left) * canvas.width / r.width,
       (e.clientY - r.top) * canvas.height / r.height,
     ];
   };
-
 
   // ---------------------------------------------------------
   // Load Image
@@ -291,11 +276,7 @@
     try {
       const response = await fetch('api/load_image', {
         method: 'POST',
-
-        headers: {
-          'Content-Type': 'application/json',
-        },
-
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           path: $('img_path').value,
         }),
@@ -316,18 +297,9 @@
         bg.width = mask.width = sourceImage.width;
         bg.height = mask.height = sourceImage.height;
 
-        bg.getContext('2d').drawImage(
-          sourceImage,
-          0,
-          0
-        );
+        bg.getContext('2d').drawImage(sourceImage, 0, 0);
 
-        mask.getContext('2d').clearRect(
-          0,
-          0,
-          mask.width,
-          mask.height
-        );
+        mask.getContext('2d').clearRect(0, 0, mask.width, mask.height);
 
         $('mask-editor').style.display = 'block';
 
@@ -344,14 +316,11 @@
         $('mask-status').textContent = '이미지 로드 실패.';
       };
 
-      sourceImage.src =
-        `data:image/png;base64,${data.image}`;
-
+      sourceImage.src = `data:image/png;base64,${data.image}`;
     } catch (e) {
       $('out').textContent = `failed: ${e.message}`;
     }
   };
-
 
   // ---------------------------------------------------------
   // Inpainting Brush
@@ -372,31 +341,17 @@
     ctx.moveTo(x, y);
   };
 
-
   // ---------------------------------------------------------
   // Detailer Rectangle
   // ---------------------------------------------------------
 
   const drawRect = (a, b) => {
-    ctx.clearRect(
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const x = Math.max(0, Math.min(a[0], b[0]));
     const y = Math.max(0, Math.min(a[1], b[1]));
-
-    const right = Math.min(
-      canvas.width,
-      Math.max(a[0], b[0])
-    );
-
-    const bottom = Math.min(
-      canvas.height,
-      Math.max(a[1], b[1])
-    );
+    const right = Math.min(canvas.width, Math.max(a[0], b[0]));
+    const bottom = Math.min(canvas.height, Math.max(a[1], b[1]));
 
     const w = right - x;
     const h = bottom - y;
@@ -404,17 +359,12 @@
     ctx.fillStyle = 'rgba(255,0,0,0.25)';
     ctx.fillRect(x, y, w, h);
 
-    ctx.lineWidth = Math.max(
-      2,
-      canvas.width / 400
-    );
-
+    ctx.lineWidth = Math.max(2, canvas.width / 400);
     ctx.strokeStyle = 'rgba(255,0,0,0.95)';
     ctx.strokeRect(x, y, w, h);
 
     return { x, y, w, h };
   };
-
 
   // ---------------------------------------------------------
   // Pointer Events
@@ -424,7 +374,6 @@
     if (!sourceImage) return;
 
     drawing = true;
-
     canvas.setPointerCapture(e.pointerId);
 
     localMask = null;
@@ -432,29 +381,18 @@
 
     if (isDetailer()) {
       rectStart = getXY(e);
-
-      ctx.clearRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
-
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       $('mask-status').textContent = '영역 선택 중...';
-
       return;
     }
 
     const [x, y] = getXY(e);
-
     ctx.beginPath();
     ctx.moveTo(x, y);
-
     draw(e);
 
     $('mask-status').textContent = '마스크 수정 중...';
   });
-
 
   canvas.addEventListener('pointermove', (e) => {
     if (!drawing) return;
@@ -466,17 +404,12 @@
     }
   });
 
-
   const endDraw = (e) => {
     if (!drawing) return;
-
     drawing = false;
 
     if (isDetailer() && rectStart) {
-      const r = drawRect(
-        rectStart,
-        getXY(e)
-      );
+      const r = drawRect(rectStart, getXY(e));
 
       if (r.w >= 8 && r.h >= 8) {
         rect = {
@@ -485,18 +418,10 @@
           w: Math.round(r.w),
           h: Math.round(r.h),
         };
-
         $('mask-status').textContent =
           `영역 선택 완료 (${rect.w}×${rect.h})`;
-
       } else {
-        ctx.clearRect(
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
-
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         $('mask-status').textContent =
           '영역이 너무 작아요. 다시 드래그하세요.';
       }
@@ -505,9 +430,7 @@
     }
   };
 
-
   canvas.addEventListener('pointerup', endDraw);
-
 
   canvas.addEventListener('pointercancel', () => {
     drawing = false;
@@ -515,31 +438,17 @@
 
     if (isDetailer()) {
       rect = null;
-
-      ctx.clearRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
-
-      $('mask-status').textContent =
-        '영역 선택이 취소되었습니다.';
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      $('mask-status').textContent = '영역 선택이 취소되었습니다.';
     }
   });
-
 
   // ---------------------------------------------------------
   // Clear Mask / Rectangle
   // ---------------------------------------------------------
 
   $('mask-clear').onclick = () => {
-    ctx.clearRect(
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     localMask = null;
     rect = null;
@@ -547,7 +456,6 @@
 
     $('mask-status').textContent = '초기화 완료.';
   };
-
 
   // ---------------------------------------------------------
   // Finish Inpainting Mask
@@ -557,29 +465,15 @@
     if (isDetailer()) return;
 
     const output = document.createElement('canvas');
-
     output.width = canvas.width;
     output.height = canvas.height;
 
-    const pixels = ctx.getImageData(
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
-
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const outCtx = output.getContext('2d');
-
-    const outPixels = outCtx.createImageData(
-      canvas.width,
-      canvas.height
-    );
+    const outPixels = outCtx.createImageData(canvas.width, canvas.height);
 
     for (let i = 0; i < pixels.data.length; i += 4) {
-      const value = pixels.data[i + 3] > 30
-        ? 255
-        : 0;
-
+      const value = pixels.data[i + 3] > 30 ? 255 : 0;
       outPixels.data[i] = value;
       outPixels.data[i + 1] = value;
       outPixels.data[i + 2] = value;
@@ -587,13 +481,10 @@
     }
 
     outCtx.putImageData(outPixels, 0, 0);
-
     localMask = output.toDataURL('image/png');
 
-    $('mask-status').textContent =
-      '마스크 생성 완료.';
+    $('mask-status').textContent = '마스크 생성 완료.';
   };
-
 
   // =========================================================
   // UI Mode
@@ -604,68 +495,40 @@
     detailer: '0.3',
   };
 
-
   const applyMode = () => {
     const m = modeEl.value;
 
     const isT2I = m === 'txt2img';
     const isDet = m === 'detailer';
 
-    $('txt2img-box').style.display =
-      isT2I ? 'block' : 'none';
+    setDisplay('txt2img-box', isT2I ? 'block' : 'none');
+    setDisplay('inpaint-box', isT2I ? 'none' : 'block');
 
-    $('inpaint-box').style.display =
-      isT2I ? 'none' : 'block';
+    const title = $('inpaint-title');
+    if (title) title.textContent = isDet ? 'Detailer' : 'Inpainting';
 
-    $('inpaint-title').textContent =
-      isDet ? 'Detailer' : 'Inpainting';
+    setDisplay('detailer-box', isDet ? 'block' : 'none');
+    setDisplay('brush-field', isDet ? 'none' : 'block');
+    setDisplay('mask-finish', isDet ? 'none' : 'inline-block');
 
-    // Detailer UI
-    $('detailer-box').style.display =
-      isDet ? 'block' : 'none';
+    // Detailer에서는 사용하지 않는 항목 숨김
+    setDisplay('tags-field', isDet ? 'none' : 'block');
+    setDisplay('history-field', isDet ? 'none' : 'block');
+    setDisplay('nsfw-field', isDet ? 'none' : 'block');
+    setDisplay('cfg-field', isDet ? 'none' : 'block');
 
-    // Inpainting UI
-    $('brush-field').style.display =
-      isDet ? 'none' : 'block';
+    // 그리드 열 조정
+    setCols('sampling-grid-2', isDet ? '1fr' : '');
+    setCols('sampling-grid-3', isDet ? '1fr 1fr' : '');
 
-    $('mask-finish').style.display =
-      isDet ? 'none' : 'inline-block';
-
-    // Unused settings in Detailer
-    $('tags-field').style.display =
-      isDet ? 'none' : 'block';
-
-    $('history-field').style.display =
-      isDet ? 'none' : 'block';
-
-    $('nsfw-field').style.display =
-      isDet ? 'none' : 'block';
-
-    $('cfg-field').style.display =
-      isDet ? 'none' : 'block';
-
-    // Grid adjustment
-    $('sampling-grid-2').style.gridTemplateColumns =
-      isDet ? '1fr' : '';
-
-    $('sampling-grid-3').style.gridTemplateColumns =
-      isDet ? '1fr 1fr' : '';
-
-    if (START_T_DEFAULT[m]) {
-      $('start_t').value = START_T_DEFAULT[m];
-    }
+    const st = $('start_t');
+    if (st && START_T_DEFAULT[m]) st.value = START_T_DEFAULT[m];
   };
-
 
   modeEl.onchange = () => {
     applyMode();
 
-    ctx.clearRect(
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     localMask = null;
     rect = null;
@@ -676,9 +539,11 @@
       : '마스크를 그린 뒤 Finish mask를 눌러주세요.';
   };
 
-
-  applyMode();
-
+  try {
+    applyMode();
+  } catch (e) {
+    console.error('applyMode failed:', e);
+  }
 
   // =========================================================
   // Clear Output
@@ -689,12 +554,8 @@
     $('console').textContent = '';
 
     const result = $('result');
-
-    if (result) {
-      result.innerHTML = '';
-    }
+    if (result) result.innerHTML = '';
   };
-
 
   // =========================================================
   // Progress
@@ -724,25 +585,22 @@
             p.step >= p.total
               ? 'decoding / saving...'
               : `sampling ${p.step}/${p.total}`;
-
         } else {
           $('out').textContent = 'preparing...';
         }
-
-      } catch (_) {}
+      } catch (_) {
+        /* ignore */
+      }
     }, 300);
   };
-
 
   const stopPoll = () => {
     if (pollTimer !== null) {
       clearInterval(pollTimer);
       pollTimer = null;
     }
-
     $('bar').style.display = 'none';
   };
-
 
   // =========================================================
   // Console
@@ -754,7 +612,6 @@
     try {
       const r = await fetch('api/logs');
       const data = await r.json();
-
       const lines = data.lines || [];
 
       if (!lines.length) return;
@@ -763,16 +620,15 @@
         consoleEl.scrollTop + consoleEl.clientHeight >=
         consoleEl.scrollHeight - 5;
 
-      consoleEl.textContent +=
-        lines.join('\n') + '\n';
+      consoleEl.textContent += lines.join('\n') + '\n';
 
       if (stick) {
         consoleEl.scrollTop = consoleEl.scrollHeight;
       }
-
-    } catch (_) {}
+    } catch (_) {
+      /* ignore */
+    }
   }, 500);
-
 
   // =========================================================
   // Generate
@@ -781,7 +637,6 @@
   $('run').onclick = async () => {
     const mode = modeEl.value;
 
-    // Common parameters
     const params = {
       mode,
       sampler: $('sampler').value,
@@ -789,11 +644,7 @@
       seed: $('seed').value,
     };
 
-
-    // -------------------------------------------------------
     // txt2img
-    // -------------------------------------------------------
-
     if (mode === 'txt2img') {
       Object.assign(params, {
         tags: $('tags').value,
@@ -805,11 +656,7 @@
       });
     }
 
-
-    // -------------------------------------------------------
-    // Inpainting
-    // -------------------------------------------------------
-
+    // inpainting
     if (mode === 'inpainting') {
       Object.assign(params, {
         tags: $('tags').value,
@@ -828,11 +675,7 @@
       }
     }
 
-
-    // -------------------------------------------------------
-    // Detailer
-    // -------------------------------------------------------
-
+    // detailer
     if (mode === 'detailer') {
       Object.assign(params, {
         img_path: $('img_path').value,
@@ -847,96 +690,54 @@
       }
     }
 
-
-    // -------------------------------------------------------
-    // Validate image path
-    // -------------------------------------------------------
-
-    if (
-      mode === 'inpainting' ||
-      mode === 'detailer'
-    ) {
+    // validate image path
+    if (mode === 'inpainting' || mode === 'detailer') {
       if (!params.img_path.trim()) {
-        $('out').textContent =
-          '이미지 경로를 입력해 주세요.';
+        $('out').textContent = '이미지 경로를 입력해 주세요.';
         return;
       }
     }
 
-
-    // -------------------------------------------------------
-    // Start generation
-    // -------------------------------------------------------
-
     const runBtn = $('run');
-
     if (runBtn.disabled) return;
 
     runBtn.disabled = true;
-
     $('out').textContent = 'running...';
 
     startPoll();
 
-    let result = $('result');
-
-    if (!result) {
-      result = document.createElement('div');
-      result.id = 'result';
-      $('out').after(result);
-    }
-
-    result.innerHTML = '';
-
-
-    // -------------------------------------------------------
-    // API request
-    // -------------------------------------------------------
+    const result = $('result');
+    if (result) result.innerHTML = '';
 
     try {
       const response = await fetch('api/generate', {
         method: 'POST',
-
-        headers: {
-          'Content-Type': 'application/json',
-        },
-
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
       });
 
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(
-          data.error || 'Generation failed'
-        );
+        throw new Error(data.error || 'Generation failed');
       }
 
       const img = document.createElement('img');
-
-      img.src =
-        `data:image/png;base64,${data.image}`;
-
+      img.src = `data:image/png;base64,${data.image}`;
       img.style.maxWidth = '512px';
       img.style.width = '100%';
       img.style.border = '1px solid #ccc';
       img.style.marginTop = '8px';
 
-      result.append(img);
+      if (result) result.append(img);
 
       $('out').textContent = 'done';
-
     } catch (e) {
-      $('out').textContent =
-        `failed: ${e.message}`;
-
+      $('out').textContent = `failed: ${e.message}`;
     } finally {
       stopPoll();
-
       runBtn.disabled = false;
-
       loadHistory();
     }
   };
-
 })();

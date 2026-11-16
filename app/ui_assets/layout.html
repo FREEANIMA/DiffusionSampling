@@ -9,10 +9,13 @@
   </header>
 
   <div class="app-grid">
-    <!-- 왼쪽: 설정 -->
+
+    <!-- ================= 왼쪽: 설정 ================= -->
     <section class="card controls">
+
       <div class="section-title">Prompt</div>
 
+      <!-- Mode -->
       <div class="field">
         <label for="mode">Mode</label>
         <select id="mode">
@@ -22,122 +25,245 @@
         </select>
       </div>
 
-      <div class="field">
+      <!-- Tags -->
+      <div class="field" id="tags-field">
         <div class="label-row">
           <label for="tags">Tags</label>
+
           <label class="switch" title="켜면 LLM 태그 확장 없이 입력한 태그만 사용">
             <input type="checkbox" id="fixed" checked>
             <span class="track"></span>
             <span class="switch-text">고정</span>
           </label>
         </div>
+
         <div class="ac-wrap">
-          <input id="tags" placeholder="woman, cinematic, ..." autocomplete="off">
+          <input
+            id="tags"
+            placeholder="woman, cinematic, ..."
+            autocomplete="off"
+          >
           <div id="ac" class="ac-list" style="display:none;"></div>
         </div>
       </div>
 
-      <div class="field">
+      <!-- History -->
+      <div class="field" id="history-field">
         <div class="label-row">
           <label>History</label>
-          <button id="history_refresh" type="button" class="icon-btn" title="새로고침">↻</button>
+          <button
+            id="history_refresh"
+            type="button"
+            class="icon-btn"
+            title="새로고침"
+          >↻</button>
         </div>
+
         <div id="tag_history" class="history">
           <span class="history-empty">기록 없음</span>
         </div>
       </div>
 
+      <!-- Sampling -->
       <div class="section-title">Sampling</div>
 
-      <div class="grid-2">
-        <div class="field">
+      <div class="grid-2" id="sampling-grid-2">
+
+        <div class="field" id="nsfw-field">
           <label for="nsfw">NSFW</label>
           <select id="nsfw">
             <option value="false">n</option>
             <option value="true">y</option>
           </select>
         </div>
+
         <div class="field">
           <label for="sampler">Sampler</label>
           <select id="sampler">
-            <option>euler</option><option>heun</option><option>ddim</option><option>ddpm_plus</option>
+            <option>euler</option>
+            <option>heun</option>
+            <option>ddim</option>
+            <option>ddpm_plus</option>
           </select>
         </div>
+
       </div>
 
-      <div class="grid-3">
-        <div class="field"><label for="cfg">CFG</label><input id="cfg" value="4.0"></div>
-        <div class="field"><label for="steps">Steps</label><input id="steps" value="30"></div>
-        <div class="field"><label for="seed">Seed</label><input id="seed" value="-1"></div>
-      </div>
+      <div class="grid-3" id="sampling-grid-3">
 
-      <div id="txt2img-box">
-        <div class="section-title">Size</div>
-        <div class="grid-2">
-          <div class="field"><label for="H">Height</label><input id="H" value="1024"></div>
-          <div class="field"><label for="W">Width</label><input id="W" value="1024"></div>
+        <div class="field" id="cfg-field">
+          <label for="cfg">CFG</label>
+          <input id="cfg" value="4.0">
         </div>
+
+        <div class="field">
+          <label for="steps">Steps</label>
+          <input id="steps" type="number" value="30">
+        </div>
+
+        <div class="field">
+          <label for="seed">Seed</label>
+          <input id="seed" value="-1">
+        </div>
+
       </div>
 
-      <!-- inpainting / detailer 공용 -->
-      <div id="inpaint-box" style="display:none;">
-        <div class="section-title" id="inpaint-title">Inpainting</div>
+      <!-- ================= txt2img ================= -->
+      <div id="txt2img-box">
 
+        <div class="section-title">Size</div>
+
+        <div class="grid-2">
+
+          <div class="field">
+            <label for="H">Height</label>
+            <input id="H" type="number" value="1024">
+          </div>
+
+          <div class="field">
+            <label for="W">Width</label>
+            <input id="W" type="number" value="1024">
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ================= Inpainting / Detailer ================= -->
+      <div id="inpaint-box" style="display:none;">
+
+        <div class="section-title" id="inpaint-title">
+          Inpainting
+        </div>
+
+        <!-- Image path -->
         <div class="field">
           <label for="img_path">Image path</label>
           <div class="input-btn">
-            <input id="img_path" placeholder="/path/to/image.png">
-            <button id="load_image" type="button" class="btn">Load</button>
+            <input
+              id="img_path"
+              placeholder="/path/to/image.png"
+            >
+            <button
+              id="load_image"
+              type="button"
+              class="btn"
+            >Load</button>
           </div>
         </div>
 
+        <!-- Start T / Brush -->
         <div class="grid-2">
-          <div class="field"><label for="start_t">Start T</label><input id="start_t" value="0.9"></div>
-          <div class="field" id="brush-field"><label for="brush">Brush</label><input id="brush" type="number" value="20"></div>
+
+          <div class="field">
+            <label for="start_t">Start T</label>
+            <input
+              id="start_t"
+              type="number"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0.3"
+            >
+          </div>
+
+          <div class="field" id="brush-field">
+            <label for="brush">Brush</label>
+            <input
+              id="brush"
+              type="number"
+              value="20"
+              min="1"
+            >
+          </div>
+
         </div>
 
-        <!-- detailer 전용 설정 -->
+        <!-- Detailer only -->
         <div id="detailer-box" style="display:none;">
           <div class="field">
             <label>Detailer</label>
-            <p>이미지 영역을 선택하여 세부 디테일을 복원합니다.</p>
+            <p>
+              이미지 영역을 선택하여 세부 디테일을 복원합니다.
+            </p>
           </div>
         </div>
 
+        <!-- Mask / Rect editor -->
         <div id="mask-editor" style="display:none;">
+
           <div class="canvas-stack">
             <canvas id="bg-canvas"></canvas>
             <canvas id="mask-canvas"></canvas>
           </div>
+
           <div class="mask-bar">
             <div class="btn-group">
-              <button id="mask-clear" type="button" class="btn">Clear</button>
-              <button id="mask-finish" type="button" class="btn">Finish mask</button>
+              <button
+                id="mask-clear"
+                type="button"
+                class="btn"
+              >Clear</button>
+              <button
+                id="mask-finish"
+                type="button"
+                class="btn"
+              >Finish mask</button>
             </div>
             <span id="mask-status">대기 중...</span>
           </div>
+
         </div>
+
       </div>
 
+      <!-- Actions -->
       <div class="actions">
-        <button id="run" class="btn primary">Generate</button>
-        <button id="clear_out" class="btn ghost">Clear</button>
+        <button
+          id="run"
+          type="button"
+          class="btn primary"
+        >Generate</button>
+        <button
+          id="clear_out"
+          type="button"
+          class="btn ghost"
+        >Clear</button>
       </div>
+
     </section>
 
-    <!-- 오른쪽: 결과 -->
+    <!-- ================= 오른쪽: 결과 ================= -->
     <section class="card output">
+
       <div class="section-title">Result</div>
-      <progress id="bar" value="0" max="1" style="display:none;"></progress>
+
+      <progress
+        id="bar"
+        value="0"
+        max="1"
+        style="display:none;"
+      ></progress>
+
       <div id="out"></div>
-      <!-- #result 는 script.js 가 #out 뒤에 자동 생성 -->
+
+      <!-- 결과 이미지 컨테이너 (JS가 참조) -->
+      <div id="result"></div>
+
+      <!-- 결과 없을 때 표시 -->
       <div class="empty-state">
         <div class="empty-icon">✦</div>
         <div>생성된 이미지가 여기에 표시됩니다</div>
       </div>
 
-      <div class="section-title console-title">Console</div>
+      <!-- Console -->
+      <div class="section-title console-title">
+        Console
+      </div>
+
       <pre id="console"></pre>
+
     </section>
+
   </div>
 </div>
