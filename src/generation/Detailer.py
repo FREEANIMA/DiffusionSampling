@@ -6,7 +6,7 @@ import torch
 import torch.nn.functional as F
 from PIL import Image, ImageFilter
 
-from src.utilities import sigma_schedular, steps_sampling, img_resize
+from src.utilities import sigma_schedular, steps_sampling, img_pad
 INIT_PROMPT = "general img; "
 
 class Detailering:
@@ -63,41 +63,65 @@ class Detailering:
 
     @torch.inference_mode()
     def sampling(self, tags, calculate_type, cfg_scale, steps, img_bytes, start_t,
-                 seed=None, on_step=None, neg_tags=None, n_cfg_scale=0.0):
-        arr, H, W = img_resize(img_bytes, self.allowable_size, self.patch_size, self.f)
+                seed=None, on_step=None, neg_tags=None, n_cfg_scale=0.0):
 
-        img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
+        arr, H, W, padding = img_pad(
+            img_bytes,
+            self.patch_size,
+            self.f,
+        )
+
+        left, top, right, bottom = padding
+
+        img = torch.from_numpy(arr).permute(2, 0, 1).float()
+        img = img.div_(255.0).unsqueeze(0)
         img = img.to(device=self.device, dtype=self.dtype)
-
         latent = self.vae_encode(img)
-
+        latent = self.vae.upscale_latent(
+            latent,
+            scale_factor=2.0,
+            mode="bilinear",
+        )
         gen = torch.Generator(device=self.device)
         if seed is not None:
             gen.manual_seed(seed)
+
         noise = torch.randn(
-            latent.shape, generator=gen, device=latent.device, dtype=latent.dtype
+            latent.shape,
+            generator=gen,
+            device=latent.device,
+            dtype=latent.dtype,
         )
 
-        sigmas = sigma_schedular(step=steps, device=self.device, shift=self.shift)
+        sigmas = sigma_schedular(
+            step=steps,
+            device=self.device,
+            shift=self.shift,
+        )
+
         start_idx = int(torch.argmin((sigmas - start_t).abs()).item())
         sigmas = sigmas[start_idx:]
+
         start_sigma = sigmas[0]
         x_t = (1 - start_sigma) * latent + start_sigma * noise
 
         total = len(sigmas) - 1
         done = 0
+
         if on_step:
             on_step(0, total)
 
-        cond_emb, uncond_emb, cond_mask, uncond_mask, n_emb, n_mask = self.text_encode(
-            tags=tags, neg_tags=neg_tags
+        cond_emb, uncond_emb, cond_mask, uncond_mask, n_emb, n_mask = (
+            self.text_encode(tags=tags, neg_tags=neg_tags)
         )
 
         def after_step(x, sigma, sigma_next):
             nonlocal done
             done += 1
+
             if on_step:
                 on_step(min(done, total), total)
+
             return x
 
         x = steps_sampling(
@@ -106,15 +130,32 @@ class Detailering:
             sigmas=sigmas,
             calculate_type=calculate_type,
             cfg_scale=cfg_scale,
-            cond_emb=cond_emb, cond_mask=cond_mask,
-            uncond_emb=uncond_emb, uncond_mask=uncond_mask,
+            cond_emb=cond_emb,
+            cond_mask=cond_mask,
+            uncond_emb=uncond_emb,
+            uncond_mask=uncond_mask,
             gen=gen,
             dtype=self.dtype,
             after_step=after_step,
-            n_emb=n_emb, n_mask=n_mask, n_cfg_scale=n_cfg_scale,
+            n_emb=n_emb,
+            n_mask=n_mask,
+            n_cfg_scale=n_cfg_scale,
         )
 
-        return self.vae_decode(x)
+        img_out = self.vae_decode(x)
+        scale = 2
+
+        original_w = W - left - right
+        original_h = H - top - bottom
+
+        img_out = img_out.crop((
+            left * scale,
+            top * scale,
+            (left + original_w) * scale,
+            (top + original_h) * scale,
+        ))
+
+        return img_out
 
     def merge_img(self, origin_img, img_out, square, save_dir, feather=16, img_in=None):
         left, top, right, bottom = square

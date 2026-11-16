@@ -1,6 +1,7 @@
 from diffusers import AutoencoderDC
 from PIL import Image
 import torch
+import torch.nn.functional as F
 
 # FLUX	black-forest-labs/FLUX.1-dev (vae 서브폴더)	8×	16
 # DC-AE 32×	mit-han-lab/dc-ae-f32c32-sana-1.0-diffusers	32×	32
@@ -80,6 +81,30 @@ class VaeModel():
 
         return images
 
+    @torch.no_grad()
+    def upscale_latent(self, latent, scale_factor=2.0, mode="bilinear"):
+        latent = latent.to(
+            device=self.device,
+            dtype=self.dtype,
+            non_blocking=True,
+        )
+
+        if mode in ("bilinear", "bicubic"):
+            latent = F.interpolate(
+                latent,
+                scale_factor=scale_factor,
+                mode=mode,
+                align_corners=False,
+            )
+        else:
+            latent = F.interpolate(
+                latent,
+                scale_factor=scale_factor,
+                mode=mode,
+            )
+
+        return latent
+    
     def to(self, device):
         self.vae.to(device)
         self.device = str(device)

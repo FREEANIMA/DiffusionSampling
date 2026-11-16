@@ -170,11 +170,11 @@ class Handler:
             save_dir=os.path.join(self.base_root, "inpainting")
         )
 
-    def generate_detailering(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed,
-                             img_path, fixed, box=None, start_t: float = 0.7,
+    def generate_detailering(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, box=None, start_t: float = 0.7,
                              neg_tags_text: str = "", n_cfg_scale: float = 0.0):
         TARGET_W = 768
         TARGET_H = 1024
+
         if img_path is None:
             raise ValueError("경로를 입력해 주세요")
         if box is None:
@@ -185,33 +185,28 @@ class Handler:
         neg_tags_text = (neg_tags_text or "").strip().lower()
 
         img = Image.open(img_path).convert("RGB")
+
         left, top, right, bottom = box
         left, top = max(int(left), 0), max(int(top), 0)
         right, bottom = min(int(right), img.width), min(int(bottom), img.height)
+
         if right - left < 8 or bottom - top < 8:
             raise ValueError("선택한 영역이 너무 작거나 이미지 밖이에요.")
 
         box = (left, top, right, bottom)
-
         crop_img = img.crop(box)
-        crop_img = crop_img.resize(
-            (TARGET_W, TARGET_H),
-            Image.Resampling.LANCZOS
-        )
 
         buf = io.BytesIO()
         crop_img.save(buf, format="PNG")
         img_bytes = buf.getvalue()
 
-        H, W = TARGET_H, TARGET_W
-
-        tags_reshape = self._resolve_tags(tags_text, nsfw, H, W, fixed)
+        tags_reshape = self._resolve_tags(tags_text, nsfw, TARGET_H, TARGET_W, fixed)
 
         n_cfg_scale = float(n_cfg_scale)
         neg_tags_reshape = None
         if neg_tags_text and n_cfg_scale != 0.0:
             neg_tags_reshape = self._resolve_tags(
-                neg_tags_text, nsfw, H, W, True,
+                neg_tags_text, nsfw, TARGET_H, TARGET_W, True,
                 record=False, label="negative tags", isnegative=True,
             )
         else:
