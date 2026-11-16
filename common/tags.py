@@ -251,7 +251,7 @@ class TagGenration:
 
         # 태그 수 부족 → 재샘플링으로 MIN_FIXED_TAGS 채우기 (best-effort)
         if self.console is not None:
-            self.console.put(f"tags 수 부족({len(user_tags)}/{self.MIN_FIXED_TAGS}): 안정을 위해 tag sampling")
+            self.console.put(f"tags 수 부족, 안정을 위해 tag sampling")
 
         best_result, best_infer, best_count = None, [], -1
         for _ in range(self.SAMPLE_RETRY):
