@@ -116,7 +116,7 @@ class Handler:
         return list(self.tags_infer_cached)
 
     def _resolve_tags(self, tags_text, nsfw, H, W, fixed, record=True, isnegative=False, label="final tags"):
-        with gpu_context(self.text_model, self.device):
+        with gpu_context(self.tag_generation.text_model, self.device):
             tags_reshape, tags_infer = self.tag_generation.tags_mapping_worker(
                 tags=tags_text, nsfw=bool(nsfw), H=H, W=W, fixed=bool(fixed), isnegative=isnegative,
             )

@@ -62,7 +62,7 @@ class TagGenration:
         self.id_to_tag = {v: k for k, v in self.vocab.items()}
         self.console = console
 
-        return self.text_model
+        return
 
     def _download(self):
         model_path = hf_hub_download(
