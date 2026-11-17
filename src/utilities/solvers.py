@@ -7,19 +7,15 @@ def v_to_x0_eps(x, v, sigma):
     eps = x + (1.0 - sigma) * v
     return x0, eps
 
-
 def euler(x, v, sigma, sigma_next):
     return x + (sigma_next - sigma) * v
-
 
 def heun(x, v1, v2, sigma, sigma_next):
     return x + (sigma_next - sigma) * 0.5 * (v1 + v2)
 
-
 def ddim(x, v, sigma, sigma_next):
     x0, eps = v_to_x0_eps(x, v, sigma)
     return (1.0 - sigma_next) * x0 + sigma_next * eps
-
 
 def ddpm_plus(x, v, z, sigma, sigma_next, eta=0.3):
     x0 = x - sigma * v
@@ -33,7 +29,6 @@ def ddpm_plus(x, v, z, sigma, sigma_next, eta=0.3):
         else max(sigma_next ** 2 - (a * sigma_lo) ** 2, 0.0) ** 0.5
 
     return a * x_lo + noise_scale * z
-
 
 def _unipc_rhos_b(rks, B, hh, phi1):
     """UniPC 선형계 R, b 구성 (rks 마지막 원소는 1.0)."""
