@@ -53,7 +53,6 @@ def _save_img(save_dir, filename, img=None, imgs=None, sigmas=None, shift=3.0):
 
         n = len(imgs)
 
-        # sigma가 안 넘어오면 전체 스케줄에서 계산 (마지막 값은 모델 호출에 안 쓰이므로 제외)
         if sigmas is None:
             sigmas = sigma_schedular(step=n, device="cpu", shift=shift)[:-1]
         sigmas = [float(s) for s in sigmas]
