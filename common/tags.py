@@ -5,7 +5,7 @@ import random
 from dataclasses import asdict, is_dataclass
 from networks.tags_llm import Model
 from huggingface_hub import hf_hub_download
-from version import HUGGINGFACE
+from version import HUGGINGFACE, VERSION
 
 class TagGenration:
     def __init__(self, init_device, device="cuda", dtype=torch.bfloat16, console=None):
@@ -61,19 +61,25 @@ class TagGenration:
         self.id_to_tag = {v: k for k, v in self.vocab.items()}
         self.console = console
 
+
+
     def _download(self):
+        VERSION_CODE = sum(
+            int(v) * (100, 10, 1)[i]
+            for i, v in enumerate(VERSION.split("."))
+        )        
         model_path = hf_hub_download(
-            repo_id=f"{HUGGINGFACE}/tags_llm",
-            filename="model.pt",
+            repo_id=f"{HUGGINGFACE}/ver{VERSION_CODE}",
+            filename="tags_llm.pt",
             repo_type="model",
         )
         vocab_path = hf_hub_download(
-            repo_id=f"{HUGGINGFACE}/tags_llm",
+            repo_id=f"{HUGGINGFACE}/ver{VERSION_CODE}",
             filename="vocab.json",
             repo_type="model",
         )
         tags_type_path = hf_hub_download(
-            repo_id=f"{HUGGINGFACE}/tags_llm",
+            repo_id=f"{HUGGINGFACE}/ver{VERSION_CODE}",
             filename="tags_type.parquet",
             repo_type="model",
         )
