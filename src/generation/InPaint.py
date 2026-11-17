@@ -145,7 +145,7 @@ class InPainting:
             imgs.append(self.vae_decode(latent))
 
         save_dir = os.path.join(self.base_root, "inpainting")
-        save_img_name = _save_img(img=img_out, filename="sample", save_dir=save_dir, imgs=imgs, sigmas=sigmas_steps)
+        save_img_name = _save_img(img=img_out, filename="sample", save_dir=save_dir, imgs=None, sigmas=sigmas_steps)
         _save_text(
             os.path.dirname(save_img_name),
             tags=tags,

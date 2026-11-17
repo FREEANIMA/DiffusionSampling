@@ -114,7 +114,8 @@ class Sampling:
         # self.inspect_plot(latent_diff=latent_diff)
         
         save_dir = os.path.join(self.base_root, "generation")
-        save_img_name = _save_img(img=img, filename="sample", save_dir=save_dir, imgs=imgs, sigmas=sigmas_steps)
+        save_img_name = _save_img(img=img, filename="sample", save_dir=save_dir, imgs=None, sigmas=sigmas_steps)
+
         _save_text(
             os.path.dirname(save_img_name),
             tags=tags,

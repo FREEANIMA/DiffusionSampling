@@ -144,7 +144,8 @@ class Detailering:
         _save_img(img=img_out, filename="patch", save_dir=save_dir)
         _save_img(img=img_in, filename="input", save_dir=save_dir)
         save_img_name = _save_img(img=out, filename="merged", save_dir=save_dir)
-        _save_img(imgs=imgs, filename="detail_mp4", save_dir=save_dir, sigmas_steps=sigmas_steps)
+       
+        # _save_img(imgs=imgs, filename="detail_mp4", save_dir=save_dir, sigmas_steps=sigmas_steps)
 
         self.console.put(f"merged saved: {save_img_name}")
 
