@@ -49,12 +49,13 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
             return v
 
         try:
-            x = unipc(model_fn, x, [float(s) for s in sigmas],
-                      order=unipc_order, variant=unipc_variant, use_corrector=unipc_corrector)
+            x, latents, sigmas_steps = unipc(model_fn, x, [float(s) for s in sigmas],
+                                             order=unipc_order, variant=unipc_variant,
+                                             use_corrector=unipc_corrector)
         finally:
             pbar.close()
             torch.cuda.empty_cache()
-        return x
+        return x, latents, sigmas_steps
     
     latents = []
     sigmas_steps = []
