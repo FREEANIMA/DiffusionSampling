@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from PIL import Image, ImageFilter
 import common.globals as g
+import torch.nn.functional as F
 
 from src.utilities import sigma_schedular, steps_sampling, img_resize, gpu_context, _save_img
 INIT_PROMPT = "general img; "
