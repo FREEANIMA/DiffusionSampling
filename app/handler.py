@@ -40,7 +40,7 @@ class Handler:
         self.console = console_q()
         self.model, self.config = load_mmdit_dcae()
 
-        position = input("model upload on gpu(y or n): ").lower() == "y"
+        position = input("model upload on gpu(y or n): ").strip().lower() == "y"
         if position:
             init_device = self.device
         else:
