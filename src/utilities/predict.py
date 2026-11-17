@@ -96,8 +96,19 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
 
             if after_step is not None:
                 x = after_step(x, sigma, sigma_next)
-                bias_scale = 1e-4
-                x = x + (torch.randn_like(x) * bias_scale)
+                
+                if sigma_next > 0.4:
+                    bias_scale = 1e-4 
+                elif sigma_next > 0.1:
+                    bias_scale = 1e-3 * (sigma_next / 0.4) 
+                else:
+
+                    bias_scale = 0.0 
+                
+                if bias_scale > 0:
+                    bias = (torch.randn_like(x.float()) * bias_scale).to(x.dtype)
+                    x = x + bias
+                    v_prev, sigma_prev = None, None 
 
             latents.append(x.detach().float().cpu())
     finally:
