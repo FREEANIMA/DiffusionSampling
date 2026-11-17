@@ -294,7 +294,9 @@ progress::-moz-progress-bar { background: linear-gradient(90deg, var(--accent), 
   display: flex; flex-direction: column; gap: 4px;
   max-height: calc(100vh - 190px); overflow-y: auto; padding-right: 2px;
 }
+.tree input { flex: none; }
 .tree-group {
+  flex: none;
   background: var(--surface-2); border-radius: 10px; overflow: hidden;
 }
 .tree-group > summary {
