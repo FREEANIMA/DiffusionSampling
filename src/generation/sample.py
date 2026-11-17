@@ -108,7 +108,16 @@ class Sampling:
 
         save_dir = os.path.join(self.base_root, "generation")
         save_img_name = _save_img(img=img, filename="sample", save_dir=save_dir, imgs=imgs, sigmas=sigmas_steps)
-        _save_text(tags=tags, tags_list=final_tags, save_dir=save_dir)
+        _save_text(
+            os.path.dirname(save_img_name),
+            tags=tags,
+            tags_list=final_tags,
+            cfg_scale=cfg_scale,
+            steps=steps,
+            calc_type=calculate_type,
+            shift=shift,
+            seed=seed,
+        )
 
         self.console.put(f"img saved: {save_img_name}")
 
