@@ -104,7 +104,7 @@ class UI:
     def _sampling_params(p: dict) -> dict:
         return dict(
             calc_type=p["sampler"],
-            ets=p["eta"],
+            eta=p["eta"],
             steps=int(p["steps"]),
             seed=int(str(p.get("seed", "-1")).strip() or "-1"),
             shift=float(p.get("shift", 3.0)),

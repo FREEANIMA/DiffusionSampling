@@ -153,7 +153,7 @@ class Handler:
 
         return tags_reshape, final_tags
 
-    def generate_txt2img(self, tags_text:str, nsfw, calc_type, cfg_scale, H, W, steps, seed, fixed, shift, eta):
+    def generate_txt2img(self, tags_text:str, nsfw, calc_type, cfg_scale, H, W, steps, seed, fixed, shift, eta=0.3):
         self.progress.reset()
         tags_text = tags_text.lower()
 
