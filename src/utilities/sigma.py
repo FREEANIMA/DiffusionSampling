@@ -1,6 +1,6 @@
 import torch
 
-def sigma_schedular_karras(step, device, shift=1.0):
+def sigma_schedular(step, device, shift=1.0):
     # MMDiT(SD3/FLUX) 계열은 시그마가 0~1 사이로 정규화되어 있음
     sigma_max = 1.0
     sigma_min = 0.001 # 0으로 두면 수학적 오류(0 나누기)가 발생할 수 있어 아주 작은 값 사용
