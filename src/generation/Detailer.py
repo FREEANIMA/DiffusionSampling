@@ -6,7 +6,7 @@ import torch
 from PIL import Image, ImageFilter
 import common.globals as g
 
-from src.utilities import sigma_schedular, steps_sampling, img_resize, gpu_context
+from src.utilities import sigma_schedular, steps_sampling, img_resize, gpu_context, _save_img
 INIT_PROMPT = "general img; "
 
 class Detailering:
@@ -99,7 +99,7 @@ class Detailering:
             self.model.blocks.to("cpu")
             torch.cuda.empty_cache() 
             
-        x = steps_sampling(
+        x, latents = steps_sampling(
             model=self.model,
             x=x_t,
             sigmas=sigmas,
@@ -119,9 +119,15 @@ class Detailering:
         del cond_emb, uncond_emb, cond_mask, uncond_mask
         del img, latent, noise, sigmas, x_t
 
-        return self.vae_decode(x)
+        imgs = []
+        for latent in latents:
+            imgs.append(self.vae_decode(latent))
 
-    def merge_img(self, origin_img, img_out, square, save_dir, feather=16, img_in=None):
+        del latents
+
+        return self.vae_decode(x), imgs
+
+    def merge_img(self, origin_img, img_out, square, save_dir, imgs, feather=16, img_in=None):
         left, top, right, bottom = square
         w, h = right - left, bottom - top
 
@@ -135,17 +141,12 @@ class Detailering:
 
         out.paste(patch, (left, top), alpha)
 
-        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        save_dir = os.path.join(save_dir, stamp)
-        os.makedirs(save_dir, exist_ok=True)
+        save_dir = os.path.join(self.base_root, "detailer")
+        _save_img(img=img_out, filename="patch", save_dir=save_dir)
+        _save_img(img=img_in, filename="input", save_dir=save_dir)
+        save_img_name = _save_img(img=out, filename="merged", save_dir=save_dir)
+        _save_img(imgs=imgs, filename="detail_mp4", save_dir=save_dir)
 
-        save_img_name = os.path.join(save_dir, "merged.png")
-        out.save(save_img_name)
-        img_out.save(os.path.join(save_dir, "patch.png"))
-        if img_in is not None:
-            img_in.save(os.path.join(save_dir, "input.png"))
+        self.console.put(f"merged saved: {save_img_name}")
 
-        if self.console:
-            self.console.put(f"merged saved: {save_img_name}")
-
-        return out, save_img_name
+        return out

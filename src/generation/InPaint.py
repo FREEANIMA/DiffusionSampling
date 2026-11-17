@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from PIL import Image
 import common.globals as g
 
-from src.utilities import sigma_schedular, steps_sampling, img_resize, gpu_context
+from src.utilities import sigma_schedular, steps_sampling, img_resize, gpu_context, _save_img
 INIT_PROMPT = "general img; "
 
 class InPainting:
@@ -121,7 +121,7 @@ class InPainting:
             self.model.blocks.to("cpu")
             torch.cuda.empty_cache() 
             
-        x = steps_sampling(
+        x, latents = steps_sampling(
             model=self.model,
             x=x_t,
             sigmas=sigmas,
@@ -141,13 +141,15 @@ class InPainting:
 
         img_out = self.vae_decode(x)
 
-        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        save_dir = os.path.join(save_dir, stamp)
-        os.makedirs(save_dir, exist_ok=True)
+        imgs = []
+        for latent in latents:
+            imgs.append(self.vae_decode(latent))
 
-        save_img_name = os.path.join(save_dir, "img.png")
-        img_out.save(save_img_name)
+        save_dir = os.path.join(self.base_root, "inpainting")
+        save_img_name = _save_img(img=img, filename="inpaint", save_dir=save_dir, imgs=imgs)
 
         self.console.put(f"img saved: {save_img_name}")
 
-        return img_out, save_img_name
+        del latents
+
+        return img_out

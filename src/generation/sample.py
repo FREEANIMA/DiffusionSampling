@@ -2,8 +2,9 @@ import os
 from datetime import datetime
 import torch
 import random
-from src.utilities import sigma_schedular, steps_sampling, gpu_context
+from src.utilities import sigma_schedular, steps_sampling, gpu_context, _save_img
 import common.globals as g
+
 
 INIT_PROMPT = "general img; "
 
@@ -79,7 +80,7 @@ class Sampling:
             self.model.blocks.to("cpu")
             torch.cuda.empty_cache()   
 
-        x = steps_sampling(
+        x, latents = steps_sampling(
             model=self.model,
             x=noise,
             sigmas=sigmas,
@@ -102,13 +103,15 @@ class Sampling:
 
         img = self.vae_decode(x)
 
-        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        save_dir = os.path.join(self.base_root, "generation", stamp)
-        os.makedirs(save_dir, exist_ok=True)
-        save_img_name = os.path.join(save_dir, "img.png")
+        imgs = []
+        for latent in latents:
+            imgs.append(self.vae_decode(latent))
 
-        img.save(save_img_name)
+        save_dir = os.path.join(self.base_root, "generation")
+        save_img_name = _save_img(img=img, filename="sample", save_dir=save_dir, imgs=imgs)
 
         self.console.put(f"img saved: {save_img_name}")
 
-        return img, save_img_name
+        del latents
+
+        return img

@@ -13,3 +13,5 @@ opencv-python
 matplotlib
 flask
 python-dotenv
+imageio 
+imageio-ffmpeg

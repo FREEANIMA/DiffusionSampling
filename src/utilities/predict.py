@@ -60,9 +60,9 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
             torch.cuda.empty_cache()
         return x
 
-    # ---------------- 기존 단일 스텝 솔버들 ----------------
     v_prev, sigma_prev = None, None
 
+    latents = []
     try:
         for i in tqdm(range(n), desc="sampling"):
             sigma, sigma_next = sigmas[i], sigmas[i + 1]
@@ -96,7 +96,9 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
             v_prev, sigma_prev = v, sigma   # 외삽 전 원본 v 저장
             if after_step is not None:
                 x = after_step(x, sigma, sigma_next)
+
+            latents.append(x)
     finally:
         torch.cuda.empty_cache()
 
-    return x
+    return x, latents

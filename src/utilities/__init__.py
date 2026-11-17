@@ -3,6 +3,7 @@ from .resize_worker import img_resize
 from .sigma import sigma_schedular
 from .predict import velocity_predict, steps_sampling
 from .move_device import gpu_context
+from .save_img import _save_img
 
 __all__ = [
     "euler",
@@ -14,5 +15,6 @@ __all__ = [
     "velocity_predict",
     "steps_sampling",
     "gpu_context",
-    "unipc"
+    "unipc",
+    "_save_img"
 ]
