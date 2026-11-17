@@ -1,4 +1,4 @@
-from .solvers import heun, ddim, ddpm_plus, euler
+from .solvers import heun, ddim, ddpm_plus, euler, unipc
 from .resize_worker import img_resize
 from .img_pad_insert import img_pad
 from .sigma import sigma_schedular
@@ -16,4 +16,5 @@ __all__ = [
     "steps_sampling",
     "img_pad",
     "gpu_context"
+    "unipc"
 ]

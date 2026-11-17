@@ -1,8 +1,9 @@
+import warnings
 import torch
 from tqdm.auto import tqdm
-from .solvers import euler, heun, ddim, ddpm_plus
-from .move_device import gpu_context
+from .solvers import euler, heun, ddim, ddpm_plus, unipc
 import common.globals as g
+
 
 @torch.inference_mode()
 def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_mask, cfg_scale, dtype):
@@ -10,7 +11,7 @@ def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_ma
     sig = sigma.expand(x.shape[0])
 
     use_cfg = cfg_scale != 1.0
-    
+
     def fwd(emb, mask):
         if g.INIT_DEVICE == "cpu":
             out, _ = model.forward_cpu(x=x_in, sigma=sig, txt_emb=emb, txt_mask=mask)
@@ -28,14 +29,38 @@ def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_ma
 
     return v
 
+
 @torch.inference_mode()
-def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gen, dtype, after_step=None):
+def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_mask,
+                   uncond_emb, uncond_mask, gen, dtype, after_step=None,
+                   use_ab2=True, unipc_order=2, unipc_variant="bh2", unipc_corrector=True):
     model.eval()
     n = len(sigmas) - 1
     kw = dict(model=model, cond_emb=cond_emb, cond_mask=cond_mask,
               uncond_emb=uncond_emb, uncond_mask=uncond_mask,
               cfg_scale=cfg_scale, dtype=dtype)
 
+    # ---------------- UniPC: 루프 전체를 solver가 담당 ----------------
+    if calculate_type == "unipc":
+        if after_step is not None:
+            warnings.warn("unipc 경로에서는 after_step이 호출되지 않습니다.")
+        pbar = tqdm(total=n, desc="sampling")
+
+        def model_fn(xx, s):
+            sig_t = torch.tensor(s, device=xx.device, dtype=torch.float32)
+            v = velocity_predict(x=xx, sigma=sig_t, **kw)
+            pbar.update(1)
+            return v
+
+        try:
+            x = unipc(model_fn, x, [float(s) for s in sigmas],
+                      order=unipc_order, variant=unipc_variant, use_corrector=unipc_corrector)
+        finally:
+            pbar.close()
+            torch.cuda.empty_cache()
+        return x
+
+    # ---------------- 기존 단일 스텝 솔버들 ----------------
     v_prev, sigma_prev = None, None
 
     try:
@@ -44,8 +69,10 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
             v = velocity_predict(x=x, sigma=sigma, **kw)
 
             last = (i == n - 1)
-            vp = None if last else v_prev
-            sp = None if last else sigma_prev
+            if last or not use_ab2:
+                vp, sp = None, None
+            else:
+                vp, sp = v_prev, sigma_prev
 
             if calculate_type == "euler":
                 x = euler(x, v, sigma, sigma_next, v_prev=vp, sigma_prev=sp)
@@ -61,7 +88,7 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
                     del x_e, v2
             elif calculate_type == "ddpm_plus":
                 z = torch.randn(x.shape, generator=gen, device=x.device, dtype=x.dtype)
-                x = ddpm_plus(x, v, z, sigma, sigma_next, v_prev=vp, sigma_prev=sp)
+                x = ddpm_plus(x, v, z, sigma, sigma_next)
                 del z
             else:
                 raise ValueError(f"Unsupported sampling method: {calculate_type}")
