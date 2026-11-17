@@ -12,8 +12,8 @@ class TagGenration:
         self.device = device
         self.dtype = dtype
         self.MIN_TAG_FREQ = 1_000
-        self.MIN_FIXED_TAGS = 10
-        self.SAMPLE_RETRY = 5  # 재샘플링 최대 횟수
+        self.MIN_FIXED_TAGS = 5
+        self.SAMPLE_RETRY = 5
 
         self.NAS = [
             "style", "person_count", "gender", "species", "hair_color", "hair_length", "hair_style", "eye_color",
@@ -124,7 +124,7 @@ class TagGenration:
         return [self.CLS_ID] + body
 
     @torch.inference_mode()
-    def sampling(self, batch, max_new=256, temperature=0.3, top_k=10, top_p=0.8, min_new=10):
+    def sampling(self, batch, max_new=256, temperature=0.3, top_k=10, top_p=0.8, min_new=5):
         ids = batch
         generated = []
 
