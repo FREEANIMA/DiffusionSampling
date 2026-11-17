@@ -30,7 +30,7 @@ def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_ma
     return v
 
 @torch.inference_mode()
-def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gen, dtype, after_step=None, use_ab2=None, unipc_order=2, unipc_variant="bh2", unipc_corrector=True):
+def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gen, dtype, after_step=None, unipc_order=2, unipc_variant="bh2", unipc_corrector=True):
     model.eval()
     n = len(sigmas) - 1
     kw = dict(model=model, cond_emb=cond_emb, cond_mask=cond_mask,
@@ -55,29 +55,23 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
             pbar.close()
             torch.cuda.empty_cache()
         return x
-
-    v_prev, sigma_prev = None, None
-
+    
     latents = []
     sigmas_steps = []
 
     try:
         for i in tqdm(range(n), desc="sampling"):
             sigma, sigma_next = sigmas[i], sigmas[i + 1]
-                
+
             sigmas_steps.append(float(sigma_next))
             v = velocity_predict(x=x, sigma=sigma, **kw)
 
             last = (i == n - 1)
-            if last or not use_ab2:
-                vp, sp = None, None
-            else:
-                vp, sp = v_prev, sigma_prev
 
             if calculate_type == "euler":
-                x = euler(x, v, sigma, sigma_next, v_prev=vp, sigma_prev=sp)
+                x = euler(x, v, sigma, sigma_next)
             elif calculate_type == "ddim":
-                x = ddim(x, v, sigma, sigma_next, v_prev=vp, sigma_prev=sp)
+                x = ddim(x, v, sigma, sigma_next)
             elif calculate_type == "heun":
                 if last:
                     x = euler(x, v, sigma, sigma_next)
@@ -93,8 +87,6 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
             else:
                 raise ValueError(f"Unsupported sampling method: {calculate_type}")
 
-            v_prev, sigma_prev = v, sigma
-            
             if after_step is not None:
                 x = after_step(x, sigma, sigma_next)
 
