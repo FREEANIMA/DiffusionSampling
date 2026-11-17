@@ -8,28 +8,15 @@ def v_to_x0_eps(x, v, sigma):
     return x0, eps
 
 
-def _ab2(v, v_prev, sigma, sigma_next, sigma_prev):
-    """AB2 외삽된 v. 이전 v가 없으면(첫 스텝) 그대로 반환."""
-    if v_prev is None or sigma_prev is None:
-        return v
-    h      = sigma_next - sigma
-    h_prev = sigma - sigma_prev
-    r = h / h_prev
-    return v + 0.5 * r * (v - v_prev)    # (1 + r/2)·v - (r/2)·v_prev
-
-
-def euler(x, v, sigma, sigma_next, v_prev=None, sigma_prev=None):
-    v = _ab2(v, v_prev, sigma, sigma_next, sigma_prev)
+def euler(x, v, sigma, sigma_next):
     return x + (sigma_next - sigma) * v
 
 
-def heun(x, v1, v2, sigma, sigma_next, v_prev=None, sigma_prev=None):
-    # heun은 이미 v를 2번 평가하므로 AB2 대상이 아님
+def heun(x, v1, v2, sigma, sigma_next):
     return x + (sigma_next - sigma) * 0.5 * (v1 + v2)
 
 
-def ddim(x, v, sigma, sigma_next, v_prev=None, sigma_prev=None):
-    v = _ab2(v, v_prev, sigma, sigma_next, sigma_prev)
+def ddim(x, v, sigma, sigma_next):
     x0, eps = v_to_x0_eps(x, v, sigma)
     return (1.0 - sigma_next) * x0 + sigma_next * eps
 

@@ -62,16 +62,19 @@ class InPainting:
             m = m[None]
 
         m = m.to(latent.device, latent.dtype)
-        m_lat = F.interpolate(m, size=latent.shape[-2:], mode="nearest")
+
+        m_lat = F.adaptive_max_pool2d(m, output_size=latent.shape[-2:])
         return (m_lat > 0.5).float()
 
     @torch.inference_mode()
     def sampling(self, tags, calculate_type, cfg_scale, steps, img_bytes, start_t, seed=None, mask=None, on_step=None, save_dir=None):
-        arr, H, W = img_resize(img_bytes, self.allowable_size, self.patch_size, self.f)
+        if calculate_type == "unipc":
+            raise ValueError("inpainting에서는 unipc를 사용할 수 없습니다. (마스크 합성 불가) euler/heun/ddim/ddpm_plus 중 선택하세요.")
 
-        # 변경 후
         if mask is None:
             raise ValueError("mask가 필요합니다.")
+
+        arr, H, W = img_resize(img_bytes, self.allowable_size, self.patch_size, self.f)
 
         mask = mask.convert("L").resize((W, H), Image.Resampling.NEAREST)
         mask_arr = np.array(mask, dtype=np.uint8)
@@ -93,8 +96,8 @@ class InPainting:
         start_idx = int(torch.argmin((sigmas - start_t).abs()).item())
         sigmas = sigmas[start_idx:]
         start_sigma = sigmas[0]
-        orig_at_start = (1 - start_sigma) * latent + start_sigma * noise
-        x_t = (1 - mask_lat) * latent + mask_lat * orig_at_start
+
+        x_t = (1 - start_sigma) * latent + start_sigma * noise
 
         total = len(sigmas) - 1
         done = 0
@@ -109,7 +112,7 @@ class InPainting:
             if on_step:
                 on_step(min(done, total), total)
 
-            s = sigma.view(1, 1, 1, 1)
+            s = sigma_next.view(1, 1, 1, 1) if torch.is_tensor(sigma_next) else float(sigma_next)
             orig_t = (1 - s) * latent + s * noise
             return (1 - mask_lat) * orig_t + mask_lat * x
 
@@ -134,7 +137,7 @@ class InPainting:
             self.model.to("cpu")
 
         del cond_emb, uncond_emb, cond_mask, uncond_mask
-        del latent, mask_lat, noise, x_t, orig_at_start, sigmas
+        del latent, mask_lat, noise, x_t, sigmas
 
         img_out = self.vae_decode(x)
 
