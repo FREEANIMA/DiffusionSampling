@@ -36,11 +36,12 @@ class Handler:
         self.base_root = base_root
         self.device = device
         self.dtype = dtype
-
+        
         self.console = console_q()
-        self.model, self.config = load_mmdit_dcae()
 
         position = input("model upload on gpu(y or n): ").strip().lower() == "y"
+        self.model, self.config = load_mmdit_dcae()
+
         if position:
             init_device = self.device
         else:
