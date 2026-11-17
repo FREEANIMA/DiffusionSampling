@@ -4,6 +4,7 @@ from .sigma import sigma_schedular
 from .predict import velocity_predict, steps_sampling
 from .move_device import gpu_context
 from .save_img import _save_img
+from .save_text import _save_text
 
 __all__ = [
     "euler",
@@ -16,5 +17,6 @@ __all__ = [
     "steps_sampling",
     "gpu_context",
     "unipc",
-    "_save_img"
+    "_save_img",
+    "_save_text"
 ]

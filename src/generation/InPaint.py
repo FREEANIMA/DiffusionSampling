@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from PIL import Image
 import common.globals as g
 
-from src.utilities import sigma_schedular, steps_sampling, img_resize, gpu_context, _save_img
+from src.utilities import sigma_schedular, steps_sampling, img_resize, gpu_context, _save_img, _save_text
 INIT_PROMPT = "general img; "
 
 class InPainting:
@@ -66,7 +66,7 @@ class InPainting:
         return (m_lat > 0.5).float()
 
     @torch.inference_mode()
-    def sampling(self, tags, shift, calculate_type, cfg_scale, steps, img_bytes, start_t, seed=None, mask=None, on_step=None, save_dir=None):
+    def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, img_bytes, start_t, seed=None, mask=None, on_step=None, save_dir=None):
         if calculate_type == "unipc":
             raise ValueError("inpainting에서는 unipc를 사용할 수 없습니다. (마스크 합성 불가) euler/heun/ddim/ddpm_plus 중 선택하세요.")
 
@@ -146,6 +146,7 @@ class InPainting:
 
         save_dir = os.path.join(self.base_root, "inpainting")
         save_img_name = _save_img(img=img_out, filename="sample", save_dir=save_dir, imgs=imgs, sigmas=sigmas_steps)
+        _save_text(tags=tags, tags_list=final_tags, save_dir=save_dir)
 
         self.console.put(f"img saved: {save_img_name}")
 

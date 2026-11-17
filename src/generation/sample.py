@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 import torch
 import random
-from src.utilities import sigma_schedular, steps_sampling, gpu_context, _save_img
+from src.utilities import sigma_schedular, steps_sampling, gpu_context, _save_img, _save_text
 import common.globals as g
 
 
@@ -43,7 +43,7 @@ class Sampling:
         return img
 
     @torch.inference_mode()
-    def sampling(self, tags, shift, calculate_type, cfg_scale, steps, H, W, seed=None, on_step=None):
+    def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, H, W, seed=None, on_step=None):
 
         if seed is None:
             seed = random.randint(0, 2**32 - 1)
@@ -108,6 +108,7 @@ class Sampling:
 
         save_dir = os.path.join(self.base_root, "generation")
         save_img_name = _save_img(img=img, filename="sample", save_dir=save_dir, imgs=imgs, sigmas=sigmas_steps)
+        _save_text(tags=tags, tags_list=final_tags, save_dir=save_dir)
 
         self.console.put(f"img saved: {save_img_name}")
 

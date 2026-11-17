@@ -150,7 +150,7 @@ class Handler:
 
         self.console.put(f"{label} : {tags_reshape}")
 
-        return tags_reshape
+        return tags_reshape, final_tags
 
     def generate_txt2img(self, tags_text:str, nsfw, calc_type, cfg_scale, H, W, steps, seed, fixed, shift):
         self.progress.reset()
@@ -158,10 +158,11 @@ class Handler:
 
         H, W = self._fit_size(int(H), int(W))
 
-        tags_reshape = self._resolve_tags(tags_text, nsfw, H, W, fixed)
+        tags_reshape, final_tags = self._resolve_tags(tags_text, nsfw, H, W, fixed)
         
         return self.sampler.sampling(
             tags=tags_reshape,
+            final_tags=final_tags,
             calculate_type=calc_type,
             cfg_scale=float(cfg_scale),
             H=H, W=W,
@@ -187,10 +188,11 @@ class Handler:
             W0, H0 = im.size
         H, W = self._fit_size(H0, W0)
 
-        tags_reshape = self._resolve_tags(tags_text, nsfw, H, W, fixed)
+        tags_reshape, final_tags = self._resolve_tags(tags_text, nsfw, H, W, fixed)
 
         return self.inpainter.sampling(
             tags=tags_reshape,
+            final_tags=final_tags,
             calculate_type=calc_type,
             cfg_scale=float(cfg_scale),
             steps=int(steps),
