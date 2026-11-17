@@ -233,7 +233,7 @@ class Handler:
         tags_reshape = [self.tag_generation.INIT_PROMPT]
         self.console.put(f"{tags_reshape} box={box} ({w}x{h})")
 
-        img_out, imgs = self.detailer.sampling(
+        img_out, imgs, sigmas_steps = self.detailer.sampling(
             tags=tags_reshape,
             calculate_type=calc_type,
             cfg_scale=float(cfg_scale),
@@ -254,5 +254,6 @@ class Handler:
             square=box,
             save_dir=os.path.join(self.base_root, "detailer"),
             img_in=crop_img,
-            imgs=imgs
+            imgs=imgs,
+            sigmas_steps=sigmas_steps
         )

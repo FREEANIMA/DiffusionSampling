@@ -121,7 +121,7 @@ class InPainting:
             self.model.blocks.to("cpu")
             torch.cuda.empty_cache() 
             
-        x, latents = steps_sampling(
+        x, latents, sigmas_steps = steps_sampling(
             model=self.model,
             x=x_t,
             sigmas=sigmas,
@@ -146,7 +146,7 @@ class InPainting:
             imgs.append(self.vae_decode(latent))
 
         save_dir = os.path.join(self.base_root, "inpainting")
-        save_img_name = _save_img(img=img, filename="inpaint", save_dir=save_dir, imgs=imgs)
+        save_img_name = _save_img(img=img, filename="sample", save_dir=save_dir, imgs=imgs, sigmas=sigmas_steps)
 
         self.console.put(f"img saved: {save_img_name}")
 

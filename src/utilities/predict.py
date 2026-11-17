@@ -40,7 +40,6 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
               uncond_emb=uncond_emb, uncond_mask=uncond_mask,
               cfg_scale=cfg_scale, dtype=dtype)
 
-    # ---------------- UniPC: 루프 전체를 solver가 담당 ----------------
     if calculate_type == "unipc":
         if after_step is not None:
             warnings.warn("unipc 경로에서는 after_step이 호출되지 않습니다.")
@@ -63,9 +62,12 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
     v_prev, sigma_prev = None, None
 
     latents = []
+    sigmas_steps = []
     try:
         for i in tqdm(range(n), desc="sampling"):
             sigma, sigma_next = sigmas[i], sigmas[i + 1]
+
+            sigmas_steps.append(float(sigma_next))
             v = velocity_predict(x=x, sigma=sigma, **kw)
 
             last = (i == n - 1)
@@ -97,8 +99,8 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
             if after_step is not None:
                 x = after_step(x, sigma, sigma_next)
 
-            latents.append(x)
+            latents.append(x.detach().float().cpu())
     finally:
         torch.cuda.empty_cache()
 
-    return x, latents
+    return x, latents, sigmas_steps

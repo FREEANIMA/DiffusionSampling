@@ -99,7 +99,7 @@ class Detailering:
             self.model.blocks.to("cpu")
             torch.cuda.empty_cache() 
             
-        x, latents = steps_sampling(
+        x, latents, sigmas_steps = steps_sampling(
             model=self.model,
             x=x_t,
             sigmas=sigmas,
@@ -125,9 +125,9 @@ class Detailering:
 
         del latents
 
-        return self.vae_decode(x), imgs
+        return self.vae_decode(x), imgs, sigmas_steps
 
-    def merge_img(self, origin_img, img_out, square, save_dir, imgs, feather=16, img_in=None):
+    def merge_img(self, origin_img, img_out, square, save_dir, imgs, sigmas_steps, feather=16, img_in=None):
         left, top, right, bottom = square
         w, h = right - left, bottom - top
 
@@ -145,7 +145,7 @@ class Detailering:
         _save_img(img=img_out, filename="patch", save_dir=save_dir)
         _save_img(img=img_in, filename="input", save_dir=save_dir)
         save_img_name = _save_img(img=out, filename="merged", save_dir=save_dir)
-        _save_img(imgs=imgs, filename="detail_mp4", save_dir=save_dir)
+        _save_img(imgs=imgs, filename="detail_mp4", save_dir=save_dir, sigmas_steps=sigmas_steps)
 
         self.console.put(f"merged saved: {save_img_name}")
 

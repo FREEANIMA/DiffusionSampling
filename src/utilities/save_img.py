@@ -36,11 +36,6 @@ def _with_label(frame, text):
 
 
 def _save_img(save_dir, filename, img=None, imgs=None, sigmas=None, shift=3.0):
-    """
-    imgs  : 스텝별 x0 예측 프레임 (len == 스텝 수)
-    sigmas: 프레임별 sigma 리스트 (len == len(imgs)). 없으면 shift로 직접 계산.
-            inpainting처럼 start_t에서 잘라 쓴 경우에는 반드시 직접 넘길 것.
-    """
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     save_dir = os.path.join(save_dir, stamp)
     os.makedirs(save_dir, exist_ok=True)
