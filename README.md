@@ -1,11 +1,55 @@
 # Diffusion MMDiT with DC-AE f32c32
 
+## Update — 2026.11.17 Sampling
+
+### Sampling Improvements
+
+- **DDIM sampler removed**
+  - Removed the standalone DDIM sampler due to unsatisfactory generation quality in the current implementation.
+
+- **Noise Injection added to Euler and Heun**
+  - Introduced additional noise injection during the sampling process.
+  - Prevents the sampling trajectory from becoming overly constrained by the initial latent structure.
+  - Allows the model to reconstruct local features while better utilizing surrounding image context.
+  - Improves structural consistency across neighboring regions.
+
+- **`eta` parameter (noise injection strength)**
+  - Each step integrates only down to `σ_lo = σ_next × (1 − eta)`, then re-noises back up to `σ_next` with fresh noise.
+  - `eta = 0`: no noise injection. Identical to the original Euler / Heun / DDIM behavior.
+  - Higher `eta`: a larger back-and-forth interval per step, so more of the previous structure is re-noised and re-decided.
+  - Too high: details and composition can drift between steps, and Heun's second-order correction covers a shorter interval, so its benefit shrinks.
+  - Suggested starting range: `0.1 ~ 0.3` (default `0.3` for DDPM_PLUS). Tune per step count and CFG scale.
+  - The final step never injects noise, regardless of `eta`.
+
+### Quality Improvements
+
+- Improved eye and facial detail reconstruction.
+- Better consistency between left and right facial features.
+- Improved transitions between modified and preserved regions.
+- Reduced local structural artifacts.
+- Significant quality improvements in realistic image generation and inpainting.
+
+### Available Samplers
+
+| Sampler | Status | Uses `eta` |
+|---|---|---|
+| Euler + Noise Injection | Supported | Yes |
+| Heun + Noise Injection | Supported | Yes |
+| DDPM_PLUS | Supported | Yes |
+| DDIM | Removed | - |
+
+### Notes
+
+Noise injection improves the model's ability to reconstruct local structures instead of relying too heavily on the initial latent representation.
+
+This is particularly beneficial for realistic image generation, where fine details and spatial consistency are important.
+
 ## Inference Requirements
 - **Inference:** Min VRAM 15GB
 - **Storage:** Min 30GB free disk space (excluding `requirements.txt` packages)
 - **Environment:** Local & Google Colab supported
 
-## Update
+## Update 2026 11 16 Sampling GPU Optimize
 ### CPU Offloading Mode
 
 If your GPU has less than 15GB VRAM, run inference in CPU offloading mode.
