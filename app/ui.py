@@ -32,10 +32,6 @@ class UI:
 
         self._register_routes()
 
-    # ------------------------------------------------------------------
-    # Page
-    # ------------------------------------------------------------------
-
     def _read_asset(self, name: str) -> str:
         return (self.ASSET_DIR / name).read_text(encoding="utf-8")
 
@@ -261,9 +257,6 @@ class UI:
         def tag_tree():
             return jsonify({"tree": self.handler.get_tag_tree()})
 
-    # ------------------------------------------------------------------
-    # Run
-    # ------------------------------------------------------------------
 
     def run(self, host: str = "127.0.0.1", port: int = 7860,
             colab: bool | None = None, height: int = 1000):
