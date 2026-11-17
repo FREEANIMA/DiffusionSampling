@@ -152,7 +152,7 @@ class Handler:
 
         return tags_reshape
 
-    def generate_txt2img(self, tags_text:str, nsfw, calc_type, cfg_scale, H, W, steps, seed, fixed):
+    def generate_txt2img(self, tags_text:str, nsfw, calc_type, cfg_scale, H, W, steps, seed, fixed, shift):
         self.progress.reset()
         tags_text = tags_text.lower()
 
@@ -168,9 +168,10 @@ class Handler:
             steps=int(steps),
             seed=_parse_seed(seed),
             on_step=self.progress.update,
+            shift=self._clamp_shift(shift)
         )
     
-    def generate_inpainting(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, mask=None, start_t: float = 0.8):
+    def generate_inpainting(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, shift, mask=None, start_t: float = 0.8):
         if img_path is None:
             raise ValueError("경로를 입력해 주세요")
         if mask is None:
@@ -198,10 +199,18 @@ class Handler:
             img_bytes=img_bytes,
             start_t=float(start_t),
             on_step=self.progress.update,
-            save_dir=os.path.join(self.base_root, "inpainting")
+            save_dir=os.path.join(self.base_root, "inpainting"),
+            shift=self._clamp_shift(shift)
         )
 
-    def generate_detailering(self, calc_type, steps, seed, img_path, box=None, start_t: float = 0.3, cfg_scale=1.0):
+    def _clamp_shift(self, shift) -> float:
+        try:
+            s = float(shift)
+        except (TypeError, ValueError):
+            s = 3.0
+        return min(max(s, 0.1), 10.0)
+
+    def generate_detailering(self, calc_type, steps, seed, img_path, shift, box=None, start_t: float = 0.3, cfg_scale=1.0):
         if img_path is None:
             raise ValueError("경로를 입력해 주세요")
         if box is None:
@@ -242,6 +251,7 @@ class Handler:
             img_bytes=img_bytes,
             start_t=float(start_t),
             on_step=self.progress.update,
+            shift=self._clamp_shift(shift)
         )
         
         if img_out.size != (w, h):

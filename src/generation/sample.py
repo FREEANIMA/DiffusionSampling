@@ -11,7 +11,6 @@ INIT_PROMPT = "general img; "
 class Sampling:
     def __init__(self, base_root, model, text_encoder, vae, config, console=None):
         self.base_root = base_root
-        self.shift: float = 3.0
         self.device = "cuda"
         self.dtype=torch.bfloat16
         self.f = config["compression_ratio"]
@@ -44,7 +43,7 @@ class Sampling:
         return img
 
     @torch.inference_mode()
-    def sampling(self, tags, calculate_type, cfg_scale, steps, H, W, seed=None, on_step=None):
+    def sampling(self, tags, shift, calculate_type, cfg_scale, steps, H, W, seed=None, on_step=None):
 
         if seed is None:
             seed = random.randint(0, 2**32 - 1)
@@ -61,7 +60,7 @@ class Sampling:
             dtype=torch.float32,
         )
 
-        sigmas = sigma_schedular(step=steps, device=self.device, shift=self.shift)
+        sigmas = sigma_schedular(step=steps, device=self.device, shift=shift)
 
         total = len(sigmas) - 1
         done = 0

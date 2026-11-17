@@ -13,7 +13,6 @@ INIT_PROMPT = "general img; "
 class InPainting:
     def __init__(self, base_root, model, text_encoder, vae, config, console=None):
         self.base_root = base_root
-        self.shift: float = 3.0
         self.device = "cuda"
         self.dtype = torch.bfloat16
         self.f = config["compression_ratio"]
@@ -67,7 +66,7 @@ class InPainting:
         return (m_lat > 0.5).float()
 
     @torch.inference_mode()
-    def sampling(self, tags, calculate_type, cfg_scale, steps, img_bytes, start_t, seed=None, mask=None, on_step=None, save_dir=None):
+    def sampling(self, tags, shift, calculate_type, cfg_scale, steps, img_bytes, start_t, seed=None, mask=None, on_step=None, save_dir=None):
         if calculate_type == "unipc":
             raise ValueError("inpainting에서는 unipc를 사용할 수 없습니다. (마스크 합성 불가) euler/heun/ddim/ddpm_plus 중 선택하세요.")
 
@@ -92,7 +91,7 @@ class InPainting:
             latent.shape, generator=gen, device=latent.device, dtype=latent.dtype
         )
 
-        sigmas = sigma_schedular(step=steps, device=self.device, shift=self.shift)
+        sigmas = sigma_schedular(step=steps, device=self.device, shift=shift)
         start_idx = int(torch.argmin((sigmas - start_t).abs()).item())
         sigmas = sigmas[start_idx:]
         start_sigma = sigmas[0]

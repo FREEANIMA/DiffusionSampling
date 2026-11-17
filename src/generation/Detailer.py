@@ -12,7 +12,6 @@ INIT_PROMPT = "general img; "
 class Detailering:
     def __init__(self, base_root, model, text_encoder, vae, config, console=None):
         self.base_root = base_root
-        self.shift: float = 2.0
         self.device = "cuda"
         self.dtype = torch.bfloat16
         self.f = config["compression_ratio"]
@@ -46,7 +45,7 @@ class Detailering:
         return img
 
     @torch.inference_mode()
-    def sampling(self, tags, calculate_type, cfg_scale, steps, img_bytes, start_t, seed=None, on_step=None):
+    def sampling(self, tags, shift, calculate_type, cfg_scale, steps, img_bytes, start_t, seed=None, on_step=None):
         arr, H, W = img_resize(img_bytes, self.allowable_size, self.patch_size, self.f)
         img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
         img = img.to(device=self.device, dtype=self.dtype)
@@ -68,7 +67,7 @@ class Detailering:
         sigmas = sigma_schedular(
             step=steps,
             device=self.device,
-            shift=self.shift,
+            shift=shift
         )
 
         start_idx = int(torch.argmin((sigmas - start_t).abs()).item())

@@ -102,6 +102,7 @@ class UI:
                     img_path=img_path,
                     box=box,
                     start_t=float(p.get("start_t", 0.3)),
+                    shift=float(p.get("shift", 3.0)),
                 )
 
         common = dict(
@@ -112,6 +113,7 @@ class UI:
             steps=int(p["steps"]),
             seed=int(str(p.get("seed", "-1")).strip() or "-1"),
             fixed=bool(p.get("fixed", True)),
+            shift=float(p.get("shift", 3.0)),
         )
 
         if mode == "txt2img":

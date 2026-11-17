@@ -779,6 +779,7 @@
       sampler: $('sampler').value,
       steps: $('steps').value,
       seed: $('seed').value,
+      shift: $('shift').value,
     };
 
     // txt2img
