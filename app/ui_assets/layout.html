@@ -72,9 +72,7 @@
             <select id="t2i-sampler">
               <option>euler</option>
               <option>heun</option>
-
               <option>ddpm_plus</option>
-              <option>unipc</option>
             </select>
           </div>
         </div>
@@ -97,6 +95,13 @@
             <label for="t2i-seed">Seed</label>
             <input id="t2i-seed" value="-1">
           </div>
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label for="t2i-eta" title="0이면 결정적, 클수록 매 스텝 새 노이즈 비중이 커짐">Eta</label>
+            <input id="t2i-eta" type="number" value="0.3" min="0" max="1" step="0.05">
+          </div>
+          <div class="field"></div>
         </div>
 
         <div class="section-title">Size</div>
@@ -199,7 +204,6 @@
                     <option>euler</option>
                     <option>heun</option>
                     <option>ddpm_plus</option>
-                    <option>unipc</option>
                   </select>
                 </div>
               </div>
@@ -222,6 +226,13 @@
                   <label for="inp-seed">Seed</label>
                   <input id="inp-seed" value="-1">
                 </div>
+              </div>
+              <div class="grid-2">
+                <div class="field">
+                  <label for="inp-eta" title="0이면 결정적, 클수록 매 스텝 새 노이즈 비중이 커짐 (는 무시)">Eta</label>
+                  <input id="inp-eta" type="number" value="0.3" min="0" max="1" step="0.05">
+                </div>
+                <div class="field"></div>
               </div>
             </div>
 
@@ -347,7 +358,6 @@
                   <option>euler</option>
                   <option>heun</option>
                   <option>ddpm_plus</option>
-                  <option>unipc</option>
                 </select>
               </div>
             </div>
@@ -371,14 +381,15 @@
                 <input id="det-seed" value="-1">
               </div>
             </div>
-          </div>
-          <div class="grid-2">
-            <div class="field">
-              <label for="inp-eta">Eta</label>
-              <input id="inp-eta" type="number" value="0.3" min="0" max="1" step="0.05">
+            <div class="grid-2">
+              <div class="field">
+                <label for="det-eta" title="0이면 결정적, 클수록 매 스텝 새 노이즈 비중이 커짐">Eta</label>
+                <input id="det-eta" type="number" value="0.3" min="0" max="1" step="0.05">
+              </div>
+              <div class="field"></div>
             </div>
-            <div class="field"></div>
           </div>
+
           <div class="params-col">
             <div class="section-title">Detailer</div>
             <div class="field">

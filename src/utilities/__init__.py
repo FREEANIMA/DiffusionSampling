@@ -1,4 +1,4 @@
-from .solvers import heun, ddpm_plus, euler, unipc
+from .solvers import heun, ddpm_plus, euler
 from .resize_worker import img_resize
 from .sigma import sigma_schedular
 from .predict import velocity_predict, steps_sampling
@@ -16,7 +16,6 @@ __all__ = [
     "velocity_predict",
     "steps_sampling",
     "gpu_context",
-    "unipc",
     "_save_img",
     "_save_text",
     "_save_plot"
