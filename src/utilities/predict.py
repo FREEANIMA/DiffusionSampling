@@ -91,7 +91,7 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
             if after_step is not None:
                 x = after_step(x, sigma, sigma_next)
 
-            latents.append(x.detach().float().cpu())
+            # latents.append(x.detach().float().cpu())
     finally:
         torch.cuda.empty_cache()
 
