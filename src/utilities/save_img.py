@@ -12,17 +12,16 @@ def _font(size):
         except OSError:
             pass
     try:
-        return ImageFont.load_default(size=size)   # Pillow 10.1+
+        return ImageFont.load_default(size=size)
     except TypeError:
         return ImageFont.load_default()
 
 
 def _with_label(frame, text):
-    """프레임 위에 검은 띠를 붙이고 가운데에 글자를 넣음."""
     frame = frame.convert("RGB")
     w, h = frame.size
     size = max(14, w // 20)
-    bar = size * 2                                  # 짝수 유지 (libx264 요구)
+    bar = size * 2
 
     canvas = Image.new("RGB", (w, h + bar), (16, 16, 16))
     canvas.paste(frame, (0, bar))

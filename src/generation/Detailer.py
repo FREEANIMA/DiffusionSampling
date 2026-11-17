@@ -12,7 +12,7 @@ INIT_PROMPT = "general img; "
 class Detailering:
     def __init__(self, base_root, model, text_encoder, vae, config, console=None):
         self.base_root = base_root
-        self.shift: float = 3.0
+        self.shift: float = 2.0
         self.device = "cuda"
         self.dtype = torch.bfloat16
         self.f = config["compression_ratio"]
