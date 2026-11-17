@@ -64,6 +64,10 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
         for i in tqdm(range(n), desc="sampling"):
             sigma, sigma_next = sigmas[i], sigmas[i + 1]
 
+            if 0.6 < sigma < 0.9:
+                bias = 1e-3
+                x = x + bias 
+
             sigmas_steps.append(float(sigma_next))
             v = velocity_predict(x=x, sigma=sigma, **kw)
 
