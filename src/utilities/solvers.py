@@ -44,12 +44,6 @@ def _unipc_rhos_b(rks, B, hh, phi1):
 
 @torch.inference_mode()
 def unipc(model_fn, x, sigmas, order=2, variant="bh2", use_corrector=True):
-    """
-    UniPC (flow, data-prediction).
-    model_fn(x, sigma_float) -> v   (CFG 합성 후)
-    sigmas: 1 -> 0 으로 줄어드는 리스트. NFE = steps.
-    order: 1~3 (저스텝은 2 권장), variant: "bh1" | "bh2"
-    """
     sigmas = [float(s) for s in sigmas]
     n = len(sigmas) - 1
     # 수식용 sigma: 첫 값 1.0 방지(lambda=-inf), 마지막은 0
@@ -127,4 +121,4 @@ def unipc(model_fn, x, sigmas, order=2, variant="bh2", use_corrector=True):
             x = x_t_
         ord_prev = cur
 
-    return x
+    return x, [], [] 
