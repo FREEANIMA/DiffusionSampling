@@ -11,7 +11,7 @@ class TagGenration:
     def __init__(self, init_device, device="cuda", dtype=torch.bfloat16, console=None):
         self.device = device
         self.dtype = dtype
-        self.MIN_TAG_FREQ = 15
+        self.MIN_TAG_FREQ = 1_000
         self.MIN_FIXED_TAGS = 10
         self.SAMPLE_RETRY = 5  # 재샘플링 최대 횟수
 
