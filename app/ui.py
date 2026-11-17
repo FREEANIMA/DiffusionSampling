@@ -23,7 +23,18 @@ class UI:
         self.app = Flask(__name__)
         self._lock = threading.Lock()  # GPU 생성은 한 번에 하나만
 
+        # 탭(모드) → 실행 함수
+        self._modes = {
+            "txt2img": self._run_txt2img,
+            "inpainting": self._run_inpainting,
+            "detailer": self._run_detailer,
+        }
+
         self._register_routes()
+
+    # ------------------------------------------------------------------
+    # Page
+    # ------------------------------------------------------------------
 
     def _read_asset(self, name: str) -> str:
         return (self.ASSET_DIR / name).read_text(encoding="utf-8")
@@ -38,26 +49,28 @@ class UI:
             ensure_ascii=False,
         ).replace("</", "<\\/")
 
-        return f"""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>MMDIT</title>
-            <style>{css}</style>
-        </head>
-        <body>
-            {layout}
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MMDIT</title>
+    <style>{css}</style>
+</head>
+<body>
+    {layout}
 
-            <script>
-                window.TAG_LIST = {tags};
-            </script>
+    <script>
+        window.TAG_LIST = {tags};
+    </script>
 
-            <script>{js}</script>
-        </body>
-        </html>
-        """
+    <script>{js}</script>
+</body>
+</html>"""
+
+    # ------------------------------------------------------------------
+    # Image helpers
+    # ------------------------------------------------------------------
 
     @staticmethod
     def _pil_to_b64(img: Image.Image) -> str:
@@ -78,61 +91,93 @@ class UI:
         with Image.open(io.BytesIO(raw)) as img:
             return img.convert("L")
 
-    def _generate(self, p: dict):
-        mode = p["mode"]
+    @staticmethod
+    def _require_image(p: dict) -> str:
+        img_path = str(p.get("img_path", "")).strip()
+        if not img_path or not Path(img_path).is_file():
+            raise FileNotFoundError(f"Image not found: {img_path}")
+        return img_path
 
-        if mode in ("inpainting", "detailer"):
-            img_path = str(p.get("img_path", "")).strip()
+    # ------------------------------------------------------------------
+    # Parameter groups
+    #   sampling : 세 모드 공통 (sampler, steps, seed, shift)
+    #   prompt   : txt2img / inpainting 공통 (tags, nsfw, cfg, fixed)
+    # ------------------------------------------------------------------
 
-            if not img_path or not Path(img_path).is_file():
-                raise FileNotFoundError(f"Image not found: {img_path}")
-
-            if mode == "detailer":
-                r = p.get("rect")
-                if not r:
-                    raise ValueError("사각형 영역이 필요합니다.")
-
-                x, y = int(r["x"]), int(r["y"])
-                box = (x, y, x + int(r["w"]), y + int(r["h"]))
-
-                return self.handler.generate_detailering(
-                    calc_type=p["sampler"],
-                    steps=int(p["steps"]),
-                    seed=int(str(p.get("seed", "-1")).strip() or "-1"),
-                    img_path=img_path,
-                    box=box,
-                    start_t=float(p.get("start_t", 0.3)),
-                    shift=float(p.get("shift", 3.0)),
-                )
-
-        common = dict(
-            tags_text=p["tags"],
-            nsfw=bool(p["nsfw"]),
+    @staticmethod
+    def _sampling_params(p: dict) -> dict:
+        return dict(
             calc_type=p["sampler"],
-            cfg_scale=float(p["cfg"]),
             steps=int(p["steps"]),
             seed=int(str(p.get("seed", "-1")).strip() or "-1"),
-            fixed=bool(p.get("fixed", True)),
             shift=float(p.get("shift", 3.0)),
         )
 
-        if mode == "txt2img":
-            return self.handler.generate_txt2img(
-                H=int(p["H"]),
-                W=int(p["W"]),
-                **common,
-            )
+    @staticmethod
+    def _prompt_params(p: dict) -> dict:
+        return dict(
+            tags_text=p["tags"],
+            nsfw=bool(p["nsfw"]),
+            cfg_scale=float(p["cfg"]),
+            fixed=bool(p.get("fixed", True)),
+        )
 
-        if mode == "inpainting":
-            mask = self._b64_to_pil(p.get("mask") or "")
-            return self.handler.generate_inpainting(
-                img_path=img_path,
-                mask=mask,
-                start_t=float(p.get("start_t", 0.9)),
-                **common,
-            )
+    # ------------------------------------------------------------------
+    # Per-mode runners  (모두 (PIL.Image, path) 를 반환)
+    # ------------------------------------------------------------------
 
-        raise ValueError(f"Unknown mode: {mode}")
+    def _run_txt2img(self, p: dict):
+        return self.handler.generate_txt2img(
+            H=int(p["H"]),
+            W=int(p["W"]),
+            **self._prompt_params(p),
+            **self._sampling_params(p),
+        )
+
+    def _run_inpainting(self, p: dict):
+        img_path = self._require_image(p)
+        mask = self._b64_to_pil(p.get("mask") or "")
+
+        return self.handler.generate_inpainting(
+            img_path=img_path,
+            mask=mask,
+            start_t=float(p.get("start_t", 0.9)),
+            **self._prompt_params(p),
+            **self._sampling_params(p),
+        )
+
+    def _run_detailer(self, p: dict):
+        img_path = self._require_image(p)
+
+        r = p.get("rect")
+        if not r:
+            raise ValueError("사각형 영역이 필요합니다.")
+
+        x, y = int(r["x"]), int(r["y"])
+        box = (x, y, x + int(r["w"]), y + int(r["h"]))
+
+        # crop 위에 칠한 마스크 (없으면 None → 영역 전체)
+        mask_b64 = p.get("mask")
+        mask = self._b64_to_pil(mask_b64) if mask_b64 else None
+
+        return self.handler.generate_detailering(
+            img_path=img_path,
+            box=box,
+            mask=mask,
+            start_t=float(p.get("start_t", 0.3)),
+            **self._sampling_params(p),
+        )
+
+    def _generate(self, p: dict):
+        mode = p.get("mode")
+        run = self._modes.get(mode)
+        if run is None:
+            raise ValueError(f"Unknown mode: {mode}")
+        return run(p)
+
+    # ------------------------------------------------------------------
+    # Routes
+    # ------------------------------------------------------------------
 
     def _register_routes(self):
 
@@ -207,7 +252,11 @@ class UI:
         @self.app.get("/api/tag_tree")
         def tag_tree():
             return jsonify({"tree": self.handler.get_tag_tree()})
-        
+
+    # ------------------------------------------------------------------
+    # Run
+    # ------------------------------------------------------------------
+
     def run(self, host: str = "127.0.0.1", port: int = 7860,
             colab: bool | None = None, height: int = 1000):
         if colab is None:

@@ -392,11 +392,123 @@
 
     const setStatus = (t) => { statusEl.textContent = t; };
 
+    // ----- Crop 확대 미리보기 + 마스크 (detailer) -----
+    const cropCanvas = isRect ? $(`${p}-crop-canvas`) : null;
+    const cropMask = isRect ? $(`${p}-crop-mask-canvas`) : null;
+    const cropStage = isRect ? $(`${p}-crop-stage`) : null;
+    const cropEmpty = isRect ? $(`${p}-crop-empty`) : null;
+    const cropInfo = isRect ? $(`${p}-crop-info`) : null;
+    const cropMaskCtx = isRect ? cropMask.getContext('2d') : null;
+
+    const showCrop = (r) => {
+      if (!cropCanvas) return;
+
+      if (!r || r.w <= 0 || r.h <= 0 || !sourceImage) {
+        cropStage.style.display = 'none';
+        cropEmpty.style.display = '';
+        cropInfo.textContent = '';
+        return;
+      }
+
+      // canvas 크기를 바꾸면 내용이 지워짐 → crop이 바뀌면 마스크도 함께 초기화
+      cropCanvas.width = cropMask.width = r.w;
+      cropCanvas.height = cropMask.height = r.h;
+      cropCanvas.getContext('2d').drawImage(sourceImage, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+
+      cropStage.style.display = 'block';
+      cropEmpty.style.display = 'none';
+      cropInfo.textContent = `${r.w}×${r.h}`;
+    };
+
+    // crop 위에 마스크 그리기 (좌표는 crop 원본 픽셀 기준)
+    if (isRect) {
+      const cropBrush = $(`${p}-crop-brush`);
+      let cropDrawing = false;
+
+      const cropXY = (e) => {
+        const b = cropMask.getBoundingClientRect();
+        return [
+          (e.clientX - b.left) * cropMask.width / b.width,
+          (e.clientY - b.top) * cropMask.height / b.height,
+        ];
+      };
+
+      const cropStroke = (e) => {
+        const [x, y] = cropXY(e);
+
+        cropMaskCtx.lineWidth = Number(cropBrush.value) || 20;
+        cropMaskCtx.lineCap = 'round';
+        cropMaskCtx.lineJoin = 'round';
+        cropMaskCtx.strokeStyle = 'rgba(255,0,0,0.6)';
+
+        cropMaskCtx.lineTo(x, y);
+        cropMaskCtx.stroke();
+
+        cropMaskCtx.beginPath();
+        cropMaskCtx.moveTo(x, y);
+      };
+
+      cropMask.addEventListener('pointerdown', (e) => {
+        cropDrawing = true;
+        cropMask.setPointerCapture(e.pointerId);
+
+        const [x, y] = cropXY(e);
+        cropMaskCtx.beginPath();
+        cropMaskCtx.moveTo(x, y);
+        cropStroke(e);
+      });
+
+      cropMask.addEventListener('pointermove', (e) => {
+        if (cropDrawing) cropStroke(e);
+      });
+
+      const endCropStroke = () => {
+        cropDrawing = false;
+        cropMaskCtx.beginPath();
+      };
+      cropMask.addEventListener('pointerup', endCropStroke);
+      cropMask.addEventListener('pointercancel', endCropStroke);
+
+      $(`${p}-crop-mask-clear`).onclick = () => {
+        cropMaskCtx.clearRect(0, 0, cropMask.width, cropMask.height);
+      };
+    }
+
+    // 칠한 부분이 있으면 흑백 PNG(dataURL), 없으면 null (= 마스크 미사용)
+    const getCropMask = () => {
+      if (!cropMask || !rect || !cropMask.width || !cropMask.height) return null;
+
+      const { width, height } = cropMask;
+      const src = cropMaskCtx.getImageData(0, 0, width, height).data;
+
+      const output = document.createElement('canvas');
+      output.width = width;
+      output.height = height;
+      const outCtx = output.getContext('2d');
+      const outPixels = outCtx.createImageData(width, height);
+
+      let any = false;
+      for (let i = 0; i < src.length; i += 4) {
+        const v = src[i + 3] > 30 ? 255 : 0;
+        if (v) any = true;
+        outPixels.data[i] = v;
+        outPixels.data[i + 1] = v;
+        outPixels.data[i + 2] = v;
+        outPixels.data[i + 3] = 255;
+      }
+
+      if (!any) return null;
+
+      outCtx.putImageData(outPixels, 0, 0);
+      return output.toDataURL('image/png');
+    };
+
     const reset = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       localMask = null;
       rect = null;
       rectStart = null;
+      showCrop(null);
     };
 
     const getXY = (e) => {
@@ -431,6 +543,7 @@
           reset();
 
           $(`${p}-mask-editor`).style.display = 'block';
+          $(`${p}-orig-empty`).style.display = 'none';
           setStatus(isRect
             ? `이미지 로드 완료. 드래그로 영역을 선택하세요. (${UNIT}px 단위)`
             : '이미지 로드 완료.');
@@ -524,6 +637,7 @@
       if (isRect) {
         const r = drawRect(rectStart, getXY(e));
         setStatus(`영역 선택 중... ${r.w}×${r.h}`);
+        showCrop(r);
       } else {
         draw(e);
       }
@@ -544,9 +658,11 @@
             h: Math.round(r.h),
           };
           setStatus(`영역 선택 완료 (${rect.w}×${rect.h})`);
+          showCrop(rect);
         } else {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           setStatus('영역이 너무 작아요. 다시 드래그하세요.');
+          showCrop(null);
         }
 
         rectStart = null;
@@ -561,6 +677,7 @@
         rect = null;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         setStatus('영역 선택이 취소되었습니다.');
+        showCrop(null);
       }
     });
 
@@ -603,6 +720,7 @@
     return {
       getMask: () => localMask,
       getRect: () => rect,
+      getCropMask,
     };
   };
 
@@ -809,6 +927,7 @@
           img_path: imgPath,
           start_t: $(`${p}-start_t`).value,
           rect,
+          mask: editor.getCropMask(),
         },
       };
     });

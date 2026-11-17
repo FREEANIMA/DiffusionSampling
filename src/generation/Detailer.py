@@ -45,53 +45,52 @@ class Detailering:
         return img
 
     @torch.inference_mode()
-    def sampling(self, tags, shift, calculate_type, cfg_scale, steps, img_bytes, start_t, seed=None, on_step=None):
-        arr, H, W = img_resize(img_bytes, self.allowable_size, self.patch_size, self.f)
+    def sampling(self, arr, tags, shift, calculate_type, cfg_scale, steps, img_bytes, start_t, seed=None, mask=None, on_step=None):
+        if calculate_type == "unipc":
+            raise ValueError("inpainting에서는 unipc를 사용할 수 없습니다. (마스크 합성 불가) euler/heun/ddim/ddpm_plus 중 선택하세요.")
+
+        if mask is None:
+            raise ValueError("mask가 필요합니다.")
+
+        mask = mask.convert("L").resize((W, H), Image.Resampling.NEAREST)
+        mask_arr = np.array(mask, dtype=np.uint8)
+
         img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
         img = img.to(device=self.device, dtype=self.dtype)
 
-        with gpu_context(self.vae.vae, self.device):
-            latent = self.vae_encode(img)
+        latent = self.vae_encode(img)
+        mask_lat = self.mask_generation(mask_arr, latent)
 
         gen = torch.Generator(device=self.device)
         if seed is not None:
             gen.manual_seed(seed)
-
         noise = torch.randn(
-            latent.shape,
-            generator=gen,
-            device=latent.device,
-            dtype=latent.dtype,
+            latent.shape, generator=gen, device=latent.device, dtype=latent.dtype
         )
 
-        sigmas = sigma_schedular(
-            step=steps,
-            device=self.device,
-            shift=shift
-        )
-
+        sigmas = sigma_schedular(step=steps, device=self.device, shift=shift)
         start_idx = int(torch.argmin((sigmas - start_t).abs()).item())
         sigmas = sigmas[start_idx:]
-
         start_sigma = sigmas[0]
+
         x_t = (1 - start_sigma) * latent + start_sigma * noise
 
         total = len(sigmas) - 1
         done = 0
-
         if on_step:
             on_step(0, total)
-
+            
         cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=tags)
-        
+
         def after_step(x, sigma, sigma_next):
             nonlocal done
             done += 1
-
             if on_step:
                 on_step(min(done, total), total)
 
-            return x
+            s = sigma_next.view(1, 1, 1, 1) if torch.is_tensor(sigma_next) else float(sigma_next)
+            orig_t = (1 - s) * latent + s * noise
+            return (1 - mask_lat) * orig_t + mask_lat * x
 
         if g.INIT_DEVICE == "cpu":
             self.model.to(self.device)
@@ -104,10 +103,8 @@ class Detailering:
             sigmas=sigmas,
             calculate_type=calculate_type,
             cfg_scale=cfg_scale,
-            cond_emb=cond_emb,
-            cond_mask=cond_mask,
-            uncond_emb=uncond_emb,
-            uncond_mask=uncond_mask,
+            cond_emb=cond_emb, cond_mask=cond_mask,
+            uncond_emb=uncond_emb, uncond_mask=uncond_mask,
             gen=gen,
             dtype=self.dtype,
             after_step=after_step,
@@ -116,8 +113,8 @@ class Detailering:
             self.model.to("cpu")
 
         del cond_emb, uncond_emb, cond_mask, uncond_mask
-        del img, latent, noise, sigmas, x_t
-
+        del latent, mask_lat, noise, x_t, sigmas
+        
         imgs = []
         for latent in latents:
             imgs.append(self.vae_decode(latent))
@@ -126,7 +123,7 @@ class Detailering:
 
         return self.vae_decode(x), imgs, sigmas_steps
 
-    def merge_img(self, origin_img, img_out, square, save_dir, imgs, sigmas_steps, feather=16, img_in=None):
+    def merge_img(self, origin_img, img_out, square, save_dir, imgs, sigmas_steps, final_tags, feather=16, img_in=None):
         left, top, right, bottom = square
         w, h = right - left, bottom - top
 

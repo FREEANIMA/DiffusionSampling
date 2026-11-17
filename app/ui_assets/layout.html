@@ -135,9 +135,10 @@
 
   <!-- =====================================================
        TAB 2 : Inpainting      (prefix: inp)
+       파라미터 → [원본 | 결과]
        ===================================================== -->
   <section class="pane" id="pane-inpainting" data-mode="inpainting" role="tabpanel" aria-labelledby="tab-inpainting" hidden>
-    <div class="app-grid has-tree">
+    <div class="app-grid side-tree">
 
       <section class="card tree">
         <div class="section-title">Tag Browser</div>
@@ -147,194 +148,217 @@
         </div>
       </section>
 
-      <section class="card controls">
-        <div class="section-title">Prompt</div>
+      <div class="stack">
 
-        <div class="field">
-          <div class="label-row">
-            <label for="inp-tags">Tags</label>
-            <label class="switch" title="켜면 LLM 태그 확장 없이 입력한 태그만 사용">
-              <input type="checkbox" id="inp-fixed" checked>
-              <span class="track"></span>
-              <span class="switch-text">고정</span>
-            </label>
-          </div>
-          <div class="ac-wrap">
-            <input id="inp-tags" placeholder="woman, cinematic, ..." autocomplete="off">
-            <div id="inp-ac" class="ac-list" style="display:none;"></div>
-          </div>
-        </div>
+        <!-- 파라미터 -->
+        <section class="card params">
+          <div class="params-grid">
 
-        <div class="field">
-          <div class="label-row">
-            <label>History</label>
-            <button id="inp-history_refresh" type="button" class="icon-btn" title="새로고침">↻</button>
-          </div>
-          <div id="inp-tag_history" class="history">
-            <span class="history-empty">기록 없음</span>
-          </div>
-        </div>
+            <div class="params-col">
+              <div class="section-title">Prompt</div>
 
-        <div class="section-title">Sampling</div>
-        <div class="grid-2">
-          <div class="field">
-            <label for="inp-nsfw">NSFW</label>
-            <select id="inp-nsfw">
-              <option value="false">n</option>
-              <option value="true">y</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="inp-sampler">Sampler</label>
-            <select id="inp-sampler">
-              <option>euler</option>
-              <option>heun</option>
-              <option>ddim</option>
-              <option>ddpm_plus</option>
-              <option>unipc</option>
-            </select>
-          </div>
-        </div>
-        <div class="grid-2">
-          <div class="field">
-            <label for="inp-cfg">CFG</label>
-            <input id="inp-cfg" value="4.0">
-          </div>
-          <div class="field">
-            <label for="inp-shift">Shift</label>
-            <input id="inp-shift" type="number" value="3.0" min="0.1" max="10" step="0.1">
-          </div>
-        </div>
-        <div class="grid-2">
-          <div class="field">
-            <label for="inp-steps">Steps</label>
-            <input id="inp-steps" type="number" value="30">
-          </div>
-          <div class="field">
-            <label for="inp-seed">Seed</label>
-            <input id="inp-seed" value="-1">
-          </div>
-        </div>
+              <div class="field">
+                <div class="label-row">
+                  <label for="inp-tags">Tags</label>
+                  <label class="switch" title="켜면 LLM 태그 확장 없이 입력한 태그만 사용">
+                    <input type="checkbox" id="inp-fixed" checked>
+                    <span class="track"></span>
+                    <span class="switch-text">고정</span>
+                  </label>
+                </div>
+                <div class="ac-wrap">
+                  <input id="inp-tags" placeholder="woman, cinematic, ..." autocomplete="off">
+                  <div id="inp-ac" class="ac-list" style="display:none;"></div>
+                </div>
+              </div>
 
-        <div class="section-title">Inpainting</div>
-
-        <div class="field">
-          <label for="inp-img_path">Image path</label>
-          <div class="input-btn">
-            <input id="inp-img_path" placeholder="/path/to/image.png">
-            <button id="inp-load_image" type="button" class="btn">Load</button>
-          </div>
-        </div>
-
-        <div class="grid-2">
-          <div class="field">
-            <label for="inp-start_t">Start T</label>
-            <input id="inp-start_t" type="number" min="0" max="1" step="0.01" value="0.9">
-          </div>
-          <div class="field">
-            <label for="inp-brush">Brush</label>
-            <input id="inp-brush" type="number" value="20" min="1">
-          </div>
-        </div>
-
-        <div class="mask-editor" id="inp-mask-editor" style="display:none;">
-          <div class="canvas-stack">
-            <canvas id="inp-bg-canvas" class="bg-canvas"></canvas>
-            <canvas id="inp-mask-canvas" class="mask-canvas"></canvas>
-          </div>
-          <div class="mask-bar">
-            <div class="btn-group">
-              <button id="inp-mask-clear" type="button" class="btn">Clear</button>
-              <button id="inp-mask-finish" type="button" class="btn">Finish mask</button>
+              <div class="field">
+                <div class="label-row">
+                  <label>History</label>
+                  <button id="inp-history_refresh" type="button" class="icon-btn" title="새로고침">↻</button>
+                </div>
+                <div id="inp-tag_history" class="history">
+                  <span class="history-empty">기록 없음</span>
+                </div>
+              </div>
             </div>
-            <span id="inp-mask-status" class="mask-status">대기 중...</span>
+
+            <div class="params-col">
+              <div class="section-title">Sampling</div>
+              <div class="grid-2">
+                <div class="field">
+                  <label for="inp-nsfw">NSFW</label>
+                  <select id="inp-nsfw">
+                    <option value="false">n</option>
+                    <option value="true">y</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="inp-sampler">Sampler</label>
+                  <select id="inp-sampler">
+                    <option>euler</option>
+                    <option>heun</option>
+                    <option>ddim</option>
+                    <option>ddpm_plus</option>
+                    <option>unipc</option>
+                  </select>
+                </div>
+              </div>
+              <div class="grid-2">
+                <div class="field">
+                  <label for="inp-cfg">CFG</label>
+                  <input id="inp-cfg" value="4.0">
+                </div>
+                <div class="field">
+                  <label for="inp-shift">Shift</label>
+                  <input id="inp-shift" type="number" value="3.0" min="0.1" max="10" step="0.1">
+                </div>
+              </div>
+              <div class="grid-2">
+                <div class="field">
+                  <label for="inp-steps">Steps</label>
+                  <input id="inp-steps" type="number" value="30">
+                </div>
+                <div class="field">
+                  <label for="inp-seed">Seed</label>
+                  <input id="inp-seed" value="-1">
+                </div>
+              </div>
+            </div>
+
+            <div class="params-col">
+              <div class="section-title">Inpainting</div>
+              <div class="field">
+                <label for="inp-img_path">Image path</label>
+                <div class="input-btn">
+                  <input id="inp-img_path" placeholder="/path/to/image.png">
+                  <button id="inp-load_image" type="button" class="btn">Load</button>
+                </div>
+              </div>
+              <div class="grid-2">
+                <div class="field">
+                  <label for="inp-start_t">Start T</label>
+                  <input id="inp-start_t" type="number" min="0" max="1" step="0.01" value="0.9">
+                </div>
+                <div class="field">
+                  <label for="inp-brush">Brush</label>
+                  <input id="inp-brush" type="number" value="20" min="1">
+                </div>
+              </div>
+            </div>
+
           </div>
+
+          <div class="actions">
+            <button id="inp-run" type="button" class="btn primary">Generate</button>
+            <button id="inp-clear_out" type="button" class="btn ghost">Clear</button>
+          </div>
+        </section>
+
+        <!-- 원본 | 결과 -->
+        <div class="view-row">
+
+          <section class="card view">
+            <div class="section-title">Original</div>
+
+            <div class="empty-state" id="inp-orig-empty">
+              <div class="empty-icon">▣</div>
+              <div>이미지를 불러오면 여기서 마스크를 그립니다</div>
+            </div>
+
+            <div class="mask-editor" id="inp-mask-editor" style="display:none;">
+              <div class="canvas-stack">
+                <canvas id="inp-bg-canvas" class="bg-canvas"></canvas>
+                <canvas id="inp-mask-canvas" class="mask-canvas"></canvas>
+              </div>
+              <div class="mask-bar">
+                <div class="btn-group">
+                  <button id="inp-mask-clear" type="button" class="btn">Clear</button>
+                  <button id="inp-mask-finish" type="button" class="btn">Finish mask</button>
+                </div>
+                <span id="inp-mask-status" class="mask-status">대기 중...</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="card view">
+            <div class="section-title">Result</div>
+            <progress id="inp-bar" value="0" max="1" style="display:none;"></progress>
+            <div id="inp-out" class="out"></div>
+            <div id="inp-result" class="result"></div>
+            <div class="empty-state">
+              <div class="empty-icon">✦</div>
+              <div>생성된 이미지가 여기에 표시됩니다</div>
+            </div>
+          </section>
+
         </div>
 
-        <div class="actions">
-          <button id="inp-run" type="button" class="btn primary">Generate</button>
-          <button id="inp-clear_out" type="button" class="btn ghost">Clear</button>
-        </div>
-      </section>
+        <section class="card">
+          <div class="section-title">Console</div>
+          <pre id="inp-console" class="console"></pre>
+        </section>
 
-      <section class="card output">
-        <div class="section-title">Result</div>
-        <progress id="inp-bar" value="0" max="1" style="display:none;"></progress>
-        <div id="inp-out" class="out"></div>
-        <div id="inp-result" class="result"></div>
-        <div class="empty-state">
-          <div class="empty-icon">✦</div>
-          <div>생성된 이미지가 여기에 표시됩니다</div>
-        </div>
-        <div class="section-title console-title">Console</div>
-        <pre id="inp-console" class="console"></pre>
-      </section>
-
+      </div>
     </div>
   </section>
 
   <!-- =====================================================
        TAB 3 : Detailer        (prefix: det)
+       파라미터 → [원본 | crop 확대 | 결과]
        ===================================================== -->
   <section class="pane" id="pane-detailer" data-mode="detailer" role="tabpanel" aria-labelledby="tab-detailer" hidden>
-    <div class="app-grid">
+    <div class="stack">
 
-      <section class="card controls">
-        <div class="section-title">Sampling</div>
-        <div class="grid-2">
-          <div class="field">
-            <label for="det-sampler">Sampler</label>
-            <select id="det-sampler">
-              <option>euler</option>
-              <option>heun</option>
-              <option>ddim</option>
-              <option>ddpm_plus</option>
-              <option>unipc</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="det-shift">Shift</label>
-            <input id="det-shift" type="number" value="3.0" min="0.1" max="10" step="0.1">
-          </div>
-        </div>
-        <div class="grid-2">
-          <div class="field">
-            <label for="det-steps">Steps</label>
-            <input id="det-steps" type="number" value="30">
-          </div>
-          <div class="field">
-            <label for="det-seed">Seed</label>
-            <input id="det-seed" value="-1">
-          </div>
-        </div>
+      <!-- 파라미터 -->
+      <section class="card params">
+        <div class="params-grid">
 
-        <div class="section-title">Detailer</div>
-        <p class="hint">이미지 영역을 선택하여 세부 디테일을 복원합니다.</p>
-
-        <div class="field">
-          <label for="det-img_path">Image path</label>
-          <div class="input-btn">
-            <input id="det-img_path" placeholder="/path/to/image.png">
-            <button id="det-load_image" type="button" class="btn">Load</button>
-          </div>
-        </div>
-
-        <div class="field">
-          <label for="det-start_t">Start T</label>
-          <input id="det-start_t" type="number" min="0" max="1" step="0.01" value="0.3">
-        </div>
-
-        <div class="mask-editor" id="det-mask-editor" style="display:none;">
-          <div class="canvas-stack">
-            <canvas id="det-bg-canvas" class="bg-canvas"></canvas>
-            <canvas id="det-mask-canvas" class="mask-canvas"></canvas>
-          </div>
-          <div class="mask-bar">
-            <div class="btn-group">
-              <button id="det-mask-clear" type="button" class="btn">Clear</button>
+          <div class="params-col">
+            <div class="section-title">Sampling</div>
+            <div class="grid-2">
+              <div class="field">
+                <label for="det-sampler">Sampler</label>
+                <select id="det-sampler">
+                  <option>euler</option>
+                  <option>heun</option>
+                  <option>ddim</option>
+                  <option>ddpm_plus</option>
+                  <option>unipc</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="det-shift">Shift</label>
+                <input id="det-shift" type="number" value="3.0" min="0.1" max="10" step="0.1">
+              </div>
             </div>
-            <span id="det-mask-status" class="mask-status">대기 중...</span>
+            <div class="grid-2">
+              <div class="field">
+                <label for="det-steps">Steps</label>
+                <input id="det-steps" type="number" value="30">
+              </div>
+              <div class="field">
+                <label for="det-seed">Seed</label>
+                <input id="det-seed" value="-1">
+              </div>
+            </div>
           </div>
+
+          <div class="params-col">
+            <div class="section-title">Detailer</div>
+            <div class="field">
+              <label for="det-img_path">Image path</label>
+              <div class="input-btn">
+                <input id="det-img_path" placeholder="/path/to/image.png">
+                <button id="det-load_image" type="button" class="btn">Load</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="det-start_t">Start T</label>
+              <input id="det-start_t" type="number" min="0" max="1" step="0.01" value="0.3">
+            </div>
+          </div>
+
         </div>
 
         <div class="actions">
@@ -343,16 +367,72 @@
         </div>
       </section>
 
-      <section class="card output">
-        <div class="section-title">Result</div>
-        <progress id="det-bar" value="0" max="1" style="display:none;"></progress>
-        <div id="det-out" class="out"></div>
-        <div id="det-result" class="result"></div>
-        <div class="empty-state">
-          <div class="empty-icon">✦</div>
-          <div>생성된 이미지가 여기에 표시됩니다</div>
-        </div>
-        <div class="section-title console-title">Console</div>
+      <!-- 원본 | crop 확대 | 결과 -->
+      <div class="view-row three">
+
+        <section class="card view">
+          <div class="section-title">Original</div>
+
+          <div class="empty-state" id="det-orig-empty">
+            <div class="empty-icon">▣</div>
+            <div>이미지를 불러온 뒤 드래그로 영역을 선택하세요</div>
+          </div>
+
+          <div class="mask-editor" id="det-mask-editor" style="display:none;">
+            <div class="canvas-stack">
+              <canvas id="det-bg-canvas" class="bg-canvas"></canvas>
+              <canvas id="det-mask-canvas" class="mask-canvas"></canvas>
+            </div>
+            <div class="mask-bar">
+              <div class="btn-group">
+                <button id="det-mask-clear" type="button" class="btn">Clear</button>
+              </div>
+              <span id="det-mask-status" class="mask-status">대기 중...</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="card view">
+          <div class="section-title">Crop · Mask</div>
+
+          <div class="empty-state" id="det-crop-empty">
+            <div class="empty-icon">⌗</div>
+            <div>선택한 영역이 확대되어 표시됩니다<br>여기서 다듬을 부분을 칠하세요</div>
+          </div>
+
+          <div class="crop-stage" id="det-crop-stage" style="display:none;">
+            <div class="canvas-stack">
+              <canvas id="det-crop-canvas" class="crop-canvas"></canvas>
+              <canvas id="det-crop-mask-canvas" class="mask-canvas"></canvas>
+            </div>
+            <div class="mask-bar">
+              <div class="brush-inline">
+                <label for="det-crop-brush">Brush</label>
+                <input id="det-crop-brush" type="number" value="20" min="1">
+              </div>
+              <div class="btn-group">
+                <button id="det-crop-mask-clear" type="button" class="btn">Clear mask</button>
+              </div>
+            </div>
+            <div id="det-crop-info" class="crop-info"></div>
+          </div>
+        </section>
+
+        <section class="card view">
+          <div class="section-title">Result</div>
+          <progress id="det-bar" value="0" max="1" style="display:none;"></progress>
+          <div id="det-out" class="out"></div>
+          <div id="det-result" class="result"></div>
+          <div class="empty-state">
+            <div class="empty-icon">✦</div>
+            <div>생성된 이미지가 여기에 표시됩니다</div>
+          </div>
+        </section>
+
+      </div>
+
+      <section class="card">
+        <div class="section-title">Console</div>
         <pre id="det-console" class="console"></pre>
       </section>
 

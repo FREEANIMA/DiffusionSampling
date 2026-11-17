@@ -4,6 +4,7 @@ import numpy as np
 class ImageDecodeError(Exception):
     pass
 
+# patch size * compression ratio 단위로 맞춰주기
 def img_resize(img_bytes, allowable_size, patch_size, compression_ratio):
     unit = patch_size * compression_ratio
     try:

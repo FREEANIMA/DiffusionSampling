@@ -7,7 +7,7 @@ from networks import load_mmdit_dcae
 from collections import deque
 import os
 import io
-from src.utilities import gpu_context
+from src.utilities import gpu_context, img_resize
 import common.globals as g
 
 def _parse_seed(seed) -> Optional[int]:
@@ -71,6 +71,7 @@ class Handler:
 
         self.f = self.config["compression_ratio"]
         self.patch_size = self.config["patch_size"]
+        self.allowable_size = self.config["allowable_size"]
 
         self._sampler: Optional[Sampling] = None
         self._detailer: Optional[Detailering] = None
@@ -212,7 +213,7 @@ class Handler:
             s = 3.0
         return min(max(s, 0.1), 10.0)
 
-    def generate_detailering(self, calc_type, steps, seed, img_path, shift, box=None, start_t: float = 0.3, cfg_scale=1.0):
+    def generate_detailering(self, calc_type,  steps, seed, img_path, shift, tags_text : str, cfg_scale, nsfw, mask=None, fixed=True, box=None, start_t: float = 0.3):
         if img_path is None:
             raise ValueError("경로를 입력해 주세요")
         if box is None:
@@ -221,13 +222,11 @@ class Handler:
         self.progress.reset()
         img = Image.open(img_path).convert("RGB")
 
-        unit = self.f * self.patch_size  # 32 * 2 = 64
-
+        unit = self.f * self.patch_size
         left, top, right, bottom = box
         left, top = max(int(left), 0), max(int(top), 0)
         right, bottom = min(int(right), img.width), min(int(bottom), img.height)
 
-        # 좌상단 고정, 크기를 unit 배수로 내림 (이미지 밖으로 나가지 않음)
         w = (right - left) // unit * unit
         h = (bottom - top) // unit * unit
 
@@ -239,23 +238,46 @@ class Handler:
 
         buf = io.BytesIO()
         crop_img.save(buf, format="PNG")
+
+        w, h = crop_img.size
+
+        scale = self.allowable_size / max(w, h)
+
+        W = round(w * scale / 32) * 32
+        H = round(h * scale / 32) * 32
+
+        if w >= h:
+            W = self.allowable_size
+        else:
+            H = self.allowable_size
+
+        crop_img = crop_img.resize((W, H), Image.Resampling.LANCZOS)
+
+        buf = io.BytesIO()
+        crop_img.save(buf, format="PNG")
         img_bytes = buf.getvalue()
 
-        tags_reshape = [self.tag_generation.INIT_PROMPT]
-        self.console.put(f"{tags_reshape} box={box} ({w}x{h})")
+        tags_text = tags_text.strip().lower()
 
+        arr, new_H, new_W = img_resize(img_bytes, self.allowable_size, self.patch_size, self.f)
+
+        assert H == new_H, f"Height mismatch: expected={H}, actual={new_H}"
+        assert W == new_W, f"Width mismatch: expected={W}, actual={new_W}"
+
+        tags_reshape, final_tags = self._resolve_tags(tags_text, nsfw, new_H, new_W, fixed)
         img_out, imgs, sigmas_steps = self.detailer.sampling(
             tags=tags_reshape,
             calculate_type=calc_type,
             cfg_scale=float(cfg_scale),
             steps=int(steps),
             seed=_parse_seed(seed),
-            img_bytes=img_bytes,
+            arr=arr,
             start_t=float(start_t),
             on_step=self.progress.update,
-            shift=self._clamp_shift(shift)
+            shift=self._clamp_shift(shift),
+            mask=mask,
         )
-        
+
         if img_out.size != (w, h):
             print(f"[fix] resize {img_out.size} -> ({w}, {h})")
             img_out = img_out.resize((w, h), Image.Resampling.LANCZOS)
@@ -267,5 +289,6 @@ class Handler:
             save_dir=os.path.join(self.base_root, "detailer"),
             img_in=crop_img,
             imgs=imgs,
-            sigmas_steps=sigmas_steps
+            sigmas_steps=sigmas_steps,
+            final_tags=final_tags,
         )

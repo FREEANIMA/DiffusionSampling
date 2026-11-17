@@ -377,3 +377,40 @@ progress::-moz-progress-bar { background: linear-gradient(90deg, var(--accent), 
 .tag-tree::-webkit-scrollbar-thumb, .tree-items::-webkit-scrollbar-thumb {
   background: var(--border); border-radius: 8px;
 }
+
+/* ---------- Stacked pane layout (Inpainting / Detailer) ---------- */
+.stack { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+
+/* 트리 | 스택 */
+.app-grid.side-tree { grid-template-columns: 280px minmax(0, 1fr); }
+@media (max-width: 1280px) { .app-grid.side-tree { grid-template-columns: 240px minmax(0, 1fr); } }
+@media (max-width: 920px)  { .app-grid.side-tree { grid-template-columns: 1fr; } }
+
+/* 상단 파라미터 카드: 열 단위로 가로 배치 */
+.params-grid {
+  display: grid; gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+.params-col { min-width: 0; }
+.params .actions { margin-top: 8px; }
+
+/* 하단 뷰 행 */
+.view-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+.view-row.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1100px) {
+  .view-row.three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .view-row.three > .view:last-child { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  .view-row, .view-row.three { grid-template-columns: 1fr; }
+}
+.view { min-width: 0; }
+.view .empty-state { margin-top: 0; }
+.view .result img { margin-top: 0 !important; }
+
+/* Detailer: crop 확대 + 마스크 */
+.crop-canvas { display: block; width: 100%; height: auto; }
+.brush-inline { display: flex; align-items: center; gap: 8px; }
+.brush-inline label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.brush-inline input { width: 72px; padding: 6px 8px; font-size: 12px; }
+.crop-info { margin-top: 10px; font-size: 12px; color: var(--muted); min-height: 18px; }
