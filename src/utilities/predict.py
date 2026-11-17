@@ -60,17 +60,9 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
     latents = []
     sigmas_steps = []
 
-    pert_seed = 3
-    amp = 0.3
-    pert_gen = torch.Generator(device=x.device).manual_seed(pert_seed)
-    d = torch.randn(x.shape, generator=pert_gen, device=x.device, dtype=torch.float32)
-
     try:
         for i in tqdm(range(n), desc="sampling"):
             sigma, sigma_next = sigmas[i], sigmas[i + 1]
-
-            if 0.6 < float(sigma) < 0.9:
-                x = x + amp * (float(sigma) - float(sigma_next)) * d
 
             sigmas_steps.append(float(sigma_next))
             v = velocity_predict(x=x, sigma=sigma, **kw)
