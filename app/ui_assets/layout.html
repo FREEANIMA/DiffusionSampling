@@ -315,8 +315,33 @@
         <div class="params-grid">
 
           <div class="params-col">
+            <div class="section-title">Prompt</div>
+            <div class="field">
+              <div class="label-row">
+                <label for="det-tags">Tags</label>
+                <label class="switch" title="켜면 LLM 태그 확장 없이 입력한 태그만 사용">
+                  <input type="checkbox" id="det-fixed" checked>
+                  <span class="track"></span>
+                  <span class="switch-text">고정</span>
+                </label>
+              </div>
+              <div class="ac-wrap">
+                <input id="det-tags" placeholder="비워두면 태그 없이 진행" autocomplete="off">
+                <div id="det-ac" class="ac-list" style="display:none;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="params-col">
             <div class="section-title">Sampling</div>
             <div class="grid-2">
+              <div class="field">
+                <label for="det-nsfw">NSFW</label>
+                <select id="det-nsfw">
+                  <option value="false">n</option>
+                  <option value="true">y</option>
+                </select>
+              </div>
               <div class="field">
                 <label for="det-sampler">Sampler</label>
                 <select id="det-sampler">
@@ -326,6 +351,12 @@
                   <option>ddpm_plus</option>
                   <option>unipc</option>
                 </select>
+              </div>
+            </div>
+            <div class="grid-2">
+              <div class="field">
+                <label for="det-cfg">CFG</label>
+                <input id="det-cfg" value="4.0">
               </div>
               <div class="field">
                 <label for="det-shift">Shift</label>

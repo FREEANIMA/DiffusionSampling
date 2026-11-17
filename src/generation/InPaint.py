@@ -134,7 +134,7 @@ class InPainting:
         )
         if g.INIT_DEVICE == "cpu":
             self.model.to("cpu")
-
+    
         del cond_emb, uncond_emb, cond_mask, uncond_mask
         del latent, mask_lat, noise, x_t, sigmas
 

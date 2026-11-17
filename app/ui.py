@@ -172,6 +172,7 @@ class UI:
             box=box,
             mask=mask,
             start_t=float(p.get("start_t", 0.3)),
+            **self._prompt_params(p),
             **self._sampling_params(p),
         )
 

@@ -952,6 +952,7 @@
   (() => {
     const p = PREFIX.detailer;
     const editor = initEditor(p, 'rect');
+    initAutocomplete($(`${p}-tags`), $(`${p}-ac`));
 
     initRun('detailer', () => {
       const imgPath = $(`${p}-img_path`).value;
@@ -962,6 +963,10 @@
 
       return {
         params: {
+          tags: $(`${p}-tags`).value,
+          fixed: $(`${p}-fixed`).checked,
+          nsfw: $(`${p}-nsfw`).value === 'true',
+          cfg: $(`${p}-cfg`).value,
           img_path: imgPath,
           start_t: $(`${p}-start_t`).value,
           rect,
