@@ -67,7 +67,7 @@ class Detailering:
 
 
     @torch.inference_mode()
-    def sampling(self, arr, tags, shift, H, W, calculate_type, cfg_scale, steps, start_t, seed=None, mask=None, on_step=None):
+    def sampling(self, arr, tags, shift, H, W, calculate_type, cfg_scale, steps, start_t, eta=0.3, seed=None, mask=None, on_step=None):
         if calculate_type == "unipc":
             raise ValueError("inpainting에서는 unipc를 사용할 수 없습니다. (마스크 합성 불가) euler/heun/ddim/ddpm_plus 중 선택하세요.")
 
@@ -130,6 +130,7 @@ class Detailering:
             gen=gen,
             dtype=self.dtype,
             after_step=after_step,
+            eta=eta
         )
         if g.INIT_DEVICE == "cpu":
             self.model.to("cpu")

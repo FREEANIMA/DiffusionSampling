@@ -1,7 +1,7 @@
 import warnings
 import torch
 from tqdm.auto import tqdm
-from .solvers import euler, heun, ddim, ddpm_plus, unipc
+from .solvers import euler, heun, ddpm_plus, unipc
 import common.globals as g
 
 
@@ -30,7 +30,7 @@ def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_ma
     return v
 
 @torch.inference_mode()
-def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gen, dtype, after_step=None, unipc_order=2, unipc_variant="bh2", unipc_corrector=True):
+def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gen, dtype, eta, after_step=None, unipc_order=2, unipc_variant="bh2", unipc_corrector=True):
     model.eval()
     n = len(sigmas) - 1
     kw = dict(model=model, cond_emb=cond_emb, cond_mask=cond_mask,
@@ -71,8 +71,6 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
 
             if calculate_type == "euler":
                 x = euler(x, v, sigma, sigma_next)
-            elif calculate_type == "ddim":
-                x = ddim(x, v, sigma, sigma_next)
             elif calculate_type == "heun":
                 if last:
                     x = euler(x, v, sigma, sigma_next)
@@ -83,7 +81,7 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
                     del x_e, v2
             elif calculate_type == "ddpm_plus":
                 z = torch.randn(x.shape, generator=gen, device=x.device, dtype=x.dtype)
-                x = ddpm_plus(x, v, z, sigma, sigma_next)
+                x = ddpm_plus(x, v, z, sigma, sigma_next, eta)
                 del z
             else:
                 raise ValueError(f"Unsupported sampling method: {calculate_type}")

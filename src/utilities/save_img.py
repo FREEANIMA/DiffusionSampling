@@ -16,7 +16,6 @@ def _font(size):
     except TypeError:
         return ImageFont.load_default()
 
-
 def _with_label(frame, text):
     frame = frame.convert("RGB")
     w, h = frame.size

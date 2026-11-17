@@ -153,7 +153,7 @@ class Handler:
 
         return tags_reshape, final_tags
 
-    def generate_txt2img(self, tags_text:str, nsfw, calc_type, cfg_scale, H, W, steps, seed, fixed, shift):
+    def generate_txt2img(self, tags_text:str, nsfw, calc_type, cfg_scale, H, W, steps, seed, fixed, shift, eta):
         self.progress.reset()
         tags_text = tags_text.lower()
 
@@ -170,10 +170,11 @@ class Handler:
             steps=int(steps),
             seed=_parse_seed(seed),
             on_step=self.progress.update,
-            shift=self._clamp_shift(shift)
+            shift=self._clamp_shift(shift),
+            eta=eta
         )
     
-    def generate_inpainting(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, shift, mask=None, start_t: float = 0.8):
+    def generate_inpainting(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, shift, eta, mask=None, start_t: float = 0.8):
         if img_path is None:
             raise ValueError("경로를 입력해 주세요")
         if mask is None:
@@ -203,7 +204,8 @@ class Handler:
             start_t=float(start_t),
             on_step=self.progress.update,
             save_dir=os.path.join(self.base_root, "inpainting"),
-            shift=self._clamp_shift(shift)
+            shift=self._clamp_shift(shift),
+            eta=eta
         )
 
     def _clamp_shift(self, shift) -> float:
@@ -213,7 +215,7 @@ class Handler:
             s = 3.0
         return min(max(s, 0.1), 10.0)
 
-    def generate_detailering(self, calc_type,  steps, seed, img_path, shift, tags_text : str, cfg_scale, nsfw, mask=None, fixed=True, box=None, start_t: float = 0.3):
+    def generate_detailering(self, calc_type,  steps, seed, img_path, shift, tags_text : str, cfg_scale, nsfw, eta, mask=None, fixed=True, box=None, start_t: float = 0.3):
         if img_path is None:
             raise ValueError("경로를 입력해 주세요")
         if box is None:
@@ -280,6 +282,7 @@ class Handler:
             mask=mask,
             H=new_H,
             W=new_W,
+            eta=eta,
         )
 
         if img_out.size != (w, h):

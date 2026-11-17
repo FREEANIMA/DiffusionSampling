@@ -42,7 +42,7 @@ class Sampling:
         return img
 
     @torch.inference_mode()
-    def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, H, W, seed=None, on_step=None):
+    def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, H, W,  eta=0.3, seed=None, on_step=None):
 
         if seed is None:
             seed = random.randint(0, 2**32 - 1)
@@ -91,6 +91,7 @@ class Sampling:
             gen=gen,
             dtype=self.dtype,
             after_step=after_step,
+            eta=eta
         )
 
         if g.INIT_DEVICE == "cpu":

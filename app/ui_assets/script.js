@@ -855,6 +855,7 @@
         steps: $(`${p}-steps`).value,
         seed: $(`${p}-seed`).value,
         shift: $(`${p}-shift`).value,
+        eta: $(`${p}-eta`).value,
         ...c.params,
       };
 

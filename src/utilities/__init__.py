@@ -1,4 +1,4 @@
-from .solvers import heun, ddim, ddpm_plus, euler, unipc
+from .solvers import heun, ddpm_plus, euler, unipc
 from .resize_worker import img_resize
 from .sigma import sigma_schedular
 from .predict import velocity_predict, steps_sampling
@@ -10,7 +10,6 @@ from .save_plot import _save_plot
 __all__ = [
     "euler",
     "heun",
-    "ddim",
     "ddpm_plus",
     "img_resize",
     "sigma_schedular",
