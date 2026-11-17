@@ -105,13 +105,14 @@ class Sampling:
         for latent in latents:
             imgs.append(self.vae_decode(latent))
 
-        latent_diff = []
+        # latent_diff = []
 
-        for i in range(len(latents) - 1):
-            diff = (latents[i + 1].float() - latents[i].float()).abs()
-            latent_diff.append(diff)
+        # for i in range(len(latents) - 1):
+        #     diff = (latents[i + 1].float() - latents[i].float()).abs()
+        #     latent_diff.append(diff)
 
-        self.inspect_plot(latent_diff=latent_diff)
+        # self.inspect_plot(latent_diff=latent_diff)
+        
         save_dir = os.path.join(self.base_root, "generation")
         save_img_name = _save_img(img=img, filename="sample", save_dir=save_dir, imgs=imgs, sigmas=sigmas_steps)
         _save_text(
