@@ -114,4 +114,4 @@ class Sampling:
 
         del latents
 
-        return img
+        return img, save_img_name

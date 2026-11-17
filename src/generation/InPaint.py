@@ -152,4 +152,4 @@ class InPainting:
 
         del latents
 
-        return img_out
+        return img_out, save_img_name

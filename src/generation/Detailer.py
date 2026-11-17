@@ -149,4 +149,4 @@ class Detailering:
 
         self.console.put(f"merged saved: {save_img_name}")
 
-        return out
+        return out, save_img_name
