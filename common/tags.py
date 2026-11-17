@@ -12,7 +12,7 @@ class TagGenration:
         self.device = device
         self.dtype = dtype
         self.MIN_TAG_FREQ = 15
-        self.MIN_FIXED_TAGS = 15
+        self.MIN_FIXED_TAGS = 10
         self.SAMPLE_RETRY = 5  # 재샘플링 최대 횟수
 
         self.NAS = [
