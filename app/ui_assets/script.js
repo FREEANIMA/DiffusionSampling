@@ -3,73 +3,14 @@
 
   const $ = (id) => document.getElementById(id);
 
-  // null-safe helpers
-  const setDisplay = (id, v) => {
-    const el = $(id);
-    if (el) el.style.display = v;
-  };
-  const setCols = (id, v) => {
-    const el = $(id);
-    if (el) el.style.gridTemplateColumns = v;
+  // 모드 → 요소 id 접두사
+  const PREFIX = {
+    txt2img: 't2i',
+    inpainting: 'inp',
+    detailer: 'det',
   };
 
-  const modeEl = $('mode');
-
-  // =========================================================
-  // Autocomplete
-  // =========================================================
-
-  const TAGS = window.TAG_LIST || [];
-  const key = (s) =>
-    s.trim().toLowerCase().replace(/[\s_]+/g, ' ');
-
-  const KEYED = TAGS.map((t) => [t, key(t)]);
-
-  const acEl = $('ac');
-  const tagsEl = $('tags');
-
-  let acItems = [];
-  let acIdx = -1;
-
-  const lev = (a, b) => {
-    const m = a.length;
-    const n = b.length;
-
-    if (Math.abs(m - n) > 2) return 99;
-
-    let prev = Array.from(
-      { length: n + 1 },
-      (_, j) => j
-    );
-
-    for (let i = 1; i <= m; i++) {
-      const cur = [i];
-
-      for (let j = 1; j <= n; j++) {
-        cur[j] = Math.min(
-          prev[j] + 1,
-          cur[j - 1] + 1,
-          prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
-        );
-      }
-
-      prev = cur;
-    }
-
-    return prev[n];
-  };
-
-  const currentToken = () => {
-    const v = tagsEl.value;
-    const pos = tagsEl.selectionStart ?? v.length;
-    const start = v.lastIndexOf(',', pos - 1) + 1;
-
-    return {
-      start,
-      end: pos,
-      text: v.slice(start, pos),
-    };
-  };
+  const key = (s) => s.trim().toLowerCase().replace(/[\s_]+/g, ' ');
 
   const escapeHtml = (s) =>
     String(s)
@@ -78,7 +19,84 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
 
-  const search = (raw) => {
+  // =========================================================
+  // Tabs
+  // =========================================================
+
+  const tabBtns = [...document.querySelectorAll('.tab')];
+  const panes = [...document.querySelectorAll('.pane')];
+
+  let activeMode = 'txt2img';
+
+  const setTab = (mode) => {
+    if (!PREFIX[mode]) mode = 'txt2img';
+    activeMode = mode;
+
+    tabBtns.forEach((b) => {
+      const on = b.dataset.tab === mode;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', String(on));
+      b.tabIndex = on ? 0 : -1;
+    });
+
+    panes.forEach((p) => {
+      p.hidden = p.dataset.mode !== mode;
+    });
+
+    try { localStorage.setItem('mmdit.tab', mode); } catch (_) { /* ignore */ }
+
+    if (location.hash !== '#' + mode) {
+      window.history.replaceState(null, '', '#' + mode);
+    }
+  };
+
+  tabBtns.forEach((b, i) => {
+    b.addEventListener('click', () => setTab(b.dataset.tab));
+
+    // 좌우 방향키로 탭 이동
+    b.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      const next = tabBtns[(i + (e.key === 'ArrowRight' ? 1 : -1) + tabBtns.length) % tabBtns.length];
+      next.focus();
+      setTab(next.dataset.tab);
+      e.preventDefault();
+    });
+  });
+
+  window.addEventListener('hashchange', () => {
+    const m = location.hash.slice(1);
+    if (PREFIX[m] && m !== activeMode) setTab(m);
+  });
+
+  // =========================================================
+  // Autocomplete
+  // =========================================================
+
+  const TAGS = window.TAG_LIST || [];
+  const KEYED = TAGS.map((t) => [t, key(t)]);
+
+  const lev = (a, b) => {
+    const m = a.length;
+    const n = b.length;
+    if (Math.abs(m - n) > 2) return 99;
+
+    let prev = Array.from({ length: n + 1 }, (_, j) => j);
+
+    for (let i = 1; i <= m; i++) {
+      const cur = [i];
+      for (let j = 1; j <= n; j++) {
+        cur[j] = Math.min(
+          prev[j] + 1,
+          cur[j - 1] + 1,
+          prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+        );
+      }
+      prev = cur;
+    }
+    return prev[n];
+  };
+
+  const searchTags = (raw) => {
     const q = key(raw);
     if (!q) return [];
 
@@ -86,11 +104,8 @@
     const sub = [];
 
     for (const [t, k] of KEYED) {
-      if (k.startsWith(q)) {
-        pre.push(t);
-      } else if (k.includes(q)) {
-        sub.push(t);
-      }
+      if (k.startsWith(q)) pre.push(t);
+      else if (k.includes(q)) sub.push(t);
       if (pre.length >= 8) break;
     }
 
@@ -104,604 +119,506 @@
         .slice(0, 8)
         .map(([t]) => t);
     }
-
     return out;
   };
 
-  const closeAc = () => {
-    acEl.style.display = 'none';
-    acIdx = -1;
+  const initAutocomplete = (tagsEl, acEl) => {
+    let items = [];
+    let idx = -1;
+
+    const currentToken = () => {
+      const v = tagsEl.value;
+      const pos = tagsEl.selectionStart ?? v.length;
+      const start = v.lastIndexOf(',', pos - 1) + 1;
+      return { start, end: pos, text: v.slice(start, pos) };
+    };
+
+    const close = () => {
+      acEl.style.display = 'none';
+      idx = -1;
+    };
+
+    const render = () => {
+      if (!items.length) return close();
+
+      acEl.innerHTML = items.map((t, i) =>
+        `<div class="ac-item${i === idx ? ' on' : ''}" data-i="${i}">${escapeHtml(t)}</div>`
+      ).join('');
+      acEl.style.display = 'block';
+    };
+
+    const pick = (tag) => {
+      const { start, end } = currentToken();
+      const v = tagsEl.value;
+
+      const before = v.slice(0, start).replace(/\s+$/, '');
+      const sep = before ? (before.endsWith(',') ? ' ' : ', ') : '';
+      const after = v.slice(end).replace(/^\s*,?\s*/, '');
+
+      tagsEl.value = before + sep + tag + ', ' + after;
+      close();
+      tagsEl.focus();
+    };
+
+    tagsEl.addEventListener('input', () => {
+      items = searchTags(currentToken().text);
+      idx = -1;
+      render();
+    });
+
+    tagsEl.addEventListener('keydown', (e) => {
+      if (acEl.style.display === 'none') return;
+
+      if (e.key === 'ArrowDown') {
+        idx = (idx + 1) % items.length;
+        render();
+        e.preventDefault();
+      } else if (e.key === 'ArrowUp') {
+        idx = (idx - 1 + items.length) % items.length;
+        render();
+        e.preventDefault();
+      } else if ((e.key === 'Enter' || e.key === 'Tab') && idx >= 0) {
+        pick(items[idx]);
+        e.preventDefault();
+      } else if (e.key === 'Escape') {
+        close();
+      }
+    });
+
+    acEl.addEventListener('mousedown', (e) => {
+      const i = e.target.dataset.i;
+      if (i !== undefined) {
+        pick(items[+i]);
+        e.preventDefault();
+      }
+    });
+
+    tagsEl.addEventListener('blur', () => setTimeout(close, 100));
   };
-
-  const renderAc = () => {
-    if (!acItems.length) {
-      closeAc();
-      return;
-    }
-
-    acEl.innerHTML = acItems.map((t, i) =>
-      `<div class="ac-item${i === acIdx ? ' on' : ''}" data-i="${i}">
-        ${escapeHtml(t)}
-      </div>`
-    ).join('');
-
-    acEl.style.display = 'block';
-  };
-
-  const pick = (tag) => {
-    const { start, end } = currentToken();
-    const v = tagsEl.value;
-
-    const before = v.slice(0, start).replace(/\s+$/, '');
-    const sep = before ? (before.endsWith(',') ? ' ' : ', ') : '';
-    const after = v.slice(end).replace(/^\s*,?\s*/, '');
-
-    tagsEl.value = before + sep + tag + ', ' + after;
-
-    closeAc();
-    tagsEl.focus();
-  };
-
-  tagsEl.addEventListener('input', () => {
-    acItems = search(currentToken().text);
-    acIdx = -1;
-    renderAc();
-  });
-
-  tagsEl.addEventListener('keydown', (e) => {
-    if (acEl.style.display === 'none') return;
-
-    if (e.key === 'ArrowDown') {
-      acIdx = (acIdx + 1) % acItems.length;
-      renderAc();
-      e.preventDefault();
-    } else if (e.key === 'ArrowUp') {
-      acIdx = (acIdx - 1 + acItems.length) % acItems.length;
-      renderAc();
-      e.preventDefault();
-    } else if (
-      (e.key === 'Enter' || e.key === 'Tab') &&
-      acIdx >= 0
-    ) {
-      pick(acItems[acIdx]);
-      e.preventDefault();
-    } else if (e.key === 'Escape') {
-      closeAc();
-    }
-  });
-
-  acEl.addEventListener('mousedown', (e) => {
-    const i = e.target.dataset.i;
-    if (i !== undefined) {
-      pick(acItems[+i]);
-      e.preventDefault();
-    }
-  });
-
-  tagsEl.addEventListener('blur', () => {
-    setTimeout(closeAc, 100);
-  });
 
   // =========================================================
-  // Tag History
+  // Tag tools (Autocomplete + History + Tree) — 탭별 인스턴스
   // =========================================================
 
-  const histEl = $('tag_history');
-  let histItems = [];
-
-  const renderHistory = () => {
-    if (!histItems.length) {
-      histEl.innerHTML =
-        '<span class="history-empty">기록 없음</span>';
-      return;
+  // 트리 데이터는 한 번만 받아서 탭들이 공유
+  let treePromise = null;
+  const getTree = () => {
+    if (!treePromise) {
+      treePromise = fetch('api/tag_tree')
+        .then((r) => {
+          if (!r.ok) throw new Error('Tree request failed');
+          return r.json();
+        })
+        .then((d) => d.tree || {})
+        .catch((e) => {
+          treePromise = null;   // 다음에 다시 시도할 수 있게
+          throw e;
+        });
     }
-
-    histEl.innerHTML = histItems.map((it, i) =>
-      `<button type="button"
-        class="history-item"
-        data-i="${i}"
-        title="${escapeHtml(it.input)}">
-        <span class="h-text">
-          ${escapeHtml(it.input || '(빈 입력)')}
-        </span>
-        <span class="h-count">
-          +${it.tags.length}
-        </span>
-      </button>`
-    ).join('');
+    return treePromise;
   };
 
-  const loadHistory = async () => {
-    try {
-      const r = await fetch('api/tag_history');
-      if (!r.ok) throw new Error('History request failed');
-
-      const data = await r.json();
-      histItems = (data.items || []).slice().reverse();
-      renderHistory();
-    } catch (_) {
-      /* ignore */
-    }
-  };
-
-  histEl.addEventListener('click', (e) => {
-    const btn = e.target.closest('.history-item');
-    if (!btn) return;
-
-    const it = histItems[+btn.dataset.i];
-    if (!it) return;
-
-    const base = it.input
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    tagsEl.value = [...new Set([...base, ...it.tags])].join(', ');
-    $('fixed').checked = true;
-  });
-
-  $('history_refresh').onclick = loadHistory;
-
-  loadHistory();
-
-  // =========================================================
-  // Tag Tree (type별 태그 브라우저)
-  // 서버 응답 형식: { type: [[tag, count], ...] }
-  // =========================================================
-
-  const treeEl = $('tag_tree');
-  const treeSearchEl = $('tree_search');
   const TREE_LIMIT = 200;
 
-  let treeData = {};   // { type: [[tag, count], ...] }
+  const initTagTools = (p) => {
+    const tagsEl = $(`${p}-tags`);
+    initAutocomplete(tagsEl, $(`${p}-ac`));
 
-  const addTag = (tag) => {
-    const cur = tagsEl.value
-      .split(',').map((s) => s.trim()).filter(Boolean);
-    if (!cur.includes(tag)) cur.push(tag);
-    tagsEl.value = cur.join(', ') + ', ';
-    tagsEl.focus();
-  };
+    // ----- History -----
+    const histEl = $(`${p}-tag_history`);
+    let histItems = [];
 
-  const fillGroup = (box, tags, q) => {
-    const list = q
-      ? tags.filter(([t]) => key(t).includes(q))
-      : tags;
-    const shown = list.slice(0, TREE_LIMIT);
-
-    box.innerHTML = shown.map(([t, c]) =>
-      `<button type="button" class="tree-tag" data-tag="${escapeHtml(t)}">
-        ${escapeHtml(t)}<span class="tt-count">${c}</span>
-      </button>`
-    ).join('') +
-      (list.length > TREE_LIMIT
-        ? `<span class="tree-more">+${list.length - TREE_LIMIT} more (검색으로 좁히기)</span>`
-        : '');
-
-    return list.length;
-  };
-
-  const renderTree = () => {
-    const q = key(treeSearchEl.value);
-    const types = Object.keys(treeData).sort();
-
-    if (!types.length) {
-      treeEl.innerHTML = '<span class="history-empty">태그 없음</span>';
-      return;
-    }
-
-    treeEl.innerHTML = '';
-
-    for (const typ of types) {
-      const tags = treeData[typ];
-
-      // 검색 중이면 매칭 있는 type만, 자동으로 펼침
-      let matched = tags.length;
-      if (q) {
-        matched = tags.reduce((n, [t]) => n + (key(t).includes(q) ? 1 : 0), 0);
-        if (!matched) continue;
+    const renderHistory = () => {
+      if (!histItems.length) {
+        histEl.innerHTML = '<span class="history-empty">기록 없음</span>';
+        return;
       }
 
-      const d = document.createElement('details');
-      d.className = 'tree-group';
-      d.dataset.type = typ;
-      d.innerHTML =
-        `<summary>
-          <span class="t-name">${escapeHtml(typ)}</span>
-          <span class="h-count">${matched}</span>
-        </summary>
-        <div class="tree-items"></div>`;
+      histEl.innerHTML = histItems.map((it, i) =>
+        `<button type="button" class="history-item" data-i="${i}" title="${escapeHtml(it.input)}">
+          <span class="h-text">${escapeHtml(it.input || '(빈 입력)')}</span>
+          <span class="h-count">+${it.tags.length}</span>
+        </button>`
+      ).join('');
+    };
 
-      const box = d.querySelector('.tree-items');
+    const loadHistory = async () => {
+      try {
+        const r = await fetch('api/tag_history');
+        if (!r.ok) throw new Error('History request failed');
+        const data = await r.json();
+        histItems = (data.items || []).slice().reverse();
+        renderHistory();
+      } catch (_) { /* ignore */ }
+    };
 
-      if (q) {
-        fillGroup(box, tags, q);
-        d.open = true;
-      } else {
-        // 펼칠 때 처음 한 번만 렌더 (수만 개 DOM 방지)
-        d.addEventListener('toggle', () => {
-          if (d.open && !box.dataset.done) {
-            fillGroup(box, tags, '');
-            box.dataset.done = '1';
-          }
-        });
+    histEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('.history-item');
+      if (!btn) return;
+
+      const it = histItems[+btn.dataset.i];
+      if (!it) return;
+
+      const base = it.input.split(',').map((s) => s.trim()).filter(Boolean);
+      tagsEl.value = [...new Set([...base, ...it.tags])].join(', ');
+      $(`${p}-fixed`).checked = true;
+    });
+
+    $(`${p}-history_refresh`).onclick = loadHistory;
+    loadHistory();
+
+    // ----- Tree -----
+    const treeEl = $(`${p}-tag_tree`);
+    const treeSearchEl = $(`${p}-tree_search`);
+    let treeData = {};
+
+    const addTag = (tag) => {
+      const cur = tagsEl.value.split(',').map((s) => s.trim()).filter(Boolean);
+      if (!cur.includes(tag)) cur.push(tag);
+      tagsEl.value = cur.join(', ') + ', ';
+      tagsEl.focus();
+    };
+
+    const fillGroup = (box, tags, q) => {
+      const list = q ? tags.filter(([t]) => key(t).includes(q)) : tags;
+      const shown = list.slice(0, TREE_LIMIT);
+
+      box.innerHTML = shown.map(([t, c]) =>
+        `<button type="button" class="tree-tag" data-tag="${escapeHtml(t)}">
+          ${escapeHtml(t)}<span class="tt-count">${c}</span>
+        </button>`
+      ).join('') +
+        (list.length > TREE_LIMIT
+          ? `<span class="tree-more">+${list.length - TREE_LIMIT} more (검색으로 좁히기)</span>`
+          : '');
+
+      return list.length;
+    };
+
+    const renderTree = () => {
+      const q = key(treeSearchEl.value);
+      const types = Object.keys(treeData).sort();
+
+      if (!types.length) {
+        treeEl.innerHTML = '<span class="history-empty">태그 없음</span>';
+        return;
       }
 
-      treeEl.appendChild(d);
-    }
+      treeEl.innerHTML = '';
 
-    if (!treeEl.children.length) {
-      treeEl.innerHTML = '<span class="history-empty">검색 결과 없음</span>';
-    }
-  };
+      for (const typ of types) {
+        const tags = treeData[typ];
 
-  const loadTree = async () => {
-    try {
-      const r = await fetch('api/tag_tree');
-      if (!r.ok) throw new Error('Tree request failed');
-      treeData = (await r.json()).tree || {};
-      renderTree();
-    } catch (_) {
-      treeEl.innerHTML = '<span class="history-empty">불러오기 실패</span>';
-    }
-  };
+        let matched = tags.length;
+        if (q) {
+          matched = tags.reduce((n, [t]) => n + (key(t).includes(q) ? 1 : 0), 0);
+          if (!matched) continue;
+        }
 
-  let treeTimer = null;
-  treeSearchEl.addEventListener('input', () => {
-    clearTimeout(treeTimer);
-    treeTimer = setTimeout(renderTree, 150);   // 디바운스
-  });
+        const d = document.createElement('details');
+        d.className = 'tree-group';
+        d.dataset.type = typ;
+        d.innerHTML =
+          `<summary>
+            <span class="t-name">${escapeHtml(typ)}</span>
+            <span class="h-count">${matched}</span>
+          </summary>
+          <div class="tree-items"></div>`;
 
-  treeEl.addEventListener('click', (e) => {
-    const btn = e.target.closest('.tree-tag');
-    if (btn) addTag(btn.dataset.tag);
-  });
+        const box = d.querySelector('.tree-items');
 
-  loadTree();
+        if (q) {
+          fillGroup(box, tags, q);
+          d.open = true;
+        } else {
+          // 펼칠 때 처음 한 번만 렌더 (수만 개 DOM 방지)
+          d.addEventListener('toggle', () => {
+            if (d.open && !box.dataset.done) {
+              fillGroup(box, tags, '');
+              box.dataset.done = '1';
+            }
+          });
+        }
 
-  // =========================================================
-  // Image / Mask / Detailer Rect
-  // =========================================================
+        treeEl.appendChild(d);
+      }
 
-  let localMask = null;
-  let rect = null;
-  let rectStart = null;
+      if (!treeEl.children.length) {
+        treeEl.innerHTML = '<span class="history-empty">검색 결과 없음</span>';
+      }
+    };
 
-  let sourceImage = null;
-  let drawing = false;
+    let treeTimer = null;
+    treeSearchEl.addEventListener('input', () => {
+      clearTimeout(treeTimer);
+      treeTimer = setTimeout(renderTree, 150);
+    });
 
-  const isDetailer = () => modeEl.value === 'detailer';
+    treeEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('.tree-tag');
+      if (btn) addTag(btn.dataset.tag);
+    });
 
-  const canvas = $('mask-canvas');
-  const ctx = canvas.getContext('2d');
-
-  const getXY = (e) => {
-    const r = canvas.getBoundingClientRect();
-    return [
-      (e.clientX - r.left) * canvas.width / r.width,
-      (e.clientY - r.top) * canvas.height / r.height,
-    ];
-  };
-
-  // ---------------------------------------------------------
-  // Load Image
-  // ---------------------------------------------------------
-
-  $('load_image').onclick = async () => {
-    try {
-      const response = await fetch('api/load_image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          path: $('img_path').value,
-        }),
+    getTree()
+      .then((t) => { treeData = t; renderTree(); })
+      .catch(() => {
+        treeEl.innerHTML = '<span class="history-empty">불러오기 실패</span>';
       });
 
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Image load failed');
-      }
-
-      sourceImage = new Image();
-
-      sourceImage.onload = () => {
-        const bg = $('bg-canvas');
-        const mask = $('mask-canvas');
-
-        bg.width = mask.width = sourceImage.width;
-        bg.height = mask.height = sourceImage.height;
-
-        bg.getContext('2d').drawImage(sourceImage, 0, 0);
-
-        mask.getContext('2d').clearRect(0, 0, mask.width, mask.height);
-
-        $('mask-editor').style.display = 'block';
-
-        $('mask-status').textContent = isDetailer()
-          ? '이미지 로드 완료. 드래그로 영역을 선택하세요. (64px 단위)'
-          : '이미지 로드 완료.';
-
-        localMask = null;
-        rect = null;
-        rectStart = null;
-      };
-
-      sourceImage.onerror = () => {
-        $('mask-status').textContent = '이미지 로드 실패.';
-      };
-
-      sourceImage.src = `data:image/png;base64,${data.image}`;
-    } catch (e) {
-      $('out').textContent = `failed: ${e.message}`;
-    }
+    return { loadHistory };
   };
 
-  // ---------------------------------------------------------
-  // Inpainting Brush
-  // ---------------------------------------------------------
-
-  const draw = (e) => {
-    const [x, y] = getXY(e);
-
-    ctx.lineWidth = Number($('brush').value) || 20;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(255,0,0,0.6)';
-
-    ctx.lineTo(x, y);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-  };
-
-  // ---------------------------------------------------------
-  // Detailer Rectangle (64px 배수로 스냅)
-  // ---------------------------------------------------------
+  // =========================================================
+  // Image editor (inpainting 마스크 / detailer 사각형) — 탭별 인스턴스
+  // kind: 'mask' | 'rect'
+  // =========================================================
 
   const UNIT = 64; // patch_size(2) * compression_ratio(32)
 
-  // len을 UNIT 배수로 반올림하되, 이미지 안에 들어가는 최대치(room)로 제한
-  const snapLen = (len, room) => {
-    const maxLen = Math.floor(room / UNIT) * UNIT;
-    if (maxLen < UNIT) return 0;
-    return Math.min(maxLen, Math.max(UNIT, Math.round(len / UNIT) * UNIT));
-  };
+  const initEditor = (p, kind) => {
+    const isRect = kind === 'rect';
 
-  const drawRect = (a, b) => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const canvas = $(`${p}-mask-canvas`);
+    const bg = $(`${p}-bg-canvas`);
+    const ctx = canvas.getContext('2d');
+    const statusEl = $(`${p}-mask-status`);
+    const outEl = $(`${p}-out`);
 
-    const dx = b[0] - a[0];
-    const dy = b[1] - a[1];
+    let sourceImage = null;
+    let drawing = false;
+    let localMask = null;
+    let rect = null;
+    let rectStart = null;
 
-    // 시작점 고정, 드래그 방향으로만 늘어남
-    const w = snapLen(Math.abs(dx), dx >= 0 ? canvas.width - a[0] : a[0]);
-    const h = snapLen(Math.abs(dy), dy >= 0 ? canvas.height - a[1] : a[1]);
+    const setStatus = (t) => { statusEl.textContent = t; };
 
-    let x = Math.round(dx >= 0 ? a[0] : a[0] - w);
-    let y = Math.round(dy >= 0 ? a[1] : a[1] - h);
-    x = Math.max(0, Math.min(x, canvas.width - w));
-    y = Math.max(0, Math.min(y, canvas.height - h));
-
-    if (w > 0 && h > 0) {
-      ctx.fillStyle = 'rgba(255,0,0,0.25)';
-      ctx.fillRect(x, y, w, h);
-
-      ctx.lineWidth = Math.max(2, canvas.width / 400);
-      ctx.strokeStyle = 'rgba(255,0,0,0.95)';
-      ctx.strokeRect(x, y, w, h);
-    }
-
-    return { x, y, w, h };
-  };
-
-  // ---------------------------------------------------------
-  // Pointer Events
-  // ---------------------------------------------------------
-
-  canvas.addEventListener('pointerdown', (e) => {
-    if (!sourceImage) return;
-
-    drawing = true;
-    canvas.setPointerCapture(e.pointerId);
-
-    localMask = null;
-    rect = null;
-
-    if (isDetailer()) {
-      rectStart = getXY(e);
+    const reset = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      $('mask-status').textContent = '영역 선택 중...';
-      return;
-    }
+      localMask = null;
+      rect = null;
+      rectStart = null;
+    };
 
-    const [x, y] = getXY(e);
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    draw(e);
+    const getXY = (e) => {
+      const r = canvas.getBoundingClientRect();
+      return [
+        (e.clientX - r.left) * canvas.width / r.width,
+        (e.clientY - r.top) * canvas.height / r.height,
+      ];
+    };
 
-    $('mask-status').textContent = '마스크 수정 중...';
-  });
+    // ----- Load image -----
+    $(`${p}-load_image`).onclick = async () => {
+      try {
+        const response = await fetch('api/load_image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: $(`${p}-img_path`).value }),
+        });
 
-  canvas.addEventListener('pointermove', (e) => {
-    if (!drawing) return;
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'Image load failed');
+        }
 
-    if (isDetailer()) {
-      const r = drawRect(rectStart, getXY(e));
-      $('mask-status').textContent = `영역 선택 중... ${r.w}×${r.h}`;
-    } else {
-      draw(e);
-    }
-  });
+        sourceImage = new Image();
 
-  const endDraw = (e) => {
-    if (!drawing) return;
-    drawing = false;
+        sourceImage.onload = () => {
+          bg.width = canvas.width = sourceImage.width;
+          bg.height = canvas.height = sourceImage.height;
 
-    if (isDetailer() && rectStart) {
-      const r = drawRect(rectStart, getXY(e));
+          bg.getContext('2d').drawImage(sourceImage, 0, 0);
+          reset();
 
-      if (r.w >= UNIT && r.h >= UNIT) {
-        rect = {
-          x: Math.round(r.x),
-          y: Math.round(r.y),
-          w: Math.round(r.w),
-          h: Math.round(r.h),
+          $(`${p}-mask-editor`).style.display = 'block';
+          setStatus(isRect
+            ? `이미지 로드 완료. 드래그로 영역을 선택하세요. (${UNIT}px 단위)`
+            : '이미지 로드 완료.');
         };
-        $('mask-status').textContent =
-          `영역 선택 완료 (${rect.w}×${rect.h})`;
-      } else {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        $('mask-status').textContent =
-          '영역이 너무 작아요. 다시 드래그하세요.';
+
+        sourceImage.onerror = () => setStatus('이미지 로드 실패.');
+        sourceImage.src = `data:image/png;base64,${data.image}`;
+      } catch (e) {
+        outEl.textContent = `failed: ${e.message}`;
+      }
+    };
+
+    // ----- Brush (inpainting) -----
+    const brushEl = $(`${p}-brush`);
+
+    const draw = (e) => {
+      const [x, y] = getXY(e);
+
+      ctx.lineWidth = Number(brushEl && brushEl.value) || 20;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(255,0,0,0.6)';
+
+      ctx.lineTo(x, y);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    };
+
+    // ----- Rect (detailer, 64px 배수 스냅) -----
+    const snapLen = (len, room) => {
+      const maxLen = Math.floor(room / UNIT) * UNIT;
+      if (maxLen < UNIT) return 0;
+      return Math.min(maxLen, Math.max(UNIT, Math.round(len / UNIT) * UNIT));
+    };
+
+    const drawRect = (a, b) => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const dx = b[0] - a[0];
+      const dy = b[1] - a[1];
+
+      const w = snapLen(Math.abs(dx), dx >= 0 ? canvas.width - a[0] : a[0]);
+      const h = snapLen(Math.abs(dy), dy >= 0 ? canvas.height - a[1] : a[1]);
+
+      let x = Math.round(dx >= 0 ? a[0] : a[0] - w);
+      let y = Math.round(dy >= 0 ? a[1] : a[1] - h);
+      x = Math.max(0, Math.min(x, canvas.width - w));
+      y = Math.max(0, Math.min(y, canvas.height - h));
+
+      if (w > 0 && h > 0) {
+        ctx.fillStyle = 'rgba(255,0,0,0.25)';
+        ctx.fillRect(x, y, w, h);
+
+        ctx.lineWidth = Math.max(2, canvas.width / 400);
+        ctx.strokeStyle = 'rgba(255,0,0,0.95)';
+        ctx.strokeRect(x, y, w, h);
       }
 
-      rectStart = null;
-    }
-  };
+      return { x, y, w, h };
+    };
 
-  canvas.addEventListener('pointerup', endDraw);
+    // ----- Pointer events -----
+    canvas.addEventListener('pointerdown', (e) => {
+      if (!sourceImage) return;
 
-  canvas.addEventListener('pointercancel', () => {
-    drawing = false;
-    rectStart = null;
+      drawing = true;
+      canvas.setPointerCapture(e.pointerId);
 
-    if (isDetailer()) {
+      localMask = null;
       rect = null;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      $('mask-status').textContent = '영역 선택이 취소되었습니다.';
+
+      if (isRect) {
+        rectStart = getXY(e);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        setStatus('영역 선택 중...');
+        return;
+      }
+
+      const [x, y] = getXY(e);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      draw(e);
+      setStatus('마스크 수정 중...');
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!drawing) return;
+
+      if (isRect) {
+        const r = drawRect(rectStart, getXY(e));
+        setStatus(`영역 선택 중... ${r.w}×${r.h}`);
+      } else {
+        draw(e);
+      }
+    });
+
+    canvas.addEventListener('pointerup', (e) => {
+      if (!drawing) return;
+      drawing = false;
+
+      if (isRect && rectStart) {
+        const r = drawRect(rectStart, getXY(e));
+
+        if (r.w >= UNIT && r.h >= UNIT) {
+          rect = {
+            x: Math.round(r.x),
+            y: Math.round(r.y),
+            w: Math.round(r.w),
+            h: Math.round(r.h),
+          };
+          setStatus(`영역 선택 완료 (${rect.w}×${rect.h})`);
+        } else {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          setStatus('영역이 너무 작아요. 다시 드래그하세요.');
+        }
+
+        rectStart = null;
+      }
+    });
+
+    canvas.addEventListener('pointercancel', () => {
+      drawing = false;
+      rectStart = null;
+
+      if (isRect) {
+        rect = null;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        setStatus('영역 선택이 취소되었습니다.');
+      }
+    });
+
+    // ----- Clear -----
+    $(`${p}-mask-clear`).onclick = () => {
+      reset();
+      setStatus('초기화 완료.');
+    };
+
+    // ----- Finish mask (inpainting only) -----
+    const finishBtn = $(`${p}-mask-finish`);
+    if (finishBtn) {
+      finishBtn.onclick = () => {
+        const output = document.createElement('canvas');
+        output.width = canvas.width;
+        output.height = canvas.height;
+
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const outCtx = output.getContext('2d');
+        const outPixels = outCtx.createImageData(canvas.width, canvas.height);
+
+        for (let i = 0; i < pixels.data.length; i += 4) {
+          const value = pixels.data[i + 3] > 30 ? 255 : 0;
+          outPixels.data[i] = value;
+          outPixels.data[i + 1] = value;
+          outPixels.data[i + 2] = value;
+          outPixels.data[i + 3] = 255;
+        }
+
+        outCtx.putImageData(outPixels, 0, 0);
+        localMask = output.toDataURL('image/png');
+        setStatus('마스크 생성 완료.');
+      };
     }
-  });
 
-  // ---------------------------------------------------------
-  // Clear Mask / Rectangle
-  // ---------------------------------------------------------
+    setStatus(isRect
+      ? `이미지를 로드한 뒤 드래그로 영역을 선택하세요. (${UNIT}px 단위)`
+      : '이미지를 로드한 뒤 마스크를 그리고 Finish mask를 눌러주세요.');
 
-  $('mask-clear').onclick = () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    localMask = null;
-    rect = null;
-    rectStart = null;
-
-    $('mask-status').textContent = '초기화 완료.';
-  };
-
-  // ---------------------------------------------------------
-  // Finish Inpainting Mask
-  // ---------------------------------------------------------
-
-  $('mask-finish').onclick = () => {
-    if (isDetailer()) return;
-
-    const output = document.createElement('canvas');
-    output.width = canvas.width;
-    output.height = canvas.height;
-
-    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const outCtx = output.getContext('2d');
-    const outPixels = outCtx.createImageData(canvas.width, canvas.height);
-
-    for (let i = 0; i < pixels.data.length; i += 4) {
-      const value = pixels.data[i + 3] > 30 ? 255 : 0;
-      outPixels.data[i] = value;
-      outPixels.data[i + 1] = value;
-      outPixels.data[i + 2] = value;
-      outPixels.data[i + 3] = 255;
-    }
-
-    outCtx.putImageData(outPixels, 0, 0);
-    localMask = output.toDataURL('image/png');
-
-    $('mask-status').textContent = '마스크 생성 완료.';
+    return {
+      getMask: () => localMask,
+      getRect: () => rect,
+    };
   };
 
   // =========================================================
-  // UI Mode
+  // Progress / Console  (한 번에 한 작업만 실행)
   // =========================================================
 
-  const START_T_DEFAULT = {
-    inpainting: '0.9',
-    detailer: '0.3',
-  };
-
-  const applyMode = () => {
-    const m = modeEl.value;
-
-    const isT2I = m === 'txt2img';
-    const isDet = m === 'detailer';
-
-    // tree-card: 보일 땐 CSS의 display:flex를 그대로 쓰도록 빈 문자열
-    setDisplay('tree-card', isDet ? 'none' : '');
-    // 그리드 열을 CSS 클래스로 전환 (인라인 스타일은 미디어쿼리를 무시함)
-    const grid = document.querySelector('.app-grid');
-    if (grid) grid.classList.toggle('no-tree', isDet);
-
-    setDisplay('txt2img-box', isT2I ? 'block' : 'none');
-    setDisplay('inpaint-box', isT2I ? 'none' : 'block');
-
-    const title = $('inpaint-title');
-    if (title) title.textContent = isDet ? 'Detailer' : 'Inpainting';
-
-    setDisplay('detailer-box', isDet ? 'block' : 'none');
-    setDisplay('brush-field', isDet ? 'none' : 'block');
-    setDisplay('mask-finish', isDet ? 'none' : 'inline-block');
-
-    // Detailer에서는 사용하지 않는 항목 숨김
-    setDisplay('tags-field', isDet ? 'none' : 'block');
-    setDisplay('history-field', isDet ? 'none' : 'block');
-    setDisplay('nsfw-field', isDet ? 'none' : 'block');
-    setDisplay('cfg-field', isDet ? 'none' : 'block');
-
-    // 그리드 열 조정
-    setCols('sampling-grid-2', isDet ? '1fr' : '');
-    setCols('sampling-grid-3', isDet ? '1fr 1fr' : '');
-
-    const st = $('start_t');
-    if (st && START_T_DEFAULT[m]) st.value = START_T_DEFAULT[m];
-  };
-
-  modeEl.onchange = () => {
-    applyMode();
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    localMask = null;
-    rect = null;
-    rectStart = null;
-
-    $('mask-status').textContent = isDetailer()
-      ? '드래그로 영역을 선택하세요. (64px 단위)'
-      : '마스크를 그린 뒤 Finish mask를 눌러주세요.';
-  };
-
-  try {
-    applyMode();
-  } catch (e) {
-    console.error('applyMode failed:', e);
-  }
-
-  // =========================================================
-  // Clear Output
-  // =========================================================
-
-  $('clear_out').onclick = () => {
-    $('out').textContent = '';
-    $('console').textContent = '';
-
-    const result = $('result');
-    if (result) result.innerHTML = '';
-  };
-
-  // =========================================================
-  // Progress
-  // =========================================================
-
+  let busy = false;
+  let runningMode = null;
   let pollTimer = null;
 
-  const startPoll = () => {
-    const bar = $('bar');
+  const allRunBtns = () => Object.values(PREFIX).map((p) => $(`${p}-run`));
+
+  const startPoll = (p) => {
+    const bar = $(`${p}-bar`);
+    const out = $(`${p}-out`);
 
     bar.style.display = 'block';
     bar.value = 0;
@@ -710,172 +627,202 @@
     pollTimer = setInterval(async () => {
       try {
         const r = await fetch('api/progress');
-        const p = await r.json();
+        const prog = await r.json();
 
         if (!pollTimer) return;
 
-        if (p.total > 0) {
-          bar.max = p.total;
-          bar.value = p.step;
-
-          $('out').textContent =
-            p.step >= p.total
-              ? 'decoding / saving...'
-              : `sampling ${p.step}/${p.total}`;
+        if (prog.total > 0) {
+          bar.max = prog.total;
+          bar.value = prog.step;
+          out.textContent = prog.step >= prog.total
+            ? 'decoding / saving...'
+            : `sampling ${prog.step}/${prog.total}`;
         } else {
-          $('out').textContent = 'preparing...';
+          out.textContent = 'preparing...';
         }
-      } catch (_) {
-        /* ignore */
-      }
+      } catch (_) { /* ignore */ }
     }, 300);
   };
 
-  const stopPoll = () => {
+  const stopPoll = (p) => {
     if (pollTimer !== null) {
       clearInterval(pollTimer);
       pollTimer = null;
     }
-    $('bar').style.display = 'none';
+    $(`${p}-bar`).style.display = 'none';
   };
 
-  // =========================================================
-  // Console
-  // =========================================================
-
-  const consoleEl = $('console');
-
+  // 로그는 실행 중인 탭의 콘솔에, 없으면 현재 탭의 콘솔에 붙임
   setInterval(async () => {
     try {
       const r = await fetch('api/logs');
       const data = await r.json();
       const lines = data.lines || [];
-
       if (!lines.length) return;
 
-      const stick =
-        consoleEl.scrollTop + consoleEl.clientHeight >=
-        consoleEl.scrollHeight - 5;
+      const el = $(`${PREFIX[runningMode || activeMode]}-console`);
 
-      consoleEl.textContent += lines.join('\n') + '\n';
-
-      if (stick) {
-        consoleEl.scrollTop = consoleEl.scrollHeight;
-      }
-    } catch (_) {
-      /* ignore */
-    }
+      const stick = el.scrollTop + el.clientHeight >= el.scrollHeight - 5;
+      el.textContent += lines.join('\n') + '\n';
+      if (stick) el.scrollTop = el.scrollHeight;
+    } catch (_) { /* ignore */ }
   }, 500);
 
   // =========================================================
-  // Generate
+  // Generate (공통)
   // =========================================================
 
-  $('run').onclick = async () => {
-    const mode = modeEl.value;
+  // collect() → { params } 또는 { error }
+  const initRun = (mode, collect, afterRun) => {
+    const p = PREFIX[mode];
+    const out = $(`${p}-out`);
+    const result = $(`${p}-result`);
 
-    const params = {
-      mode,
-      sampler: $('sampler').value,
-      steps: $('steps').value,
-      seed: $('seed').value,
-      shift: $('shift').value,
+    $(`${p}-clear_out`).onclick = () => {
+      out.textContent = '';
+      $(`${p}-console`).textContent = '';
+      result.innerHTML = '';
     };
 
-    // txt2img
-    if (mode === 'txt2img') {
-      Object.assign(params, {
-        tags: $('tags').value,
-        fixed: $('fixed').checked,
-        nsfw: $('nsfw').value === 'true',
-        cfg: $('cfg').value,
-        H: $('H').value,
-        W: $('W').value,
-      });
-    }
+    $(`${p}-run`).onclick = async () => {
+      if (busy) return;
 
-    // inpainting
-    if (mode === 'inpainting') {
-      Object.assign(params, {
-        tags: $('tags').value,
-        fixed: $('fixed').checked,
-        nsfw: $('nsfw').value === 'true',
-        cfg: $('cfg').value,
-        img_path: $('img_path').value,
-        start_t: $('start_t').value,
-        mask: localMask,
-      });
-
-      if (!localMask) {
-        $('out').textContent =
-          '마스크를 그린 뒤 Finish Mask를 눌러주세요.';
+      const c = collect();
+      if (c.error) {
+        out.textContent = c.error;
         return;
       }
-    }
 
-    // detailer
-    if (mode === 'detailer') {
-      Object.assign(params, {
-        img_path: $('img_path').value,
-        start_t: $('start_t').value,
-        rect: rect,
-      });
+      const params = {
+        mode,
+        sampler: $(`${p}-sampler`).value,
+        steps: $(`${p}-steps`).value,
+        seed: $(`${p}-seed`).value,
+        shift: $(`${p}-shift`).value,
+        ...c.params,
+      };
 
-      if (!rect) {
-        $('out').textContent =
-          '드래그로 사각형 영역을 선택해 주세요.';
-        return;
+      busy = true;
+      runningMode = mode;
+      allRunBtns().forEach((b) => { b.disabled = true; });
+
+      out.textContent = 'running...';
+      result.innerHTML = '';
+      startPoll(p);
+
+      try {
+        const response = await fetch('api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(params),
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'Generation failed');
+        }
+
+        const img = document.createElement('img');
+        img.src = `data:image/png;base64,${data.image}`;
+        result.append(img);
+
+        out.textContent = 'done';
+      } catch (e) {
+        out.textContent = `failed: ${e.message}`;
+      } finally {
+        stopPoll(p);
+        busy = false;
+        runningMode = null;
+        allRunBtns().forEach((b) => { b.disabled = false; });
+        if (afterRun) afterRun();
       }
-    }
-
-    // validate image path
-    if (mode === 'inpainting' || mode === 'detailer') {
-      if (!params.img_path.trim()) {
-        $('out').textContent = '이미지 경로를 입력해 주세요.';
-        return;
-      }
-    }
-
-    const runBtn = $('run');
-    if (runBtn.disabled) return;
-
-    runBtn.disabled = true;
-    $('out').textContent = 'running...';
-
-    startPoll();
-
-    const result = $('result');
-    if (result) result.innerHTML = '';
-
-    try {
-      const response = await fetch('api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Generation failed');
-      }
-
-      const img = document.createElement('img');
-      img.src = `data:image/png;base64,${data.image}`;
-      img.style.maxWidth = '512px';
-      img.style.width = '100%';
-      img.style.border = '1px solid #ccc';
-      img.style.marginTop = '8px';
-
-      if (result) result.append(img);
-
-      $('out').textContent = 'done';
-    } catch (e) {
-      $('out').textContent = `failed: ${e.message}`;
-    } finally {
-      stopPoll();
-      runBtn.disabled = false;
-      loadHistory();
-    }
+    };
   };
+
+  // =========================================================
+  // Tab 1 — Text2img
+  // =========================================================
+
+  (() => {
+    const p = PREFIX.txt2img;
+    const tools = initTagTools(p);
+
+    initRun('txt2img', () => ({
+      params: {
+        tags: $(`${p}-tags`).value,
+        fixed: $(`${p}-fixed`).checked,
+        nsfw: $(`${p}-nsfw`).value === 'true',
+        cfg: $(`${p}-cfg`).value,
+        H: $(`${p}-H`).value,
+        W: $(`${p}-W`).value,
+      },
+    }), tools.loadHistory);
+  })();
+
+  // =========================================================
+  // Tab 2 — Inpainting
+  // =========================================================
+
+  (() => {
+    const p = PREFIX.inpainting;
+    const tools = initTagTools(p);
+    const editor = initEditor(p, 'mask');
+
+    initRun('inpainting', () => {
+      const imgPath = $(`${p}-img_path`).value;
+      if (!imgPath.trim()) return { error: '이미지 경로를 입력해 주세요.' };
+
+      const mask = editor.getMask();
+      if (!mask) return { error: '마스크를 그린 뒤 Finish mask를 눌러주세요.' };
+
+      return {
+        params: {
+          tags: $(`${p}-tags`).value,
+          fixed: $(`${p}-fixed`).checked,
+          nsfw: $(`${p}-nsfw`).value === 'true',
+          cfg: $(`${p}-cfg`).value,
+          img_path: imgPath,
+          start_t: $(`${p}-start_t`).value,
+          mask,
+        },
+      };
+    }, tools.loadHistory);
+  })();
+
+  // =========================================================
+  // Tab 3 — Detailer
+  // =========================================================
+
+  (() => {
+    const p = PREFIX.detailer;
+    const editor = initEditor(p, 'rect');
+
+    initRun('detailer', () => {
+      const imgPath = $(`${p}-img_path`).value;
+      if (!imgPath.trim()) return { error: '이미지 경로를 입력해 주세요.' };
+
+      const rect = editor.getRect();
+      if (!rect) return { error: '드래그로 사각형 영역을 선택해 주세요.' };
+
+      return {
+        params: {
+          img_path: imgPath,
+          start_t: $(`${p}-start_t`).value,
+          rect,
+        },
+      };
+    });
+  })();
+
+  // =========================================================
+  // 초기 탭 복원: URL 해시 → 마지막 탭 → txt2img
+  // =========================================================
+
+  (() => {
+    let initial = location.hash.slice(1);
+    if (!PREFIX[initial]) {
+      try { initial = localStorage.getItem('mmdit.tab'); } catch (_) { initial = null; }
+    }
+    setTab(PREFIX[initial] ? initial : 'txt2img');
+  })();
 })();

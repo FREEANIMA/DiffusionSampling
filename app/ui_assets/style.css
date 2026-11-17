@@ -41,6 +41,8 @@
 
 * { box-sizing: border-box; }
 
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -59,7 +61,7 @@ body {
 /* ---------- Header ---------- */
 .app { max-width: 1560px; margin: 0 auto; padding: 28px 22px 48px; }
 
-.app-header { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+.app-header { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; flex-wrap: wrap; }
 .app-header h1 { margin: 0; font-size: 20px; font-weight: 750; letter-spacing: -.02em; line-height: 1.2; }
 .app-header p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
 
@@ -72,7 +74,6 @@ body {
 }
 
 .badge {
-  margin-left: auto;
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 12px; font-weight: 600; color: var(--muted);
   padding: 5px 11px; border-radius: 999px;
@@ -83,15 +84,46 @@ body {
   box-shadow: 0 0 0 3px rgba(34, 197, 94, .2);
 }
 
-/* ---------- Layout ---------- */
-.app-grid { display: grid; grid-template-columns: 280px 440px 1fr; gap: 18px; align-items: start; }
-@media (max-width: 1280px) { .app-grid { grid-template-columns: 240px 400px 1fr; } }
-@media (max-width: 1100px) { .app-grid { grid-template-columns: 240px 1fr; } .output { grid-column: 1 / -1; } }
-@media (max-width: 920px)  { .app-grid { grid-template-columns: 1fr; } }
+/* ---------- Tabs ---------- */
+.tabs {
+  margin-left: auto;
+  display: inline-flex; gap: 4px; padding: 4px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: var(--shadow);
+}
+.tab {
+  padding: 8px 18px; font: inherit; font-weight: 600; cursor: pointer;
+  color: var(--muted); background: transparent;
+  border: 0; border-radius: 9px;
+  transition: color .15s, background .15s, box-shadow .15s;
+}
+.tab:hover { color: var(--text); background: var(--surface-2); }
+.tab.active {
+  color: var(--accent-text);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* detailer 모드: 트리 숨김 → 2열 (기존 규칙보다 아래에 둘 것) */
-.app-grid.no-tree { grid-template-columns: 440px 1fr; }
-@media (max-width: 1100px) { .app-grid.no-tree { grid-template-columns: 1fr; } }
+@media (max-width: 760px) {
+  .tabs { order: 3; margin-left: 0; width: 100%; }
+  .tab { flex: 1; padding: 9px 8px; }
+  .badge { margin-left: auto; }
+}
+
+/* ---------- Layout ---------- */
+/* 기본(트리 없음): 설정 | 결과 */
+.app-grid { display: grid; grid-template-columns: 440px 1fr; gap: 18px; align-items: start; }
+/* 트리 있음: 트리 | 설정 | 결과 */
+.app-grid.has-tree { grid-template-columns: 280px 440px 1fr; }
+
+@media (max-width: 1280px) { .app-grid.has-tree { grid-template-columns: 240px 400px 1fr; } }
+@media (max-width: 1100px) {
+  .app-grid { grid-template-columns: 1fr; }
+  .app-grid.has-tree { grid-template-columns: 240px 1fr; }
+  .app-grid.has-tree .output { grid-column: 1 / -1; }
+}
+@media (max-width: 920px) { .app-grid, .app-grid.has-tree { grid-template-columns: 1fr; } }
 
 .card {
   background: var(--surface);
@@ -103,6 +135,7 @@ body {
   padding: 20px;
 }
 .output { position: sticky; top: 18px; }
+@media (max-width: 1100px) { .app-grid:not(.has-tree) .output { position: static; } }
 @media (max-width: 920px) { .output { position: static; } }
 
 .section-title {
@@ -113,6 +146,8 @@ body {
 }
 .section-title::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 .controls .section-title:not(:first-child) { margin-top: 22px; }
+
+.hint { margin: -4px 0 14px; font-size: 12.5px; color: var(--muted); }
 
 /* ---------- Form ---------- */
 .field { margin-bottom: 14px; min-width: 0; }
@@ -233,19 +268,19 @@ select {
 .actions { display: flex; gap: 10px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
 .actions .primary { flex: 1; padding: 12px 16px; font-size: 15px; }
 
-/* ---------- Mask editor ---------- */
-#mask-editor { margin-top: 4px; }
+/* ---------- Mask / Rect editor ---------- */
+.mask-editor { margin-top: 4px; }
 .canvas-stack {
   position: relative; width: 100%; line-height: 0; overflow: hidden;
   border: 1px solid var(--border); border-radius: 12px;
   background: repeating-conic-gradient(var(--surface-2) 0% 25%, var(--surface-solid) 0% 50%) 0 0 / 16px 16px;
 }
-#bg-canvas { display: block; width: 100%; height: auto; }
-#mask-canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+.bg-canvas { display: block; width: 100%; height: auto; }
+.mask-canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
 .mask-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 .btn-group { display: flex; gap: 6px; }
 .btn-group .btn { padding: 6px 11px; font-size: 12px; }
-#mask-status { font-size: 12px; color: var(--muted); }
+.mask-status { font-size: 12px; color: var(--muted); }
 
 /* ---------- Output ---------- */
 progress {
@@ -256,9 +291,9 @@ progress::-webkit-progress-bar { background: var(--surface-2); }
 progress::-webkit-progress-value { background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .2s; }
 progress::-moz-progress-bar { background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
 
-#out { min-height: 20px; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
+.out { min-height: 20px; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
 
-#result img {
+.result img {
   display: block;
   max-width: 100% !important;
   width: 100%;
@@ -275,10 +310,10 @@ progress::-moz-progress-bar { background: linear-gradient(90deg, var(--accent), 
   border: 1.5px dashed var(--border); border-radius: 14px;
 }
 .empty-icon { font-size: 28px; color: var(--accent); opacity: .8; }
-#result:not(:empty) + .empty-state { display: none; }
+.result:not(:empty) + .empty-state { display: none; }
 
 .console-title { margin-top: 22px; }
-#console {
+.console {
   height: 180px; margin: 0; padding: 12px 14px; overflow: auto;
   background: var(--console-bg); color: var(--console-text);
   border-radius: 12px; border: 1px solid var(--border);
@@ -336,9 +371,9 @@ progress::-moz-progress-bar { background: linear-gradient(90deg, var(--accent), 
 .tree-more { width: 100%; padding: 4px 2px; font-size: 11.5px; color: var(--muted); }
 
 /* ---------- Scrollbar ---------- */
-#console::-webkit-scrollbar, .ac-list::-webkit-scrollbar, .history::-webkit-scrollbar,
+.console::-webkit-scrollbar, .ac-list::-webkit-scrollbar, .history::-webkit-scrollbar,
 .tag-tree::-webkit-scrollbar, .tree-items::-webkit-scrollbar { width: 8px; }
-#console::-webkit-scrollbar-thumb, .ac-list::-webkit-scrollbar-thumb, .history::-webkit-scrollbar-thumb,
+.console::-webkit-scrollbar-thumb, .ac-list::-webkit-scrollbar-thumb, .history::-webkit-scrollbar-thumb,
 .tag-tree::-webkit-scrollbar-thumb, .tree-items::-webkit-scrollbar-thumb {
   background: var(--border); border-radius: 8px;
 }
