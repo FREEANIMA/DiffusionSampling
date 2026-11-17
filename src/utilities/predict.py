@@ -60,17 +60,10 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
 
     latents = []
     sigmas_steps = []
-    bias = 1e-3
+
     try:
         for i in tqdm(range(n), desc="sampling"):
             sigma, sigma_next = sigmas[i], sigmas[i + 1]
-
-            if i != 0 and (0.5 < sigma_next < 0.9):
-                # bf16 반올림 방지를 위해 float32로 계산
-                x = (x.float() + bias).to(x.dtype)
-                
-                # bias로 인해 x가 변했으므로, 이전 v 캐시 무효화
-                v_prev, sigma_prev = None, None
                 
             sigmas_steps.append(float(sigma_next))
             v = velocity_predict(x=x, sigma=sigma, **kw)
