@@ -141,9 +141,10 @@ class InPainting:
 
         img_out = self.vae_decode(x)
 
-        imgs = []
-        for latent in latents:
-            imgs.append(self.vae_decode(latent))
+        # imgs = []
+        # for latent in latents:
+        #     imgs.append(self.vae_decode(latent))
+        del latents
 
         save_dir = os.path.join(self.base_root, "inpainting")
         save_img_name = _save_img(img=img_out, filename="sample", save_dir=save_dir, imgs=None, sigmas=sigmas_steps)
@@ -159,7 +160,5 @@ class InPainting:
         )
 
         self.console.put(f"img saved: {save_img_name}")
-
-        del latents
 
         return img_out, save_img_name

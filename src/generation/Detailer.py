@@ -139,8 +139,8 @@ class Detailering:
         del latent, mask_lat, noise, x_t, sigmas
         
         imgs = []
-        for latent in latents:
-            imgs.append(self.vae_decode(latent))
+        # for latent in latents:
+        #     imgs.append(self.vae_decode(latent))
 
         del latents
 

@@ -101,10 +101,10 @@ class Sampling:
         del noise, sigmas
 
         img = self.vae_decode(x)
-
-        imgs = []
-        for latent in latents:
-            imgs.append(self.vae_decode(latent))
+        
+        # imgs = []
+        # for latent in latents:
+        #     imgs.append(self.vae_decode(latent))
 
         # latent_diff = []
 
@@ -114,6 +114,7 @@ class Sampling:
 
         # self.inspect_plot(latent_diff=latent_diff)
         
+        del latents
         save_dir = os.path.join(self.base_root, "generation")
         save_img_name = _save_img(img=img, filename="sample", save_dir=save_dir, imgs=None, sigmas=sigmas_steps)
 
@@ -129,8 +130,6 @@ class Sampling:
         )
 
         self.console.put(f"img saved: {save_img_name}")
-
-        del latents
 
         return img, save_img_name
 
