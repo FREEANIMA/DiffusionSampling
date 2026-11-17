@@ -92,9 +92,12 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
             else:
                 raise ValueError(f"Unsupported sampling method: {calculate_type}")
 
-            v_prev, sigma_prev = v, sigma   # 외삽 전 원본 v 저장
+            v_prev, sigma_prev = v, sigma
+
             if after_step is not None:
                 x = after_step(x, sigma, sigma_next)
+                bias_scale = 1e-4
+                x = x + (torch.randn_like(x) * bias_scale)
 
             latents.append(x.detach().float().cpu())
     finally:
