@@ -243,8 +243,10 @@ class Handler:
 
         scale = self.allowable_size / max(w, h)
 
-        W = round(w * scale / 32) * 32
-        H = round(h * scale / 32) * 32
+        unit = (self.patch_size * self.f)
+
+        W = max(unit, round(w * scale / unit) * unit)
+        H = max(unit, round(h * scale / unit) * unit)
 
         if w >= h:
             W = self.allowable_size
@@ -276,6 +278,8 @@ class Handler:
             on_step=self.progress.update,
             shift=self._clamp_shift(shift),
             mask=mask,
+            H=new_H,
+            W=new_W,
         )
 
         if img_out.size != (w, h):

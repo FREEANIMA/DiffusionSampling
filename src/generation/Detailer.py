@@ -44,8 +44,29 @@ class Detailering:
         img = self.vae._tensor_to_pil(decoded)
         return img
 
+
+    def mask_generation(self, mask_arr, latent):
+        if isinstance(mask_arr, np.ndarray):
+            m = torch.from_numpy(mask_arr).float()
+        else:
+            m = mask_arr.float()
+
+        if m.max() > 1.0:
+            m = m / 255.0
+
+        if m.ndim == 2:
+            m = m[None, None]
+        elif m.ndim == 3:
+            m = m[None]
+
+        m = m.to(latent.device, latent.dtype)
+
+        m_lat = F.adaptive_max_pool2d(m, output_size=latent.shape[-2:])
+        return (m_lat > 0.5).float()
+
+
     @torch.inference_mode()
-    def sampling(self, arr, tags, shift, calculate_type, cfg_scale, steps, img_bytes, start_t, seed=None, mask=None, on_step=None):
+    def sampling(self, arr, tags, shift, H, W, calculate_type, cfg_scale, steps, img_bytes, start_t, seed=None, mask=None, on_step=None):
         if calculate_type == "unipc":
             raise ValueError("inpainting에서는 unipc를 사용할 수 없습니다. (마스크 합성 불가) euler/heun/ddim/ddpm_plus 중 선택하세요.")
 
