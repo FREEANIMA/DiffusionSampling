@@ -1,10 +1,9 @@
 import os
-from datetime import datetime
 import torch
 import random
-from src.utilities import sigma_schedular, steps_sampling, gpu_context, _save_img, _save_text
+from src.utilities import sigma_schedular, steps_sampling, gpu_context, _save_img, _save_text, _save_plot
 import common.globals as g
-
+import matplotlib.pyplot as plt
 
 INIT_PROMPT = "general img; "
 
@@ -106,6 +105,13 @@ class Sampling:
         for latent in latents:
             imgs.append(self.vae_decode(latent))
 
+        latent_diff = []
+
+        for i in range(len(latents) - 1):
+            diff = (latents[i + 1].float() - latents[i].float()).abs()
+            latent_diff.append(diff)
+
+        self.inspect_plot(latent_diff=latent_diff)
         save_dir = os.path.join(self.base_root, "generation")
         save_img_name = _save_img(img=img, filename="sample", save_dir=save_dir, imgs=imgs, sigmas=sigmas_steps)
         _save_text(
@@ -124,3 +130,44 @@ class Sampling:
         del latents
 
         return img, save_img_name
+
+    def inspect_plot(self, latent_diff):
+        maps = [
+            diff.mean(dim=1)[0].cpu().numpy()
+            for diff in latent_diff
+        ]
+
+        cols = 5
+        rows = (len(maps) + cols - 1) // cols
+
+        fig, axes = plt.subplots(rows, cols, figsize=(20, rows * 3))
+
+        if rows == 1:
+            axes = axes.flatten()
+        else:
+            axes = axes.flatten()
+
+        vmax = max(m.max() for m in maps)
+
+        for i, (ax, m) in enumerate(zip(axes, maps)):
+            ax.imshow(m, cmap="inferno", vmin=0, vmax=vmax)
+            ax.set_title(f"Step {i}")
+            ax.axis("off")
+
+        for ax in axes[len(maps):]:
+            ax.axis("off")
+
+        fig.tight_layout()
+
+        save_dir = os.path.join(self.base_root, "generation")
+        save_plot_name = _save_plot(
+            filename="sample_plot",
+            save_dir=save_dir,
+            plots=fig
+        )
+
+        plt.close(fig)
+
+        self.console.put(f"plot saved: {save_plot_name}")
+
+        return save_plot_name
