@@ -30,7 +30,7 @@ def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_ma
     return v
 
 @torch.inference_mode()
-def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gen, dtype, after_step=None, use_ab2=True, unipc_order=2, unipc_variant="bh2", unipc_corrector=True):
+def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gen, dtype, after_step=None, unipc_order=2, unipc_variant="bh2", unipc_corrector=True):
     model.eval()
     n = len(sigmas) - 1
     kw = dict(model=model, cond_emb=cond_emb, cond_mask=cond_mask,
@@ -93,23 +93,9 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
                 raise ValueError(f"Unsupported sampling method: {calculate_type}")
 
             v_prev, sigma_prev = v, sigma
-
+            
             if after_step is not None:
                 x = after_step(x, sigma, sigma_next)
-                
-                # ★ High Sigma (0.5 ~ 0.9) 구간에서 전역 브로드캐스트 Bias
-                if 0.5 <= sigma_next <= 0.9:
-                    bias = 1e-3  # 스칼라 값
-                    
-                    # float32로 변환하여 덧셈 (bf16 반올림 방지)
-                    x_f32 = x.float()
-                    x_f32 = x_f32 + bias  # 브로드캐스트로 전체에 +1e-3
-                    
-                    # 원래 dtype으로 복원
-                    x = x_f32.to(x.dtype)
-                    
-                    # Heun 궤적 꼬임 방지
-                    v_prev, sigma_prev = None, None 
 
             latents.append(x.detach().float().cpu())
     finally:
