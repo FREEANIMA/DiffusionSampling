@@ -49,6 +49,12 @@ class UI:
             ensure_ascii=False,
         ).replace("</", "<\\/")
 
+        # detailer 영역 스냅용 (script.js 의 UNIT / ALLOW)
+        det_cfg = json.dumps({
+            "unit": self.handler.f * self.handler.patch_size,
+            "allowable": self.handler.allowable_size,
+        })
+
         return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -62,6 +68,7 @@ class UI:
 
     <script>
         window.TAG_LIST = {tags};
+        window.DETAILER_CFG = {det_cfg};
     </script>
 
     <script>{js}</script>

@@ -373,7 +373,10 @@
   // kind: 'mask' | 'rect'
   // =========================================================
 
-  const UNIT = 64; // patch_size(2) * compression_ratio(32)
+  // ui.py 가 window.DETAILER_CFG 로 내려줌 (없으면 기본값)
+  const CFG = window.DETAILER_CFG || {};
+  const UNIT = CFG.unit || 32;          // patch_size * compression_ratio
+  const ALLOW = CFG.allowable || 1024;  // allowable_size
 
   const initEditor = (p, kind) => {
     const isRect = kind === 'rect';
@@ -417,7 +420,8 @@
 
       cropStage.style.display = 'block';
       cropEmpty.style.display = 'none';
-      cropInfo.textContent = `${r.w}×${r.h}`;
+      const k = ALLOW / Math.max(r.w, r.h);
+      cropInfo.textContent = `${r.w}×${r.h} → ${Math.round(r.w * k)}×${Math.round(r.h * k)}`;
     };
 
     // crop 위에 마스크 그리기 (좌표는 crop 원본 픽셀 기준)
@@ -574,11 +578,40 @@
       ctx.moveTo(x, y);
     };
 
-    // ----- Rect (detailer, 64px 배수 스냅) -----
-    const snapLen = (len, room) => {
-      const maxLen = Math.floor(room / UNIT) * UNIT;
-      if (maxLen < UNIT) return 0;
-      return Math.min(maxLen, Math.max(UNIT, Math.round(len / UNIT) * UNIT));
+    // ----- Rect (detailer) -----
+    // (a, b) = UNIT 개수. 긴 변이 ALLOW 가 되도록 확대했을 때
+    // 짧은 변도 UNIT 의 정수배로 딱 떨어지는 조합만 허용.
+    //   짧은변' = S*UNIT * ALLOW / (L*UNIT) = S*ALLOW/L  →  UNIT 배수여야 함
+    const isExact = (a, b) => {
+      const L = Math.max(a, b);
+      const S = Math.min(a, b);
+      return (S * ALLOW) % (L * UNIT) === 0;
+    };
+
+    // 드래그한 크기(px)에 가장 가까운, 영역 안에 들어가는 유효 조합
+    const snapRect = (dw, dh, roomW, roomH) => {
+      const maxA = Math.floor(roomW / UNIT);
+      const maxB = Math.floor(roomH / UNIT);
+      if (maxA < 1 || maxB < 1) return { w: 0, h: 0 };
+
+      const ta = dw / UNIT;
+      const tb = dh / UNIT;
+
+      let best = null;
+      let bestCost = Infinity;
+
+      for (let a = 1; a <= maxA; a++) {
+        for (let b = 1; b <= maxB; b++) {
+          if (!isExact(a, b)) continue;
+          const cost = (a - ta) ** 2 + (b - tb) ** 2;
+          if (cost < bestCost) {
+            bestCost = cost;
+            best = [a, b];
+          }
+        }
+      }
+
+      return best ? { w: best[0] * UNIT, h: best[1] * UNIT } : { w: 0, h: 0 };
     };
 
     const drawRect = (a, b) => {
@@ -587,8 +620,13 @@
       const dx = b[0] - a[0];
       const dy = b[1] - a[1];
 
-      const w = snapLen(Math.abs(dx), dx >= 0 ? canvas.width - a[0] : a[0]);
-      const h = snapLen(Math.abs(dy), dy >= 0 ? canvas.height - a[1] : a[1]);
+      // 시작점 고정, 드래그 방향으로만 늘어남
+      const { w, h } = snapRect(
+        Math.abs(dx),
+        Math.abs(dy),
+        dx >= 0 ? canvas.width - a[0] : a[0],
+        dy >= 0 ? canvas.height - a[1] : a[1],
+      );
 
       let x = Math.round(dx >= 0 ? a[0] : a[0] - w);
       let y = Math.round(dy >= 0 ? a[1] : a[1] - h);
