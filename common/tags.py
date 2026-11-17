@@ -12,7 +12,7 @@ class TagGenration:
         self.device = device
         self.dtype = dtype
         self.MIN_TAG_FREQ = 1_000
-        self.MIN_FIXED_TAGS = 15
+        self.MIN_FIXED_TAGS = 10
         self.SAMPLE_RETRY = 5
 
         self.NAS = [
@@ -130,7 +130,8 @@ class TagGenration:
         return [self.CLS_ID] + body
 
     @torch.inference_mode()
-    def sampling(self, batch, max_new=256, temperature=0.4, top_k=20, top_p=0.8, min_new=15):
+    def sampling(self, batch, max_new=256, temperature=0.4, top_k=20, top_p=0.8):
+        min_new = self.MIN_FIXED_TAGS
         ids = batch
         generated = []
 
