@@ -245,6 +245,121 @@
   loadHistory();
 
   // =========================================================
+  // Tag Tree (type별 태그 브라우저)
+  // 서버 응답 형식: { type: [[tag, count], ...] }
+  // =========================================================
+
+  const treeEl = $('tag_tree');
+  const treeSearchEl = $('tree_search');
+  const TREE_LIMIT = 200;
+
+  let treeData = {};   // { type: [[tag, count], ...] }
+
+  const addTag = (tag) => {
+    const cur = tagsEl.value
+      .split(',').map((s) => s.trim()).filter(Boolean);
+    if (!cur.includes(tag)) cur.push(tag);
+    tagsEl.value = cur.join(', ') + ', ';
+    tagsEl.focus();
+  };
+
+  const fillGroup = (box, tags, q) => {
+    const list = q
+      ? tags.filter(([t]) => key(t).includes(q))
+      : tags;
+    const shown = list.slice(0, TREE_LIMIT);
+
+    box.innerHTML = shown.map(([t, c]) =>
+      `<button type="button" class="tree-tag" data-tag="${escapeHtml(t)}">
+        ${escapeHtml(t)}<span class="tt-count">${c}</span>
+      </button>`
+    ).join('') +
+      (list.length > TREE_LIMIT
+        ? `<span class="tree-more">+${list.length - TREE_LIMIT} more (검색으로 좁히기)</span>`
+        : '');
+
+    return list.length;
+  };
+
+  const renderTree = () => {
+    const q = key(treeSearchEl.value);
+    const types = Object.keys(treeData).sort();
+
+    if (!types.length) {
+      treeEl.innerHTML = '<span class="history-empty">태그 없음</span>';
+      return;
+    }
+
+    treeEl.innerHTML = '';
+
+    for (const typ of types) {
+      const tags = treeData[typ];
+
+      // 검색 중이면 매칭 있는 type만, 자동으로 펼침
+      let matched = tags.length;
+      if (q) {
+        matched = tags.reduce((n, [t]) => n + (key(t).includes(q) ? 1 : 0), 0);
+        if (!matched) continue;
+      }
+
+      const d = document.createElement('details');
+      d.className = 'tree-group';
+      d.dataset.type = typ;
+      d.innerHTML =
+        `<summary>
+          <span class="t-name">${escapeHtml(typ)}</span>
+          <span class="h-count">${matched}</span>
+        </summary>
+        <div class="tree-items"></div>`;
+
+      const box = d.querySelector('.tree-items');
+
+      if (q) {
+        fillGroup(box, tags, q);
+        d.open = true;
+      } else {
+        // 펼칠 때 처음 한 번만 렌더 (수만 개 DOM 방지)
+        d.addEventListener('toggle', () => {
+          if (d.open && !box.dataset.done) {
+            fillGroup(box, tags, '');
+            box.dataset.done = '1';
+          }
+        });
+      }
+
+      treeEl.appendChild(d);
+    }
+
+    if (!treeEl.children.length) {
+      treeEl.innerHTML = '<span class="history-empty">검색 결과 없음</span>';
+    }
+  };
+
+  const loadTree = async () => {
+    try {
+      const r = await fetch('api/tag_tree');
+      if (!r.ok) throw new Error('Tree request failed');
+      treeData = (await r.json()).tree || {};
+      renderTree();
+    } catch (_) {
+      treeEl.innerHTML = '<span class="history-empty">불러오기 실패</span>';
+    }
+  };
+
+  let treeTimer = null;
+  treeSearchEl.addEventListener('input', () => {
+    clearTimeout(treeTimer);
+    treeTimer = setTimeout(renderTree, 150);   // 디바운스
+  });
+
+  treeEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.tree-tag');
+    if (btn) addTag(btn.dataset.tag);
+  });
+
+  loadTree();
+
+  // =========================================================
   // Image / Mask / Detailer Rect
   // =========================================================
 
@@ -516,6 +631,12 @@
 
     const isT2I = m === 'txt2img';
     const isDet = m === 'detailer';
+
+    // tree-card: 보일 땐 CSS의 display:flex를 그대로 쓰도록 빈 문자열
+    setDisplay('tree-card', isDet ? 'none' : '');
+    // 그리드 열을 CSS 클래스로 전환 (인라인 스타일은 미디어쿼리를 무시함)
+    const grid = document.querySelector('.app-grid');
+    if (grid) grid.classList.toggle('no-tree', isDet);
 
     setDisplay('txt2img-box', isT2I ? 'block' : 'none');
     setDisplay('inpaint-box', isT2I ? 'none' : 'block');

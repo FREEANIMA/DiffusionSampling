@@ -202,6 +202,10 @@ class UI:
         def tag_history():
             return jsonify({"items": self.handler.get_tag_history()})
 
+        @self.app.get("/api/tag_tree")
+        def tag_tree():
+            return jsonify({"tree": self.handler.get_tag_tree()})
+        
     def run(self, host: str = "127.0.0.1", port: int = 7860,
             colab: bool | None = None, height: int = 1000):
         if colab is None:

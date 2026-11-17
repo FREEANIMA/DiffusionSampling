@@ -51,7 +51,7 @@ class TagGenration:
 
         tags_type_df = pd.read_parquet(tags_type_path)
 
-        self.type_map, self.dup_map = self.build_tag_maps(tags_type_df=tags_type_df)
+        self.type_map, self.dup_map, self.tag_tree = self.build_tag_maps(tags_type_df=tags_type_df)
 
         self.PAD_ID = self.vocab["<pad>"]
         self.CLS_ID = self.vocab["<cls>"]
@@ -88,7 +88,16 @@ class TagGenration:
         common = s[s["count"].fillna(0) >= self.MIN_TAG_FREQ]
         type_map = dict(zip(common["tag"], common["type"]))
 
-        return type_map, dup_map
+        t = common.assign(dup=common["dup"].fillna(common["tag"]))
+        t = t.sort_values(["count", "dup"], ascending=[False, True])
+        t = t.drop_duplicates(subset="dup", keep="first")
+
+        tag_tree = {}
+        for typ, tag, cnt in zip(t["type"], t["dup"], t["count"]):
+            if isinstance(typ, str) and isinstance(tag, str):
+                tag_tree.setdefault(typ, []).append([tag, int(cnt)])
+
+        return type_map, dup_map, tag_tree
 
     def get_ac_tags(self):
         return sorted(t for t in self.type_map if t in self.vocab)

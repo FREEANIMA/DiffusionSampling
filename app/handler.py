@@ -67,6 +67,8 @@ class Handler:
         self.vae = VaeModel(init_device=init_device, device=self.device, dtype=torch.float32, console=self.console)
         self.tag_generation = TagGenration(init_device=init_device, device=self.device, dtype=dtype, console=self.console)
 
+        self.tag_tree = self.tag_generation.tag_tree
+
         self.f = self.config["compression_ratio"]
         self.patch_size = self.config["patch_size"]
 
@@ -76,6 +78,9 @@ class Handler:
         self.progress = Progress()
 
         self.tags_infer_cached = deque(maxlen=64)
+
+    def get_tag_tree(self) -> dict:
+        return self.tag_tree
 
     @property
     def detailer(self) -> Detailering:
