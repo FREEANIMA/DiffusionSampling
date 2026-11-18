@@ -7,10 +7,11 @@ VERSION_CODE = sum(
     for i, v in enumerate(VERSION.split("."))
 )
 
-def load():
+def load(quantization):
+    filename = "ema_model_quantization.pt" if quantization else "ema_model.pt"
     path = fetch_ckpt_from_hf(
         repo_id=f"{HUGGINGFACE}/VER{VERSION_CODE}",
-        filename="ema_model.pt",
+        filename=filename,
     )
     return _load_model(Model, path)
 

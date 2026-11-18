@@ -18,7 +18,20 @@ def strip_orig_mod(state_dict):
         for k, v in state_dict.items()
     }
 
-def load_model(model_class, path):
+def dequantize_state_dict(sd, dtype=torch.bfloat16):
+    out = {}
+    for k, v in sd.items():
+        if k.endswith("_scale"):
+            continue
+        if torch.is_tensor(v) and v.dtype == torch.float8_e4m3fn:
+            out[k] = (v.float() * sd[k + "_scale"]).to(dtype)
+        elif torch.is_tensor(v) and v.is_floating_point():
+            out[k] = v.to(dtype)
+        else:
+            out[k] = v
+    return out
+
+def load_model(model_class, path, dtype=torch.bfloat16):
     with tqdm(total=4, desc="Loading model") as bar:
         bar.set_postfix_str("체크포인트 읽기")
         checkpoint = torch.load(path, map_location="cpu", weights_only=True, mmap=True)
@@ -33,6 +46,12 @@ def load_model(model_class, path):
         if state_dict is None:
             raise KeyError(f"state_dict 키를 찾지 못했습니다. keys={list(checkpoint.keys())}")
         state_dict = strip_orig_mod(state_dict)
+
+        if checkpoint.get("quant"):
+            state_dict = dequantize_state_dict(state_dict, dtype)
+        else:
+            state_dict = {k: (v.to(dtype) if torch.is_tensor(v) and v.is_floating_point() else v)
+                        for k, v in state_dict.items()}
         bar.update(1)
 
         bar.set_postfix_str("모델 생성")
