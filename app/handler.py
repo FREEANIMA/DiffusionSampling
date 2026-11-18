@@ -39,8 +39,9 @@ class Handler:
         
         self.console = console_q()
 
+        quantization = input("use quantization? (y or n): ").strip().lower() == "y"
         position = input("model upload on gpu(y or n): ").strip().lower() == "y"
-        self.model, self.config = load_mmdit_dcae()
+        self.model, self.config = load_mmdit_dcae(quantization)
 
         if position:
             init_device = self.device

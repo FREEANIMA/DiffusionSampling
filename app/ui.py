@@ -20,9 +20,8 @@ class UI:
     def __init__(self, handler: Handler):
         self.handler = handler
         self.app = Flask(__name__)
-        self._lock = threading.Lock()  # GPU 생성은 한 번에 하나만
+        self._lock = threading.Lock()
 
-        # 탭(모드) → 실행 함수
         self._modes = {
             "txt2img": self._run_txt2img,
             "inpainting": self._run_inpainting,
