@@ -43,7 +43,7 @@
             </label>
           </div>
           <div class="ac-wrap">
-            <input id="t2i-tags" placeholder="woman, cinematic, ..." autocomplete="off">
+            <textarea id="t2i-tags" class="tag-box" rows="2" placeholder="woman, cinematic, ..." autocomplete="off" spellcheck="false"></textarea>
             <div id="t2i-ac" class="ac-list" style="display:none;"></div>
           </div>
         </div>
@@ -172,7 +172,7 @@
                   </label>
                 </div>
                 <div class="ac-wrap">
-                  <input id="inp-tags" placeholder="woman, cinematic, ..." autocomplete="off">
+                  <textarea id="inp-tags" class="tag-box" rows="2" placeholder="woman, cinematic, ..." autocomplete="off" spellcheck="false"></textarea>
                   <div id="inp-ac" class="ac-list" style="display:none;"></div>
                 </div>
               </div>
@@ -336,7 +336,7 @@
                 </label>
               </div>
               <div class="ac-wrap">
-                <input id="det-tags" placeholder="woman..." autocomplete="off">
+                <textarea id="det-tags" class="tag-box" rows="2" placeholder="woman..." autocomplete="off" spellcheck="false"></textarea>
                 <div id="det-ac" class="ac-list" style="display:none;"></div>
               </div>
             </div>
@@ -383,7 +383,7 @@
             </div>
             <div class="grid-2">
               <div class="field">
-                <label for="det-eta" title="0이면 결정적, 클수록 매 스텝 새 노이즈 비중이 커짐">Eta</label>
+                <label for="det-eta" title="0이면 결정적, 클수록 매 스텝 새 노이즈 비중이 커짐">ETA</label>
                 <input id="det-eta" type="number" value="0.3" min="0" max="1" step="0.05">
               </div>
               <div class="field"></div>

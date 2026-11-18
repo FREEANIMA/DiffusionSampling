@@ -43,6 +43,13 @@
       p.hidden = p.dataset.mode !== mode;
     });
 
+    // 숨겨져 있던 탭의 태그 박스는 scrollHeight가 0이었으므로 보인 뒤에 높이 재계산
+    requestAnimationFrame(() => {
+      document.querySelectorAll('.tag-box').forEach((el) =>
+        el.dispatchEvent(new Event('tagbox:resize'))
+      );
+    });
+
     try { localStorage.setItem('mmdit.tab', mode); } catch (_) { /* ignore */ }
 
     if (location.hash !== '#' + mode) {
@@ -67,6 +74,50 @@
     const m = location.hash.slice(1);
     if (PREFIX[m] && m !== activeMode) setTab(m);
   });
+
+  // =========================================================
+  // Tag box (자동으로 늘어나는 textarea)
+  // 다른 초기화보다 먼저 실행해서, 이후 코드가 .value 를 읽고 쓸 때
+  // 높이가 항상 따라가도록 한다.
+  // =========================================================
+
+  (function initTagBoxes() {
+    const MAX_H = 240;
+    const valueDesc = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+
+    function autoGrow(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight + 2, MAX_H) + 'px';
+    }
+
+    document.querySelectorAll('.tag-box').forEach((el) => {
+      // 코드에서 el.value = ... 로 바꿀 때도 높이 갱신 (히스토리/태그 트리 클릭 등)
+      Object.defineProperty(el, 'value', {
+        get() { return valueDesc.get.call(this); },
+        set(v) { valueDesc.set.call(this, v); autoGrow(this); },
+      });
+
+      el.addEventListener('input', () => {
+        // 붙여넣기로 들어온 줄바꿈 제거
+        if (el.value.includes('\n')) {
+          const pos = el.selectionStart;
+          el.value = el.value.replace(/\s*\n+\s*/g, ' ');
+          el.setSelectionRange(pos, pos);
+        }
+        autoGrow(el);
+      });
+
+      // Enter로 줄바꿈 방지 (생성 단축키/자동완성 선택과 충돌 방지)
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') e.preventDefault();
+      });
+
+      // 탭 전환 시 높이 재계산용 (input 이벤트를 쓰면 자동완성이 같이 열림)
+      el.addEventListener('tagbox:resize', () => autoGrow(el));
+
+      autoGrow(el);
+    });
+  })();
 
   // =========================================================
   // Autocomplete

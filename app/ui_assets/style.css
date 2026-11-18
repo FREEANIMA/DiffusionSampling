@@ -188,6 +188,34 @@ select {
 .input-btn { display: flex; gap: 8px; }
 .input-btn input { flex: 1; min-width: 0; }
 
+/* ---------- Tag box (자동으로 늘어나는 태그 입력창) ---------- */
+.tag-box {
+  display: block;
+  width: 100%;
+  min-height: 64px;
+  max-height: 240px;
+  padding: 10px 12px;
+  font: inherit;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  outline: none;
+  resize: vertical;
+  overflow-y: auto;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.tag-box:hover { border-color: var(--border); }
+.tag-box:focus {
+  border-color: var(--accent);
+  background: var(--surface-solid);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.tag-box::placeholder { color: var(--muted); opacity: .65; }
+.tag-box::-webkit-scrollbar { width: 8px; }
+.tag-box::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+
 /* ---------- Switch ---------- */
 .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
 .switch input { position: absolute; opacity: 0; pointer-events: none; }
