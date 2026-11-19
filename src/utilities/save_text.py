@@ -9,7 +9,10 @@ def _save_text(save_dir, tags, tags_list=None, filename="tags",
 
     if tags_list is not None:
         lines += ["", "[tags_list]"]
-        lines += [str(t) for t in tags_list]
+        for t in tags_list:
+            lines += ", ".join(t)
+
+        lines += "\n"
 
     params = {
         "calc_type": calc_type,
