@@ -87,8 +87,8 @@ class Detailering:
         return cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds
 
     def save_imgs(self, tags, cfg_scale, final_tags, imgs, steps, calculate_type, shift, seeds, video_imgs, sigmas_steps=None):
-        save_dir = os.path.join(self.base_root, "detalier")
-        save_paths = _save_img(imgs=imgs, filename="detalier", save_dir=save_dir, video_imgs=video_imgs, sigmas=sigmas_steps)
+        save_dir = os.path.join(self.base_root, "detailer")
+        save_paths = _save_img(imgs=imgs, filename="detailer", save_dir=save_dir, video_imgs=video_imgs, sigmas=sigmas_steps)
 
         _save_text(
             os.path.dirname(save_paths[0]),
