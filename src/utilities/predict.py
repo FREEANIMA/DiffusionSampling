@@ -8,6 +8,13 @@ import common.globals as g
 def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_mask, cfg_scale, dtype):
     x_in = x.to(dtype)
     use_cfg = cfg_scale != 1.0
+    B = x_in.shape[0]
+
+    def _rep(t):
+        return t.expand(B, *t.shape[1:]) if t.shape[0] == 1 else t
+
+    cond_emb, cond_mask = _rep(cond_emb), _rep(cond_mask)
+    uncond_emb, uncond_mask = _rep(uncond_emb), _rep(uncond_mask)
 
     def fwd(x_, emb, mask):
         sig = sigma.expand(x_.shape[0])
