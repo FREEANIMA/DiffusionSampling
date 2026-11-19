@@ -255,7 +255,7 @@ class UI:
             return jsonify({"tree": self.handler.get_tag_tree()})
 
 
-    def run(self, host: str = "127.0.0.1", port: int = 7860,
+    def run(self, host: str = "0.0.0.0", port: int = 7860,
             colab: bool | None = None, height: int = 1000):
         if colab is None:
             colab = "google.colab" in sys.modules  # 자동 감지
