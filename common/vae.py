@@ -65,6 +65,20 @@ class VaeModel():
             pil_img = pil_img.resize((thumb_size, thumb_size), Image.BILINEAR)
         return pil_img
 
+    @staticmethod
+    def _tensor_to_pils(img_tensor: torch.Tensor) -> list[Image.Image]:
+        img = img_tensor.detach().float().cpu()
+        if img.dim() == 3:                # (C, H, W) → (1, C, H, W)
+            img = img.unsqueeze(0)
+
+        img = (img.clamp(0.0, 1.0) * 255.0).round().to(torch.uint8)
+        img = img.permute(0, 2, 3, 1).numpy()      # (B, H, W, C)
+
+        if img.shape[-1] == 1:
+            img = img.repeat(3, axis=-1)
+
+        return [Image.fromarray(a) for a in img]
+
     @torch.no_grad()
     def decoder(self, latent, chunk_size=4):
         latent = latent.to(device=self.device, dtype=self.dtype, non_blocking=True)

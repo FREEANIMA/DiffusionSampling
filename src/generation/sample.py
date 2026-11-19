@@ -38,7 +38,7 @@ class Sampling:
         with gpu_context(self.vae.vae, self.device):
             decoded = self.vae.decoder(x)
 
-        img = self.vae._tensor_to_pil(decoded)
+        img = self.vae._tensor_to_pils(decoded)
         return img
 
     def set_init(self, tags, seed, steps, shift, B, H, W):
