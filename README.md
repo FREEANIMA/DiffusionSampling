@@ -1,4 +1,4 @@
-# Diffusion MMDiT with DC-AE f32c32
+# Diffusion MMDiT Text2img with DC-AE f32c32
 
 ## Update — 2026.11.17 Sampling
 
