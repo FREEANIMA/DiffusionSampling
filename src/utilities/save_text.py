@@ -1,7 +1,7 @@
 import os
 import json
 
-def _save_text(save_dir, tags, tags_list:list=None, filename="tags", cfg_scale=None, steps=None, calc_type=None, shift=None, seed=None):
+def _save_text(save_dir, tags, tags_list:list=None, filename="tags", cfg_scale=None, steps=None, calc_type=None, shift=None, seeds=None):
     os.makedirs(save_dir, exist_ok=True)
     path = os.path.join(save_dir, f"{filename}.json")
 
@@ -12,7 +12,7 @@ def _save_text(save_dir, tags, tags_list:list=None, filename="tags", cfg_scale=N
         "steps": steps,
         "cfg_scale": cfg_scale,
         "shift": shift,
-        "seed": seed,
+        "seeds": seeds,
     }
 
     with open(path, "w", encoding="utf-8") as f:

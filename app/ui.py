@@ -107,6 +107,7 @@ class UI:
             steps=int(p["steps"]),
             seed=int(str(p.get("seed", "-1")).strip() or "-1"),
             shift=float(p.get("shift", 3.0)),
+            B=int(p.get("batch", 1))
         )
 
     @staticmethod
@@ -160,7 +161,7 @@ class UI:
             img_path=img_path,
             box=box,
             mask=mask,
-            start_t=float(p.get("start_t", 0.3)),
+            start_t=float(p.get("start_t", 0.95)),
             **self._prompt_params(p),
             **self._sampling_params(p),
         )
@@ -172,9 +173,11 @@ class UI:
             raise ValueError(f"Unknown mode: {mode}")
         return run(p)
 
-    # ------------------------------------------------------------------
-    # Routes
-    # ------------------------------------------------------------------
+    @staticmethod
+    def _as_list(x):
+        if x is None:
+            return []
+        return list(x) if isinstance(x, (list, tuple)) else [x]
 
     def _register_routes(self):
 
@@ -215,12 +218,13 @@ class UI:
 
             try:
                 params = request.get_json(force=True)
-                img, path = self._generate(params)
+                imgs, path = self._generate(params)
+                imgs = self._as_list(imgs)
 
                 return jsonify({
                     "success": True,
-                    "path": str(path),
-                    "image": self._pil_to_b64(img),
+                    "path": [str(p) for p in self._as_list(path)],
+                    "images": [self._pil_to_b64(im) for im in imgs],
                 })
 
             except Exception as e:

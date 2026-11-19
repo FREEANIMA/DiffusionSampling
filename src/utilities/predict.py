@@ -7,30 +7,30 @@ import common.globals as g
 @torch.inference_mode()
 def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_mask, cfg_scale, dtype):
     x_in = x.to(dtype)
-    sig = sigma.expand(x.shape[0])
-
     use_cfg = cfg_scale != 1.0
 
-    def fwd(emb, mask):
-        if g.INIT_DEVICE == "cpu":
-            out, _ = model.forward_cpu(x=x_in, sigma=sig, txt_emb=emb, txt_mask=mask)
-        else:
-            out, _ = model.forward(x=x_in, sigma=sig, txt_emb=emb, txt_mask=mask)
+    def fwd(x_, emb, mask):
+        sig = sigma.expand(x_.shape[0])
+        fn = model.forward_cpu if g.INIT_DEVICE == "cpu" else model.forward
+        out, _ = fn(x=x_, sigma=sig, txt_emb=emb, txt_mask=mask)
         return out.float()
 
     with torch.amp.autocast(device_type=x.device.type, dtype=dtype):
-        c = fwd(cond_emb, cond_mask)
-        v = c
         if use_cfg:
-            u = fwd(uncond_emb, uncond_mask)
+            out = fwd(
+                torch.cat([x_in, x_in], dim=0),
+                torch.cat([cond_emb, uncond_emb], dim=0),
+                torch.cat([cond_mask, uncond_mask], dim=0),
+            )
+            c, u = out.chunk(2, dim=0)
             v = u + cfg_scale * (c - u)
+        else:
+            v = fwd(x_in, cond_emb, cond_mask)
 
     return v
 
-
 @torch.inference_mode()
-def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_mask,
-                   uncond_emb, uncond_mask, gen, dtype, eta, after_step=None):
+def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gens, dtype, eta, after_step=None):
     model.eval()
     n = len(sigmas) - 1
     kw = dict(model=model, cond_emb=cond_emb, cond_mask=cond_mask,
@@ -51,9 +51,11 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
 
             use_noise = eta > 0 and not last
             sigma_lo = sigma_lo_of(sigma_next, eta) if use_noise else sigma_next
-            z = (torch.randn(x.shape, generator=gen, device=x.device, dtype=x.dtype)
-                 if use_noise else None)
-
+            z = (torch.cat([
+                    torch.randn((1, *x.shape[1:]), generator=g_, device=x.device, dtype=x.dtype)
+                    for g_ in gens
+                ], dim=0) if use_noise else None)
+            
             if calculate_type == "euler":
                 x = euler(x, v, sigma, sigma_lo)
                 if use_noise:
@@ -81,7 +83,7 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
             if after_step is not None:
                 x = after_step(x, sigma, sigma_next)
 
-            latents.append(x.detach().float().cpu())
+            # latents.append(x.detach().float().cpu())
     finally:
         torch.cuda.empty_cache()
 

@@ -41,25 +41,50 @@ class Sampling:
         img = self.vae._tensor_to_pil(decoded)
         return img
 
-    @torch.inference_mode()
-    def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, H, W,  eta=0.3, seed=None, on_step=None):
-
+    def set_init(self, tags, seed, steps, shift, B, H, W):
+        tags_batch = tags * B
+        cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=tags_batch)
         if seed is None:
             seed = random.randint(0, 2**32 - 1)
-
-        cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=tags)
-
-        gen = torch.Generator(device=self.device)
-        gen.manual_seed(seed)
-
-        noise = torch.randn(
-            (1, self.in_channels, H // self.f, W // self.f),
-            generator=gen,
-            device=self.device,
-            dtype=torch.float32,
-        )
+        rng = random.Random(seed)
+        seeds = [seed] + [rng.randint(0, 2**32 - 1) for _ in range(B - 1)]
+        gens = [torch.Generator(device=self.device).manual_seed(s) for s in seeds]
+        noise = torch.cat([
+            torch.randn(
+                (1, self.in_channels, H // self.f, W // self.f),
+                generator=g_,
+                device=self.device,
+                dtype=torch.float32,
+            )
+            for g_ in gens
+        ], dim=0)
 
         sigmas = sigma_schedular(step=steps, device=self.device, shift=shift)
+
+        return cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds
+
+    def save_imgs(self, tags, cfg_scale, final_tags, imgs, steps, calculate_type, shift, seeds, video_imgs, sigmas_steps=None):
+        save_dir = os.path.join(self.base_root, "generation")
+        save_paths = _save_img(imgs=imgs, filename="sample", save_dir=save_dir, video_imgs=video_imgs, sigmas=sigmas_steps)
+
+        _save_text(
+            os.path.dirname(save_paths[0]),
+            tags=tags,
+            tags_list=final_tags,
+            cfg_scale=cfg_scale,
+            steps=steps,
+            calc_type=calculate_type,
+            shift=shift,
+            seeds=seeds,
+        )
+
+        self.console.put(f"img saved: {save_paths[0]}")
+
+        return save_paths
+
+    @torch.inference_mode()
+    def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, H, W, B=1, eta=0.3, seed=None, on_step=None):
+        cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds = self.set_init(tags, seed, steps, shift, B, H, W)
 
         total = len(sigmas) - 1
         done = 0
@@ -88,7 +113,7 @@ class Sampling:
             cond_mask=cond_mask,
             uncond_emb=uncond_emb,
             uncond_mask=uncond_mask,
-            gen=gen,
+            gens=gens,
             dtype=self.dtype,
             after_step=after_step,
             eta=eta
@@ -100,76 +125,14 @@ class Sampling:
         del cond_emb, uncond_emb, cond_mask, uncond_mask
         del noise, sigmas
 
-        img = self.vae_decode(x)
-        
-        # imgs = []
-        # for latent in latents:
-        #     imgs.append(self.vae_decode(latent))
-
-        # latent_diff = []
-
-        # for i in range(len(latents) - 1):
-        #     diff = (latents[i + 1].float() - latents[i].float()).abs()
-        #     latent_diff.append(diff)
-
-        # self.inspect_plot(latent_diff=latent_diff)
-        
+        imgs = self.vae_decode(x)
         del latents
-        save_dir = os.path.join(self.base_root, "generation")
-        save_img_name = _save_img(img=img, filename="sample", save_dir=save_dir, imgs=None, sigmas=sigmas_steps)
 
-        _save_text(
-            os.path.dirname(save_img_name),
-            tags=tags,
-            tags_list=final_tags,
-            cfg_scale=cfg_scale,
-            steps=steps,
-            calc_type=calculate_type,
-            shift=shift,
-            seed=seed,
+        save_paths = self.save_imgs(
+            tags=tags, cfg_scale=cfg_scale, final_tags=final_tags,
+            imgs=imgs, steps=steps, calculate_type=calculate_type,
+            shift=shift, seeds=seeds,
+            video_imgs=None, sigmas_steps=sigmas_steps,
         )
 
-        self.console.put(f"img saved: {save_img_name}")
-
-        return img, save_img_name
-
-    def inspect_plot(self, latent_diff):
-        maps = [
-            diff.mean(dim=1)[0].cpu().numpy()
-            for diff in latent_diff
-        ]
-
-        cols = 5
-        rows = (len(maps) + cols - 1) // cols
-
-        fig, axes = plt.subplots(rows, cols, figsize=(20, rows * 3))
-
-        if rows == 1:
-            axes = axes.flatten()
-        else:
-            axes = axes.flatten()
-
-        vmax = max(m.max() for m in maps)
-
-        for i, (ax, m) in enumerate(zip(axes, maps)):
-            ax.imshow(m, cmap="inferno", vmin=0, vmax=vmax)
-            ax.set_title(f"Step {i}")
-            ax.axis("off")
-
-        for ax in axes[len(maps):]:
-            ax.axis("off")
-
-        fig.tight_layout()
-
-        save_dir = os.path.join(self.base_root, "generation")
-        save_plot_name = _save_plot(
-            filename="sample_plot",
-            save_dir=save_dir,
-            plots=fig
-        )
-
-        plt.close(fig)
-
-        self.console.put(f"plot saved: {save_plot_name}")
-
-        return save_plot_name
+        return imgs, save_paths

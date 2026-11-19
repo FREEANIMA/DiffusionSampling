@@ -1,13 +1,12 @@
 import os
-from datetime import datetime
-
+import random
 import numpy as np
 import torch
 from PIL import Image, ImageFilter
 import common.globals as g
 import torch.nn.functional as F
 
-from src.utilities import sigma_schedular, steps_sampling, img_resize, gpu_context, _save_img
+from src.utilities import sigma_schedular, steps_sampling, img_resize, gpu_context, _save_img, _save_text
 INIT_PROMPT = "general img; "
 
 class Detailering:
@@ -65,12 +64,49 @@ class Detailering:
         m_lat = F.adaptive_max_pool2d(m, output_size=latent.shape[-2:])
         return (m_lat > 0.5).float()
 
+    def set_init(self, tags, seed, steps, shift, B, H, W):
+        tags_batch = tags * B
+        cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=tags_batch)
+        if seed is None:
+            seed = random.randint(0, 2**32 - 1)
+        rng = random.Random(seed)
+        seeds = [seed] + [rng.randint(0, 2**32 - 1) for _ in range(B - 1)]
+        gens = [torch.Generator(device=self.device).manual_seed(s) for s in seeds]
+        noise = torch.cat([
+            torch.randn(
+                (1, self.in_channels, H // self.f, W // self.f),
+                generator=g_,
+                device=self.device,
+                dtype=torch.float32,
+            )
+            for g_ in gens
+        ], dim=0)
+
+        sigmas = sigma_schedular(step=steps, device=self.device, shift=shift)
+
+        return cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds
+
+    def save_imgs(self, tags, cfg_scale, final_tags, imgs, steps, calculate_type, shift, seeds, video_imgs, sigmas_steps=None):
+        save_dir = os.path.join(self.base_root, "detalier")
+        save_paths = _save_img(imgs=imgs, filename="detalier", save_dir=save_dir, video_imgs=video_imgs, sigmas=sigmas_steps)
+
+        _save_text(
+            os.path.dirname(save_paths[0]),
+            tags=tags,
+            tags_list=final_tags,
+            cfg_scale=cfg_scale,
+            steps=steps,
+            calc_type=calculate_type,
+            shift=shift,
+            seeds=seeds,
+        )
+
+        self.console.put(f"img saved: {save_paths[0]}")
+
+        return save_paths
 
     @torch.inference_mode()
-    def sampling(self, arr, tags, shift, H, W, calculate_type, cfg_scale, steps, start_t, eta=0.3, seed=None, mask=None, on_step=None):
-        if calculate_type == "unipc":
-            raise ValueError("inpainting에서는 unipc를 사용할 수 없습니다. (마스크 합성 불가) euler/heun/ddim/ddpm_plus 중 선택하세요.")
-
+    def sampling(self, arr, tags, shift, H, W, calculate_type, cfg_scale, steps, start_t, B=1, eta=0.3, seed=None, mask=None, on_step=None):
         if mask is None:
             raise ValueError("mask가 필요합니다.")
 
@@ -83,16 +119,13 @@ class Detailering:
         latent = self.vae_encode(img)
         mask_lat = self.mask_generation(mask_arr, latent)
 
-        gen = torch.Generator(device=self.device)
-        if seed is not None:
-            gen.manual_seed(seed)
-        noise = torch.randn(
-            latent.shape, generator=gen, device=latent.device, dtype=latent.dtype
-        )
+        cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds = self.set_init(tags, seed, steps, shift, B, H, W)
 
         sigmas = sigma_schedular(step=steps, device=self.device, shift=shift)
         start_idx = int(torch.argmin((sigmas - start_t).abs()).item())
         sigmas = sigmas[start_idx:]
+        if len(sigmas) < 2:
+            raise ValueError("start_t가 너무 작아 샘플링할 step이 없습니다.")
         start_sigma = sigmas[0]
 
         x_t = (1 - start_sigma) * latent + start_sigma * noise
@@ -102,8 +135,6 @@ class Detailering:
         if on_step:
             on_step(0, total)
             
-        cond_emb, uncond_emb, cond_mask, uncond_mask = self.text_encode(tags=tags)
-
         def after_step(x, sigma, sigma_next):
             nonlocal done
             done += 1
@@ -127,7 +158,7 @@ class Detailering:
             cfg_scale=cfg_scale,
             cond_emb=cond_emb, cond_mask=cond_mask,
             uncond_emb=uncond_emb, uncond_mask=uncond_mask,
-            gen=gen,
+            gens=gens,
             dtype=self.dtype,
             after_step=after_step,
             eta=eta
@@ -135,38 +166,33 @@ class Detailering:
         if g.INIT_DEVICE == "cpu":
             self.model.to("cpu")
 
-        del cond_emb, uncond_emb, cond_mask, uncond_mask
-        del latent, mask_lat, noise, x_t, sigmas
-        
-        imgs = []
-        # for latent in latents:
-        #     imgs.append(self.vae_decode(latent))
+        del cond_emb, uncond_emb, cond_mask, uncond_mask, latent, mask_lat, noise, x_t, sigmas, latents
+        imgs = self.vae_decode(x)
 
-        del latents
+        return imgs, sigmas_steps, seeds
 
-        return self.vae_decode(x), imgs, sigmas_steps
-
-    def merge_img(self, origin_img, img_out, square, save_dir, imgs, sigmas_steps, final_tags, feather=16, img_in=None):
-        left, top, right, bottom = square
+    def merge_img(self, origin_img, fixed_imgs, box, sigmas_steps, tags, calculate_type, shift, seeds, steps, final_tags, cfg_scale, paste_mask=None):
+        left, top, right, bottom = box
         w, h = right - left, bottom - top
 
-        out = origin_img.convert("RGB").copy()
-        patch = img_out.convert("RGB").resize((w, h), Image.Resampling.LANCZOS)
+        if not isinstance(fixed_imgs, (list, tuple)):
+            fixed_imgs = [fixed_imgs]
 
-        f = max(1, min(feather, w // 4, h // 4))
-        alpha = Image.new("L", (w, h), 0)
-        alpha.paste(255, (f, f, w - f, h - f))
-        alpha = alpha.filter(ImageFilter.GaussianBlur(f / 2))
+        imgs = []
+        for i, patch in enumerate(fixed_imgs):
+            patch = patch.convert("RGB")
+            if patch.size != (w, h):
+                patch = patch.resize((w, h), Image.Resampling.LANCZOS)
 
-        out.paste(patch, (left, top), alpha)
+            out = origin_img.copy()
+            out.paste(patch, (left, top), paste_mask)
 
-        save_dir = os.path.join(self.base_root, "detailer")
-        _save_img(img=img_out, filename="patch", save_dir=save_dir)
-        _save_img(img=img_in, filename="input", save_dir=save_dir)
-        save_img_name = _save_img(img=out, filename="merged", save_dir=save_dir)
-       
-        # _save_img(imgs=imgs, filename="detail_mp4", save_dir=save_dir, sigmas_steps=sigmas_steps)
+            imgs.append(out)
 
-        self.console.put(f"merged saved: {save_img_name}")
+        save_paths = self.save_imgs(
+            tags=tags, final_tags=final_tags, imgs=imgs, 
+            calculate_type=calculate_type, shift=shift, video_imgs=None, 
+            sigmas_steps=sigmas_steps, cfg_scale=cfg_scale, steps=steps, seeds=seeds,
+            )
 
-        return out, save_img_name
+        return imgs, save_paths

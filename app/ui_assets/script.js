@@ -473,7 +473,7 @@
       const k = ALLOW / Math.max(r.w, r.h);
       cropInfo.textContent = `${r.w}×${r.h} → ${Math.round(r.w * k)}×${Math.round(r.h * k)}`;
     };
-    
+
     if (isRect) {
       const cropBrush = $(`${p}-brush`);
       let cropDrawing = false;
@@ -874,6 +874,46 @@
   }, 500);
 
   // =========================================================
+  // Result viewer (번호 버튼으로 이미지 전환)
+  // =========================================================
+
+  const clearResult = (p) => {
+    $(`${p}-result`).innerHTML = '';
+    $(`${p}-pager`).innerHTML = '';
+  };
+
+  const showImages = (p, images, seeds) => {
+    clearResult(p);
+    if (!images.length) return;
+
+    const result = $(`${p}-result`);
+    const pager = $(`${p}-pager`);
+
+    const img = document.createElement('img');
+    result.append(img);
+
+    const select = (i) => {
+      img.src = `data:image/png;base64,${images[i]}`;
+      img.title = seeds && seeds[i] !== undefined ? `seed ${seeds[i]}` : `#${i + 1}`;
+      [...pager.children].forEach((b, j) => b.classList.toggle('active', j === i));
+    };
+
+    // 1장이면 번호 버튼 없이 이미지만
+    if (images.length > 1) {
+      images.forEach((_, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'pager-btn';
+        b.textContent = String(i + 1);
+        b.onclick = () => select(i);
+        pager.append(b);
+      });
+    }
+
+    select(0);
+  };
+
+  // =========================================================
   // Generate (공통)
   // =========================================================
 
@@ -881,12 +921,11 @@
   const initRun = (mode, collect, afterRun) => {
     const p = PREFIX[mode];
     const out = $(`${p}-out`);
-    const result = $(`${p}-result`);
 
     $(`${p}-clear_out`).onclick = () => {
       out.textContent = '';
       $(`${p}-console`).textContent = '';
-      result.innerHTML = '';
+      clearResult(p);
     };
 
     $(`${p}-run`).onclick = async () => {
@@ -898,6 +937,12 @@
         return;
       }
 
+      // batch 입력칸이 없는 탭(detailer)은 1장
+      const batchEl = $(`${p}-batch`);
+      const batch = batchEl
+        ? Math.max(1, Math.min(parseInt(batchEl.value, 10) || 1, 8))
+        : 1;
+
       const params = {
         mode,
         sampler: $(`${p}-sampler`).value,
@@ -905,6 +950,7 @@
         seed: $(`${p}-seed`).value,
         shift: $(`${p}-shift`).value,
         eta: $(`${p}-eta`).value,
+        batch,
         ...c.params,
       };
 
@@ -913,7 +959,7 @@
       allRunBtns().forEach((b) => { b.disabled = true; });
 
       out.textContent = 'running...';
-      result.innerHTML = '';
+      clearResult(p);
       startPoll(p);
 
       try {
@@ -928,11 +974,11 @@
           throw new Error(data.error || 'Generation failed');
         }
 
-        const img = document.createElement('img');
-        img.src = `data:image/png;base64,${data.image}`;
-        result.append(img);
+        // 서버가 images 배열을 주면 그대로, 구버전(image 하나)도 호환
+        const images = data.images || (data.image ? [data.image] : []);
+        showImages(p, images, data.seeds);
 
-        out.textContent = 'done';
+        out.textContent = images.length > 1 ? `done (${images.length} images)` : 'done';
       } catch (e) {
         out.textContent = `failed: ${e.message}`;
       } finally {

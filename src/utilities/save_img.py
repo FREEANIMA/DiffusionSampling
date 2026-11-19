@@ -33,24 +33,28 @@ def _with_label(frame, text):
     return canvas
 
 
-def _save_img(save_dir, filename, img=None, imgs=None, sigmas=None, shift=3.0):
+def _save_img(save_dir, filename, imgs=None, video_imgs=None, sigmas=None, shift=3.0):
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     save_dir = os.path.join(save_dir, stamp)
     os.makedirs(save_dir, exist_ok=True)
-    save_img_name = os.path.join(save_dir, f"{filename}.png")
 
-    if img is not None:
-        img.save(save_img_name)
+    if imgs is not None and not isinstance(imgs, (list, tuple)):
+        imgs = [imgs]          # PIL 한 장이면 리스트로
 
-    if imgs:
+    paths = []
+    for i, im in enumerate(imgs or []):
+        p = os.path.join(save_dir, f"{filename}_{i}.png")
+        im.save(p)
+        paths.append(p)
+
+    if video_imgs:
         try:
             import imageio.v2 as imageio
         except ImportError:
             print("[warn] imageio 미설치: mp4 저장 생략 (pip install imageio imageio-ffmpeg)")
-            return save_img_name
+            return paths
 
-        n = len(imgs)
-
+        n = len(video_imgs)
         if sigmas is None:
             sigmas = sigma_schedular(step=n, device="cpu", shift=shift)[:-1]
         sigmas = [float(s) for s in sigmas]
@@ -62,8 +66,8 @@ def _save_img(save_dir, filename, img=None, imgs=None, sigmas=None, shift=3.0):
 
         half = lambda f: f.resize((f.width // 2, f.height // 2))
 
-        frames = [_with_label(half(f), label(i)) for i, f in enumerate(imgs)]
-        final = img if img is not None else imgs[-1]
+        frames = [_with_label(half(f), label(i)) for i, f in enumerate(video_imgs)]
+        final = imgs[0] if imgs else video_imgs[-1]
         frames += [_with_label(half(final), "final")] * 8
 
         with imageio.get_writer(
@@ -73,4 +77,4 @@ def _save_img(save_dir, filename, img=None, imgs=None, sigmas=None, shift=3.0):
             for f in frames:
                 w.append_data(np.asarray(f))
 
-    return save_img_name
+    return paths

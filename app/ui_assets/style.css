@@ -331,6 +331,24 @@ progress::-moz-progress-bar { background: linear-gradient(90deg, var(--accent), 
   box-shadow: var(--shadow);
 }
 
+/* ---------- Result pager (번호 선택) ---------- */
+.pager { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.pager:empty { display: none; }
+.pager-btn {
+  min-width: 34px; height: 34px; padding: 0 10px;
+  font: inherit; font-weight: 700; font-size: 13px; cursor: pointer;
+  color: var(--muted); background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 10px;
+  transition: color .15s, background .15s, border-color .15s, transform .05s;
+}
+.pager-btn:hover { color: var(--text); border-color: var(--muted); }
+.pager-btn:active { transform: translateY(1px); }
+.pager-btn.active {
+  color: var(--accent-text); border-color: transparent;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+.pager-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 .empty-state {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
   margin-top: 12px; min-height: 260px; text-align: center;

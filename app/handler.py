@@ -155,7 +155,14 @@ class Handler:
 
         return tags_reshape, final_tags
 
-    def generate_txt2img(self, tags_text:str, nsfw, calc_type, cfg_scale, H, W, steps, seed, fixed, shift, eta=0.3):
+    def _clamp_shift(self, shift) -> float:
+        try:
+            s = float(shift)
+        except (TypeError, ValueError):
+            s = 3.0
+        return min(max(s, 0.1), 10.0)
+    
+    def generate_txt2img(self, tags_text:str, nsfw, calc_type, cfg_scale, H, W, steps, seed, fixed, shift, B=1, eta=0.3):
         self.progress.reset()
         tags_text = tags_text.lower()
 
@@ -173,10 +180,11 @@ class Handler:
             seed=_parse_seed(seed),
             on_step=self.progress.update,
             shift=self._clamp_shift(shift),
-            eta=eta
+            eta=eta,
+            B=B
         )
     
-    def generate_inpainting(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, shift, eta, mask=None, start_t: float = 0.8):
+    def generate_inpainting(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, shift, eta, B=1, mask=None, start_t: float = 0.8):
         if img_path is None:
             raise ValueError("경로를 입력해 주세요")
         if mask is None:
@@ -207,17 +215,11 @@ class Handler:
             on_step=self.progress.update,
             save_dir=os.path.join(self.base_root, "inpainting"),
             shift=self._clamp_shift(shift),
-            eta=eta
+            eta=eta,
+            B=B
         )
 
-    def _clamp_shift(self, shift) -> float:
-        try:
-            s = float(shift)
-        except (TypeError, ValueError):
-            s = 3.0
-        return min(max(s, 0.1), 10.0)
-
-    def generate_detailering(self, calc_type,  steps, seed, img_path, shift, tags_text : str, cfg_scale, nsfw, eta, mask=None, fixed=True, box=None, start_t: float = 0.3):
+    def generate_detailering(self, calc_type,  steps, seed, img_path, shift, tags_text : str, cfg_scale, nsfw, eta, B=1, mask=None, fixed=True, box=None, start_t: float = 0.3):
         if img_path is None:
             raise ValueError("경로를 입력해 주세요")
         if box is None:
@@ -271,7 +273,7 @@ class Handler:
         assert W == new_W, f"Width mismatch: expected={W}, actual={new_W}"
 
         tags_reshape, final_tags = self._resolve_tags(tags_text, nsfw, new_H, new_W, fixed)
-        img_out, imgs, sigmas_steps = self.detailer.sampling(
+        imgs, sigmas_steps, seeds = self.detailer.sampling(
             tags=tags_reshape,
             calculate_type=calc_type,
             cfg_scale=float(cfg_scale),
@@ -285,19 +287,20 @@ class Handler:
             H=new_H,
             W=new_W,
             eta=eta,
+            B=B
         )
 
-        if img_out.size != (w, h):
-            print(f"[fix] resize {img_out.size} -> ({w}, {h})")
-            img_out = img_out.resize((w, h), Image.Resampling.LANCZOS)
+        fixed_imgs = []
+        for im in imgs:
+            if im.size != (w, h):
+                print(f"[fix] resize {im.size} -> ({w}, {h})")
+                im = im.resize((w, h), Image.Resampling.LANCZOS)
+            fixed_imgs.append(im)
 
         return self.detailer.merge_img(
-            origin_img=img,
-            img_out=img_out,
-            square=box,
-            save_dir=os.path.join(self.base_root, "detailer"),
-            img_in=crop_img,
-            imgs=imgs,
-            sigmas_steps=sigmas_steps,
-            final_tags=final_tags,
+            origin_img=img, fixed_imgs=fixed_imgs,
+            box=box, final_tags=final_tags, tags=tags_reshape, steps=steps, shift=shift,
+            calculate_type=calc_type, cfg_scale=cfg_scale, seeds=seeds, sigmas_steps=sigmas_steps, paste_mask=None
         )
+
+
