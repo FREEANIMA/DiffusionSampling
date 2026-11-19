@@ -464,7 +464,6 @@
         return;
       }
 
-      // canvas 크기를 바꾸면 내용이 지워짐 → crop이 바뀌면 마스크도 함께 초기화
       cropCanvas.width = cropMask.width = r.w;
       cropCanvas.height = cropMask.height = r.h;
       cropCanvas.getContext('2d').drawImage(sourceImage, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
@@ -474,8 +473,7 @@
       const k = ALLOW / Math.max(r.w, r.h);
       cropInfo.textContent = `${r.w}×${r.h} → ${Math.round(r.w * k)}×${Math.round(r.h * k)}`;
     };
-
-    // crop 위에 마스크 그리기 (좌표는 crop 원본 픽셀 기준)
+    
     if (isRect) {
       const cropBrush = $(`${p}-brush`);
       let cropDrawing = false;
