@@ -12,7 +12,7 @@ class TagGenration:
         self.device = device
         self.dtype = dtype
         self.MIN_TAG_FREQ = 1_000
-        self.MIN_FIXED_TAGS = 10
+        self.MIN_FIXED_TAGS = 5
         self.SAMPLE_RETRY = 5
 
         self.NAS = [
