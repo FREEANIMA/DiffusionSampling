@@ -399,9 +399,15 @@
                 <button id="det-load_image" type="button" class="btn">Load</button>
               </div>
             </div>
-            <div class="field">
-              <label for="det-start_t">Start T</label>
-              <input id="det-start_t" type="number" min="0" max="1" step="0.01" value="0.95">
+            <div class="grid-2">
+              <div class="field">
+                <label for="det-start_t">Start T</label>
+                <input id="det-start_t" type="number" min="0" max="1" step="0.01" value="0.95">
+              </div>
+              <div class="field">
+                <label for="det-brush">Brush</label>
+                <input id="det-brush" type="number" value="20" min="1">
+              </div>
             </div>
           </div>
 
@@ -452,10 +458,6 @@
               <canvas id="det-crop-mask-canvas" class="mask-canvas"></canvas>
             </div>
             <div class="mask-bar">
-              <div class="brush-inline">
-                <label for="det-crop-brush">Brush</label>
-                <input id="det-crop-brush" type="number" value="20" min="1">
-              </div>
               <div class="btn-group">
                 <button id="det-crop-mask-clear" type="button" class="btn">Clear mask</button>
               </div>

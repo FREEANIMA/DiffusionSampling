@@ -477,7 +477,7 @@
 
     // crop 위에 마스크 그리기 (좌표는 crop 원본 픽셀 기준)
     if (isRect) {
-      const cropBrush = $(`${p}-crop-brush`);
+      const cropBrush = $(`${p}-brush`);
       let cropDrawing = false;
 
       const cropXY = (e) => {
