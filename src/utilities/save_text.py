@@ -1,7 +1,6 @@
 import os
 
-def _save_text(save_dir, tags, tags_list=None, filename="tags",
-               cfg_scale=None, steps=None, calc_type=None, shift=None, seed=None):
+def _save_text(save_dir, tags, tags_list:list=None, filename="tags", cfg_scale=None, steps=None, calc_type=None, shift=None, seed=None):
     os.makedirs(save_dir, exist_ok=True)
     path = os.path.join(save_dir, f"{filename}.txt")
 
@@ -10,7 +9,7 @@ def _save_text(save_dir, tags, tags_list=None, filename="tags",
     if tags_list is not None:
         lines += ["", "[tags_list]"]
         for t in tags_list:
-            lines += ", ".join(t)
+            lines += f"{t}, "
 
         lines += "\n"
 
