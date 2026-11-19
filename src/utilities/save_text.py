@@ -7,10 +7,8 @@ def _save_text(save_dir, tags, tags_list:list=None, filename="tags", cfg_scale=N
     lines = ["[tags]", tags[0]]
 
     if tags_list is not None:
-        lines += ["", "[tags_list]"]
-        for t in tags_list:
-            lines += f"{t}, "
-
+        lines += "[tags_list]\n"
+        lines += tags_list[0]
         lines += "\n"
 
     params = {
