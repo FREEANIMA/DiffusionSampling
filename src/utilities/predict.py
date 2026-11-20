@@ -37,7 +37,8 @@ def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_ma
     return v
 
 @torch.inference_mode()
-def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gens, dtype, eta, after_step=None):
+def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gens, dtype, eta, 
+                   after_step=None, eta_sigma_min=0.6, cfg_min_sigma=0.0):
     model.eval()
     n = len(sigmas) - 1
     kw = dict(model=model, cond_emb=cond_emb, cond_mask=cond_mask,
@@ -52,11 +53,12 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
             sigma, sigma_next = sigmas[i], sigmas[i + 1]
 
             sigmas_steps.append(float(sigma_next))
-            v = velocity_predict(x=x, sigma=sigma, **kw)
-
+            cfg_i = cfg_scale if float(sigma) > cfg_min_sigma else 1.0
+            kw_i = {**kw, "cfg_scale": cfg_i}
+            v = velocity_predict(x=x, sigma=sigma, **kw_i)
             last = (i == n - 1)
 
-            use_noise = eta > 0 and not last
+            use_noise = eta > 0 and (float(sigma_next) > eta_sigma_min) and not last
             sigma_lo = sigma_lo_of(sigma_next, eta) if use_noise else sigma_next
             z = (torch.cat([
                     torch.randn((1, *x.shape[1:]), generator=g_, device=x.device, dtype=x.dtype)
@@ -73,7 +75,8 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
                     x = euler(x, v, sigma, sigma_next)
                 else:
                     x_e = euler(x, v, sigma, sigma_lo)
-                    v2 = velocity_predict(x=x_e, sigma=sigma_lo, **kw)
+                    cfg_i2 = cfg_scale if float(sigma_lo) > cfg_min_sigma else 1.0
+                    v2 = velocity_predict(x=x_e, sigma=sigma_lo, **{**kw, "cfg_scale": cfg_i2})
                     x = heun(x, v, v2, sigma, sigma_lo)
                     del x_e, v2
                 if use_noise:
