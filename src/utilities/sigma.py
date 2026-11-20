@@ -5,6 +5,6 @@ def sigma_schedular(step, device, shift=3.0):
     s = shift
     sigmas = s * t / (1 + (s - 1) * t)
     sigmas = sigmas.clamp(0.001, 0.999)
-    sigmas[-1] = 0.001 
-    
-    return sigmas
+    sigmas[-1] = 0.001
+
+    return sigmas, sigmas.mean().item()

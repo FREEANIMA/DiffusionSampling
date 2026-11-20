@@ -59,9 +59,9 @@ class Sampling:
             for g_ in gens
         ], dim=0)
 
-        sigmas = sigma_schedular(step=steps, device=self.device, shift=shift)
+        sigmas, mean = sigma_schedular(step=steps, device=self.device, shift=shift)
 
-        return cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds
+        return cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds, mean
 
     def save_imgs(self, tags, cfg_scale, final_tags, imgs, steps, calculate_type, shift, seeds, video_imgs, eta, eta_mode, sigmas_steps=None):
         save_dir = os.path.join(self.base_root, "generation")
@@ -87,7 +87,7 @@ class Sampling:
     @torch.inference_mode()
     def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, H, W, B=1, 
                  eta=0.3, seed=None, on_step=None, frame_save=False, eta_mode="cos"):
-        cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds = self.set_init(tags, seed, steps, shift, B, H, W)
+        cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds, mean = self.set_init(tags, seed, steps, shift, B, H, W)
 
         total = len(sigmas) - 1
         done = 0
@@ -120,7 +120,8 @@ class Sampling:
             dtype=self.dtype,
             after_step=after_step,
             eta=eta,
-            eta_mode=eta_mode
+            eta_mode=eta_mode,
+            sigma_mean=mean
         )
 
         if g.INIT_DEVICE == "cpu":

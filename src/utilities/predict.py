@@ -60,7 +60,9 @@ def eta_at_cos(sigma_next, eta, mu=0.6, half_width=0.5, floor=0.5, sigma_fade=0.
     return eta * w * fade
 
 @torch.inference_mode()
-def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gens, dtype, eta, eta_mode="cos",
+def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, 
+                   cond_emb, cond_mask, uncond_emb, uncond_mask, 
+                   gens, dtype, eta, sigma_mean, eta_mode="cos", 
                    after_step=None, cfg_min_sigma=0.0, debug_probe=False, eta_power=1.0):
     model.eval()
     n = len(sigmas) - 1
@@ -94,6 +96,9 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
             elif eta_mode == "sin":
                 eta_i = eta_at_sin(float(sigma_next), eta)
 
+            if float(sigma_next) < sigma_mean and calculate_type != "ddpm_plus":
+                eta_i = 0.0
+                
             use_noise = eta_i > 1e-4 and not last
             sigma_lo = sigma_lo_of(sigma_next, eta_i) if use_noise else sigma_next
             z = (torch.cat([

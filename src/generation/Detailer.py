@@ -83,9 +83,9 @@ class Detailering:
             for g_ in gens
         ], dim=0)
 
-        sigmas = sigma_schedular(step=steps, device=self.device, shift=shift)
+        sigmas, mean = sigma_schedular(step=steps, device=self.device, shift=shift)
 
-        return cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds
+        return cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds, mean
 
     def _mask_arr(self, m, W, H):
         if m is None:
@@ -139,9 +139,8 @@ class Detailering:
                 mask_lat = mask_lat * (1.0 - keep_lat)
 
 
-        cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds = self.set_init(tags, seed, steps, shift, B, H, W)
+        cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds, mean = self.set_init(tags, seed, steps, shift, B, H, W)
 
-        sigmas = sigma_schedular(step=steps, device=self.device, shift=shift)
         start_idx = int(torch.argmin((sigmas - start_t).abs()).item())
         sigmas = sigmas[start_idx:]
         if len(sigmas) < 2:
@@ -185,7 +184,8 @@ class Detailering:
             dtype=self.dtype,
             after_step=after_step,
             eta=eta,
-            eta_mode=eta_mode
+            eta_mode=eta_mode,
+            sigma_mean=mean
         )
         if g.INIT_DEVICE == "cpu":
             self.model.to("cpu")
