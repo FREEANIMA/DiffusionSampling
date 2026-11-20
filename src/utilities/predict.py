@@ -38,7 +38,7 @@ def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_ma
 
 @torch.inference_mode()
 def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gens, dtype, eta, 
-                   after_step=None, eta_sigma_min=0.6, cfg_min_sigma=0.0):
+                   after_step=None, eta_sigma_min=0.4, cfg_min_sigma=0.0):
     model.eval()
     n = len(sigmas) - 1
     kw = dict(model=model, cond_emb=cond_emb, cond_mask=cond_mask,
