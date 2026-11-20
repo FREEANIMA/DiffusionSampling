@@ -235,6 +235,9 @@ select {
 .switch input:focus-visible + .track { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent); }
 .switch-text { font-size: 12px; font-weight: 600; color: var(--muted); }
 
+/* select 와 높이를 맞추기 위한 필드 안 스위치 (Frame save 등) */
+.field > .switch { min-height: 40px; }
+
 /* ---------- Autocomplete ---------- */
 .ac-wrap { position: relative; }
 .ac-list {

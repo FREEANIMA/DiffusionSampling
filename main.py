@@ -4,9 +4,21 @@ from pathlib import Path
 import torch
 from dotenv import load_dotenv
 from huggingface_hub import login
+import sys
+import signal
 
 COLAB_ROOT = "/content/drive/MyDrive/model/mmdit_sampling"
 
+_sigint_count = 0
+
+def _sigint_handler(signum, frame):
+    global _sigint_count
+    _sigint_count += 1
+    if _sigint_count >= 2:
+        print("\n[MAIN] force exit")
+        os._exit(130)
+    print("\n[MAIN] Ctrl+C: shutting down... (한 번 더 누르면 강제 종료)")
+    raise KeyboardInterrupt
 
 def is_colab() -> bool:
     try:
@@ -14,7 +26,6 @@ def is_colab() -> bool:
         return True
     except ImportError:
         return False
-
 
 def get_root() -> str:
     if is_colab():
@@ -95,7 +106,11 @@ def cleanup_memory(*objs) -> None:
 if __name__ == "__main__":
     handler = None
     ui = None
-
+    
+    if not is_colab():
+        signal.signal(signal.SIGINT, _sigint_handler)
+        signal.signal(signal.SIGTERM, _sigint_handler)
+        
     try:
         ROOT = get_root()
         load_env(ROOT)
@@ -129,3 +144,8 @@ if __name__ == "__main__":
 
         cleanup_memory(ui, handler)
         print("[MAIN] shutdown complete")
+
+        if not is_colab():
+            sys.stdout.flush()
+            sys.stderr.flush()
+            os._exit(0)

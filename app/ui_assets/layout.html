@@ -106,6 +106,23 @@
             <input id="t2i-batch" type="number" value="1" min="1" max="8" step="1">
           </div>
         </div>
+        <div class="grid-2">
+          <div class="field">
+            <label for="t2i-eta_mode" title="eta 스케줄 방식">Eta mode</label>
+            <select id="t2i-eta_mode">
+              <option value="cos">cos</option>
+              <option value="ln">ln</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Frame save</label>
+            <label class="switch" title="샘플링 중간 프레임 저장">
+              <input type="checkbox" id="t2i-frame_save">
+              <span class="track"></span>
+              <span class="switch-text">저장</span>
+            </label>
+          </div>
+        </div>
 
         <div class="section-title">Size</div>
         <div class="grid-2">
@@ -239,6 +256,23 @@
                 <div class="field">
                   <label for="inp-batch" title="한 번에 생성할 이미지 수">Batch</label>
                   <input id="inp-batch" type="number" value="1" min="1" max="8" step="1">
+                </div>
+              </div>
+              <div class="grid-2">
+                <div class="field">
+                  <label for="inp-eta_mode" title="eta 스케줄 방식">Eta mode</label>
+                  <select id="inp-eta_mode">
+                    <option value="cos">cos</option>
+                    <option value="ln">ln</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Frame save</label>
+                  <label class="switch" title="샘플링 중간 프레임 저장">
+                    <input type="checkbox" id="inp-frame_save">
+                    <span class="track"></span>
+                    <span class="switch-text">저장</span>
+                  </label>
                 </div>
               </div>
             </div>
@@ -397,6 +431,23 @@
               <div class="field">
                 <label for="det-batch" title="한 번에 생성할 이미지 수">Batch</label>
                 <input id="det-batch" type="number" value="1" min="1" max="8" step="1">
+              </div>
+            </div>
+            <div class="grid-2">
+              <div class="field">
+                <label for="det-eta_mode" title="eta 스케줄 방식">Eta mode</label>
+                <select id="det-eta_mode">
+                  <option value="cos">cos</option>
+                  <option value="ln">ln</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Frame save</label>
+                <label class="switch" title="샘플링 중간 프레임 저장">
+                  <input type="checkbox" id="det-frame_save">
+                  <span class="track"></span>
+                  <span class="switch-text">저장</span>
+                </label>
               </div>
             </div>
           </div>

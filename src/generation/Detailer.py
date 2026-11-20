@@ -106,7 +106,8 @@ class Detailering:
         return save_paths
 
     @torch.inference_mode()
-    def sampling(self, arr, tags, shift, H, W, calculate_type, cfg_scale, steps, start_t, B=1, eta=0.3, seed=None, mask=None, on_step=None):
+    def sampling(self, arr, tags, shift, H, W, calculate_type, cfg_scale, steps, start_t, 
+                 B=1, eta=0.3, seed=None, mask=None, on_step=None, eta_mode="cos", frame_save=False):
         if mask is None:
             raise ValueError("mask가 필요합니다.")
 
@@ -161,7 +162,8 @@ class Detailering:
             gens=gens,
             dtype=self.dtype,
             after_step=after_step,
-            eta=eta
+            eta=eta,
+            eta_mode=eta_mode
         )
         if g.INIT_DEVICE == "cpu":
             self.model.to("cpu")
@@ -169,9 +171,16 @@ class Detailering:
         del cond_emb, uncond_emb, cond_mask, uncond_mask, latent, mask_lat, noise, x_t, sigmas, latents
         imgs = self.vae_decode(x)
 
-        return imgs, sigmas_steps, seeds
+        video_imgs = None
+        if frame_save:
+            video_imgs = []
+            for latent in latents:
+                video_imgs.append(self.vae_decode(latent)[0])
 
-    def merge_img(self, origin_img, fixed_imgs, box, sigmas_steps, tags, calculate_type, shift, seeds, steps, final_tags, cfg_scale, paste_mask=None):
+        return imgs, sigmas_steps, seeds, video_imgs
+
+    def merge_img(self, origin_img, fixed_imgs, box, sigmas_steps, tags, calculate_type, shift, seeds,
+                  steps, final_tags, cfg_scale, paste_mask=None, video_imgs=None):
         left, top, right, bottom = box
         w, h = right - left, bottom - top
 
@@ -191,7 +200,7 @@ class Detailering:
 
         save_paths = self.save_imgs(
             tags=tags, final_tags=final_tags, imgs=imgs, 
-            calculate_type=calculate_type, shift=shift, video_imgs=None, 
+            calculate_type=calculate_type, shift=shift, video_imgs=video_imgs, 
             sigmas_steps=sigmas_steps, cfg_scale=cfg_scale, steps=steps, seeds=seeds,
             )
 

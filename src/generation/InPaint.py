@@ -108,7 +108,8 @@ class InPainting:
         return save_paths
  
     @torch.inference_mode()
-    def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, img_bytes, start_t, B=1, eta=0.3, seed=None, mask=None, on_step=None, save_dir=None):
+    def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, img_bytes, start_t, 
+                 B=1, eta=0.3, seed=None, mask=None, on_step=None, save_dir=None, frame_save=False, eta_mode="cos"):
         if mask is None:
             raise ValueError("mask가 필요합니다.")
 
@@ -175,11 +176,17 @@ class InPainting:
 
         imgs = self.vae_decode(x)
 
+        video_imgs = None
+        if frame_save:
+            video_imgs = []
+            for latent in latents:
+                video_imgs.append(self.vae_decode(latent)[0])
+
         save_paths = self.save_imgs(
             tags=tags, cfg_scale=cfg_scale, final_tags=final_tags,
             imgs=imgs, steps=steps, calculate_type=calculate_type,
             shift=shift, seeds=seeds,
-            video_imgs=None, sigmas_steps=sigmas_steps,
+            video_imgs=video_imgs, sigmas_steps=sigmas_steps,
         )
 
         return imgs, save_paths

@@ -107,7 +107,9 @@ class UI:
             steps=int(p["steps"]),
             seed=int(str(p.get("seed", "-1")).strip() or "-1"),
             shift=float(p.get("shift", 3.0)),
-            B=int(p.get("batch", 1))
+            B=int(p.get("batch", 1)),
+            eta_mode = str(p.get("eta_mode", "cos")), 
+            frame_save = bool(p.get("frame_save", False))
         )
 
     @staticmethod

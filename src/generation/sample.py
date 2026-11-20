@@ -83,7 +83,8 @@ class Sampling:
         return save_paths
 
     @torch.inference_mode()
-    def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, H, W, B=1, eta=0.3, seed=None, on_step=None):
+    def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, H, W, B=1, 
+                 eta=0.3, seed=None, on_step=None, frame_save=False, eta_mode="cos"):
         cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds = self.set_init(tags, seed, steps, shift, B, H, W)
 
         total = len(sigmas) - 1
@@ -116,7 +117,8 @@ class Sampling:
             gens=gens,
             dtype=self.dtype,
             after_step=after_step,
-            eta=eta
+            eta=eta,
+            eta_mode=eta_mode
         )
 
         if g.INIT_DEVICE == "cpu":
@@ -126,13 +128,20 @@ class Sampling:
         del noise, sigmas
 
         imgs = self.vae_decode(x)
+
+        video_imgs = None
+        if frame_save:
+            video_imgs = []
+            for latent in latents:
+                video_imgs.append(self.vae_decode(latent)[0])
+
         del latents
 
         save_paths = self.save_imgs(
             tags=tags, cfg_scale=cfg_scale, final_tags=final_tags,
             imgs=imgs, steps=steps, calculate_type=calculate_type,
             shift=shift, seeds=seeds,
-            video_imgs=None, sigmas_steps=sigmas_steps,
+            video_imgs=video_imgs, sigmas_steps=sigmas_steps,
         )
 
         return imgs, save_paths

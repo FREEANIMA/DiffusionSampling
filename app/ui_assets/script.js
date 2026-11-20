@@ -950,6 +950,8 @@
         seed: $(`${p}-seed`).value,
         shift: $(`${p}-shift`).value,
         eta: $(`${p}-eta`).value,
+        eta_mode: $(`${p}-eta_mode`).value,
+        frame_save: $(`${p}-frame_save`).checked,
         batch,
         ...c.params,
       };
