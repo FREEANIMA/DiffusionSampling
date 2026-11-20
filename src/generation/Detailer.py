@@ -110,20 +110,18 @@ class Detailering:
     @torch.inference_mode()
     def sampling(self, arr, tags, shift, H, W, calculate_type, cfg_scale, steps, start_t, 
                  B=1, eta=0.3, seed=None, mask=None, on_step=None, eta_mode="cos", frame_save=False):
+
+        img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
+        img = img.to(device=self.device, dtype=self.dtype)
+
+        latent = self.vae_encode(img)
+
         if mask is None:
             mask_lat = None                      # 전체 재생성 (img2img)
         else:
             mask = mask.convert("L").resize((W, H), Image.Resampling.NEAREST)
             mask_lat = self.mask_generation(np.array(mask, dtype=np.uint8), latent)
 
-        mask = mask.convert("L").resize((W, H), Image.Resampling.NEAREST)
-        mask_arr = np.array(mask, dtype=np.uint8)
-
-        img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
-        img = img.to(device=self.device, dtype=self.dtype)
-
-        latent = self.vae_encode(img)
-        mask_lat = self.mask_generation(mask_arr, latent)
 
         cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds = self.set_init(tags, seed, steps, shift, B, H, W)
 

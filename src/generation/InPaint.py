@@ -112,19 +112,20 @@ class InPainting:
     @torch.inference_mode()
     def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, img_bytes, start_t, 
                  B=1, eta=0.3, seed=None, mask=None, on_step=None, save_dir=None, frame_save=False, eta_mode="cos"):
-        if mask is None:
-            raise ValueError("mask가 필요합니다.")
+
 
         arr, H, W = img_resize(img_bytes, self.allowable_size, self.patch_size, self.f)
-
-        mask = mask.convert("L").resize((W, H), Image.Resampling.NEAREST)
-        mask_arr = np.array(mask, dtype=np.uint8)
 
         img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
         img = img.to(device=self.device, dtype=self.dtype)
 
         latent = self.vae_encode(img)
-        mask_lat = self.mask_generation(mask_arr, latent)
+        
+        if mask is None:
+            mask_lat = None
+        else:
+            mask = mask.convert("L").resize((W, H), Image.Resampling.NEAREST)
+            mask_lat = self.mask_generation(np.array(mask, dtype=np.uint8), latent)
 
         cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds = self.set_init(tags, seed, steps, shift, B, H, W)
 
@@ -146,6 +147,9 @@ class InPainting:
             done += 1
             if on_step:
                 on_step(min(done, total), total)
+
+            if mask_lat is None:
+                return x
 
             s = sigma_next.view(1, 1, 1, 1) if torch.is_tensor(sigma_next) else float(sigma_next)
             orig_t = (1 - s) * latent + s * noise
