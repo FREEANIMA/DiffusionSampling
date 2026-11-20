@@ -63,7 +63,7 @@ class Sampling:
 
         return cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds
 
-    def save_imgs(self, tags, cfg_scale, final_tags, imgs, steps, calculate_type, shift, seeds, video_imgs, sigmas_steps=None):
+    def save_imgs(self, tags, cfg_scale, final_tags, imgs, steps, calculate_type, shift, seeds, video_imgs, eta, eta_mode, sigmas_steps=None):
         save_dir = os.path.join(self.base_root, "generation")
         save_paths = _save_img(imgs=imgs, filename="sample", save_dir=save_dir, video_imgs=video_imgs, sigmas=sigmas_steps)
 
@@ -76,6 +76,8 @@ class Sampling:
             calc_type=calculate_type,
             shift=shift,
             seeds=seeds,
+            eta=eta,
+            eta_mode=eta_mode
         )
 
         self.console.put(f"img saved: {save_paths[0]}")
@@ -131,9 +133,7 @@ class Sampling:
 
         video_imgs = None
         if frame_save:
-            video_imgs = []
-            for latent in latents:
-                video_imgs.append(self.vae_decode(latent)[0])
+            video_imgs = [self.vae_decode(latent) for latent in latents]
 
         del latents
 
@@ -142,6 +142,7 @@ class Sampling:
             imgs=imgs, steps=steps, calculate_type=calculate_type,
             shift=shift, seeds=seeds,
             video_imgs=video_imgs, sigmas_steps=sigmas_steps,
+            eta=eta, eta_mode=eta_mode, 
         )
 
         return imgs, save_paths

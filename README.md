@@ -1,11 +1,79 @@
 # Diffusion MMDiT Text2img with DC-AE f32c32
 
-## Update — 2026.11.20 Sampling
+## Update — 2026.11.20 Sampling: ETA injection equation selection & per-step latent → frame save
 
-- **Quantization**: optional quantized model loading, chosen at startup (`use quantization? y/n`). Lower VRAM usage; works with the block-offload mode.
-- **Batch generation**: generate up to 8 images per run (Text2img / Inpainting). Results appear with numbered buttons to switch between images.
-- **Detailer batch**: each generated patch is merged into a copy of the original image and saved separately. The original is never modified.
-- **API**: `/api/generate` now accepts `batch` and returns `images` (array) and `path` (list) instead of a single `image`.
+<img src="assets/eta_frame.png" alt="update" width="20%">
+
+### ETA mode
+
+`eta_mode = cos | ln | sin`
+
+`ln`: `eta * ln(2 / (1 + x)) / ln 2`
+
+<img src="assets/graph.png" alt="graph" width="20%">
+
+Code: `src.utilities.predict`
+
+- `Eta`: 0 is deterministic. The larger it is, the more fresh noise is injected at each step.
+- `Eta mode`: schedule of the injected noise over the steps. Selectable in all three tabs.
+
+### Frame save
+
+Collect the latent at every step, decode all of them into images, and save them as an MP4.
+
+<img src="assets/process.gif" controls width="600">
+
+Toggle with **Frame save** in the Sampling panel.
+
+### Batch
+
+Generate 1–8 images at once. When Batch is greater than 1, numbered buttons under the result switch between images. Hover over an image to see its seed.
+
+---
+
+## Detailing & Inpainting
+
+Both tabs share the same mask painter with two layers.
+
+| Color | Mode | Meaning |
+|-------|------|---------|
+| Red | 재생성 (Regen) | Area to redraw |
+| Blue | 보존 (Keep) | Area that never changes |
+| – | 지우개 (Erase) | Remove paint from both layers |
+
+- Painting one color erases the other under the brush. The later stroke wins, so the layers never overlap.
+- If nothing is painted, the whole image (inpainting) or the whole crop (detailer) is redrawn.
+- Keep overrides Regen. The final redraw area is `regen × (1 − keep)`.
+- Masks are resized to the sampling resolution with nearest-neighbor, so they stay binary.
+- **Start T** (0–1): the point in the schedule where redrawing starts. Higher values change more, lower values stay closer to the original. For a full redraw without a mask, around 0.6 is recommended.
+- **Brush**: brush size in px.
+
+---
+
+### Inpainting
+
+1. Enter the image path and press **Load**.
+2. Paint the Regen / Keep areas on the Original panel.
+3. Press **Generate**. The result appears on the right and is saved to `inpainting/`.
+
+The image is fitted so that the long side is 1024 and the short side is snapped to a multiple of `patch_size × compression_ratio`.
+
+### Detailer
+
+1. Enter the image path and press **Load**.
+2. Drag a rectangle on the Original panel. The rectangle snaps to multiples of `patch_size × compression_ratio`, and only sizes that scale cleanly to `allowable_size` on the long side are allowed.
+3. The selected area appears enlarged in **Crop · Mask**. Paint the Regen / Keep areas there. The label under the crop shows the original size → the enlarged size.
+4. Press **Generate**. The crop is redrawn at the enlarged size, scaled back down, and pasted into the original image. The result is saved to `detailer/`.
+
+---
+
+## UI
+
+- Three tabs: **Text2img**, **Inpainting**, **Detailer**. The last tab is remembered, and `#txt2img`, `#inpainting`, `#detailer` in the URL open that tab directly.
+- **Tag Browser**: browse and search tags by type, and click to add them to the prompt.
+- **Tags autocomplete** and **History**: click a history entry to restore the input plus the expanded tags.
+- **고정 (Fixed)** switch: when on, only the entered tags are used and no LLM tag expansion happens.
+- Only one job runs at a time. Generation runs in a background thread and the browser polls for the result, so long jobs do not hit proxy timeouts.
 
 ## Installation
 ```bash

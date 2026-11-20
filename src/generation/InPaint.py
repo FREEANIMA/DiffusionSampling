@@ -88,7 +88,7 @@ class InPainting:
 
         return cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds
 
-    def save_imgs(self, tags, cfg_scale, final_tags, imgs, steps, calculate_type, shift, seeds, video_imgs, sigmas_steps=None):
+    def save_imgs(self, tags, cfg_scale, final_tags, imgs, steps, calculate_type, shift, seeds, video_imgs, eta, eta_mode, sigmas_steps=None):
         save_dir = os.path.join(self.base_root, "inpainting")
         save_paths = _save_img(imgs=imgs, filename="inpainting", save_dir=save_dir, video_imgs=video_imgs, sigmas=sigmas_steps)
 
@@ -101,28 +101,48 @@ class InPainting:
             calc_type=calculate_type,
             shift=shift,
             seeds=seeds,
+            eta=eta,
+            eta_mode=eta_mode
         )
 
         self.console.put(f"img saved: {save_paths[0]}")
 
         return save_paths
- 
+
+    def _mask_arr(self, m, W, H):
+        if m is None:
+            return None
+        a = np.array(m.convert("L").resize((W, H), Image.Resampling.NEAREST), dtype=np.uint8)
+        return a if a.max() > 0 else None 
+
     @torch.inference_mode()
     def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, img_bytes, start_t, 
-                 B=1, eta=0.3, seed=None, mask=None, on_step=None, save_dir=None, frame_save=False, eta_mode="cos"):
-        if mask is None:
-            raise ValueError("mask가 필요합니다.")
+                 B=1, eta=0.3, seed=None, regen_mask=None, keep_mask=None, on_step=None, frame_save=False, eta_mode="cos"):
+
 
         arr, H, W = img_resize(img_bytes, self.allowable_size, self.patch_size, self.f)
-
-        mask = mask.convert("L").resize((W, H), Image.Resampling.NEAREST)
-        mask_arr = np.array(mask, dtype=np.uint8)
 
         img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
         img = img.to(device=self.device, dtype=self.dtype)
 
         latent = self.vae_encode(img)
-        mask_lat = self.mask_generation(mask_arr, latent)
+        
+
+        red = self._mask_arr(regen_mask, W, H)
+        blue = self._mask_arr(keep_mask, W, H)
+
+        if red is None and blue is None:
+            mask_lat = None         
+        else:
+            if red is not None:
+                mask_lat = self.mask_generation(red, latent)
+            else:
+                mask_lat = torch.ones_like(latent[:, :1]).float()
+
+            if blue is not None:
+                keep_lat = self.mask_generation(blue, latent)
+                mask_lat = mask_lat * (1.0 - keep_lat)
+
 
         cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds = self.set_init(tags, seed, steps, shift, B, H, W)
 
@@ -144,6 +164,9 @@ class InPainting:
             done += 1
             if on_step:
                 on_step(min(done, total), total)
+
+            if mask_lat is None:
+                return x
 
             s = sigma_next.view(1, 1, 1, 1) if torch.is_tensor(sigma_next) else float(sigma_next)
             orig_t = (1 - s) * latent + s * noise
@@ -172,21 +195,22 @@ class InPainting:
 
         del cond_emb, uncond_emb, cond_mask, uncond_mask
         del latent, mask_lat, noise, x_t, sigmas
-        del latents
+        
 
         imgs = self.vae_decode(x)
 
         video_imgs = None
         if frame_save:
-            video_imgs = []
-            for latent in latents:
-                video_imgs.append(self.vae_decode(latent)[0])
+            video_imgs = [self.vae_decode(latent) for latent in latents]
 
+        del latents
+        
         save_paths = self.save_imgs(
             tags=tags, cfg_scale=cfg_scale, final_tags=final_tags,
             imgs=imgs, steps=steps, calculate_type=calculate_type,
             shift=shift, seeds=seeds,
             video_imgs=video_imgs, sigmas_steps=sigmas_steps,
+            eta=eta, eta_mode=eta_mode, 
         )
 
         return imgs, save_paths

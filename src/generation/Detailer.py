@@ -26,7 +26,8 @@ class Detailering:
 
     @torch.inference_mode()
     def vae_encode(self, img):
-        return self.vae.encoder(img)
+        with gpu_context(self.vae.vae, self.device):
+            return self.vae.encoder(img)
 
     @torch.inference_mode()
     def text_encode(self, tags):
@@ -86,7 +87,13 @@ class Detailering:
 
         return cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds
 
-    def save_imgs(self, tags, cfg_scale, final_tags, imgs, steps, calculate_type, shift, seeds, video_imgs, sigmas_steps=None):
+    def _mask_arr(self, m, W, H):
+        if m is None:
+            return None
+        a = np.array(m.convert("L").resize((W, H), Image.Resampling.NEAREST), dtype=np.uint8)
+        return a if a.max() > 0 else None 
+
+    def save_imgs(self, tags, cfg_scale, final_tags, imgs, steps, calculate_type, shift, seeds, video_imgs, eta, eta_mode, sigmas_steps=None):
         save_dir = os.path.join(self.base_root, "detailer")
         save_paths = _save_img(imgs=imgs, filename="detailer", save_dir=save_dir, video_imgs=video_imgs, sigmas=sigmas_steps)
 
@@ -99,6 +106,8 @@ class Detailering:
             calc_type=calculate_type,
             shift=shift,
             seeds=seeds,
+            eta=eta,
+            eta_mode=eta_mode
         )
 
         self.console.put(f"img saved: {save_paths[0]}")
@@ -107,18 +116,28 @@ class Detailering:
 
     @torch.inference_mode()
     def sampling(self, arr, tags, shift, H, W, calculate_type, cfg_scale, steps, start_t, 
-                 B=1, eta=0.3, seed=None, mask=None, on_step=None, eta_mode="cos", frame_save=False):
-        if mask is None:
-            raise ValueError("mask가 필요합니다.")
-
-        mask = mask.convert("L").resize((W, H), Image.Resampling.NEAREST)
-        mask_arr = np.array(mask, dtype=np.uint8)
+                 B=1, eta=0.3, seed=None, regen_mask=None, keep_mask=None, on_step=None, eta_mode="cos", frame_save=False):
 
         img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
         img = img.to(device=self.device, dtype=self.dtype)
 
         latent = self.vae_encode(img)
-        mask_lat = self.mask_generation(mask_arr, latent)
+
+        red = self._mask_arr(regen_mask, W, H)
+        blue = self._mask_arr(keep_mask, W, H)
+
+        if red is None and blue is None:
+            mask_lat = None         
+        else:
+            if red is not None:
+                mask_lat = self.mask_generation(red, latent)
+            else:
+                mask_lat = torch.ones_like(latent[:, :1]).float()
+
+            if blue is not None:
+                keep_lat = self.mask_generation(blue, latent)
+                mask_lat = mask_lat * (1.0 - keep_lat)
+
 
         cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds = self.set_init(tags, seed, steps, shift, B, H, W)
 
@@ -141,6 +160,9 @@ class Detailering:
             done += 1
             if on_step:
                 on_step(min(done, total), total)
+
+            if mask_lat is None:
+                return x
 
             s = sigma_next.view(1, 1, 1, 1) if torch.is_tensor(sigma_next) else float(sigma_next)
             orig_t = (1 - s) * latent + s * noise
@@ -168,19 +190,19 @@ class Detailering:
         if g.INIT_DEVICE == "cpu":
             self.model.to("cpu")
 
-        del cond_emb, uncond_emb, cond_mask, uncond_mask, latent, mask_lat, noise, x_t, sigmas, latents
+        del cond_emb, uncond_emb, cond_mask, uncond_mask, latent, mask_lat, noise, x_t, sigmas
         imgs = self.vae_decode(x)
 
         video_imgs = None
         if frame_save:
-            video_imgs = []
-            for latent in latents:
-                video_imgs.append(self.vae_decode(latent)[0])
+            video_imgs = [self.vae_decode(latent) for latent in latents]
+
+        del latents
 
         return imgs, sigmas_steps, seeds, video_imgs
 
     def merge_img(self, origin_img, fixed_imgs, box, sigmas_steps, tags, calculate_type, shift, seeds,
-                  steps, final_tags, cfg_scale, paste_mask=None, video_imgs=None):
+                  steps, final_tags, cfg_scale, eta, eta_mode, paste_mask=None, video_imgs=None):
         left, top, right, bottom = box
         w, h = right - left, bottom - top
 
@@ -201,7 +223,7 @@ class Detailering:
         save_paths = self.save_imgs(
             tags=tags, final_tags=final_tags, imgs=imgs, 
             calculate_type=calculate_type, shift=shift, video_imgs=video_imgs, 
-            sigmas_steps=sigmas_steps, cfg_scale=cfg_scale, steps=steps, seeds=seeds,
+            sigmas_steps=sigmas_steps, cfg_scale=cfg_scale, steps=steps, seeds=seeds, eta=eta, eta_mode=eta_mode,
             )
 
         return imgs, save_paths
