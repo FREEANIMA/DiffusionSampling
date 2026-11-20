@@ -1,10 +1,12 @@
+import gc
 import os
 from pathlib import Path
-
+import torch
 from dotenv import load_dotenv
 from huggingface_hub import login
 
 COLAB_ROOT = "/content/drive/MyDrive/model/mmdit_sampling"
+
 
 def is_colab() -> bool:
     try:
@@ -54,13 +56,76 @@ def hf_login() -> None:
         print("[HF] not logged in. Set HF_TOKEN in .env or run `hf auth login`.")
 
 
+def cleanup_memory(*objs) -> None:
+    for o in objs:
+        try:
+            del o
+        except Exception:
+            pass
+
+    for _ in range(3):
+        gc.collect()
+
+    if not torch.cuda.is_available():
+        return
+
+    try:
+        torch.cuda.synchronize()
+    except Exception:
+        pass
+
+    try:
+        torch.cuda.empty_cache()
+    except Exception:
+        pass
+
+    try:
+        torch.cuda.ipc_collect()
+    except Exception:
+        pass
+
+    try:
+        alloc = torch.cuda.memory_allocated() / 1024**3
+        reserv = torch.cuda.memory_reserved() / 1024**3
+        print(f"[MEM] cuda allocated={alloc:.2f}GB reserved={reserv:.2f}GB")
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
-    ROOT = get_root()
-    load_env(ROOT)
-    hf_login()
+    handler = None
+    ui = None
 
-    from app.handler import Handler
-    from app.ui import UI
+    try:
+        ROOT = get_root()
+        load_env(ROOT)
+        hf_login()
 
-    handler = Handler(base_root=ROOT)
-    UI(handler).run(colab=is_colab())
+        from app.handler import Handler
+        from app.ui import UI
+
+        handler = Handler(base_root=ROOT)
+        ui = UI(handler)
+        ui.run(colab=is_colab())
+    except KeyboardInterrupt:
+        print("[MAIN] interrupted by user")
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        print(f"[MAIN] error: {e}")
+    finally:
+        try:
+            if ui is not None and hasattr(ui, "close"):
+                ui.close()
+        except Exception:
+            pass
+
+        try:
+            if handler is not None and hasattr(handler, "close"):
+                handler.close()
+        except Exception:
+            pass
+
+        cleanup_memory(ui, handler)
+        print("[MAIN] shutdown complete")
