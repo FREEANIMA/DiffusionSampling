@@ -1,5 +1,12 @@
 import torch
 
+def ab2(x, v, v_prev, sigma, sigma_next, h_prev):
+    h = sigma_next - sigma
+    if v_prev is None or h_prev is None or h_prev == 0:
+        return x + h * v
+    r = h / h_prev
+    return x + h * ((1.0 + 0.5 * r) * v - 0.5 * r * v_prev)
+
 def v_to_x0_eps(x, v, sigma):
     x0 = x - sigma * v
     eps = x + (1.0 - sigma) * v

@@ -1,7 +1,7 @@
 import math
 import torch
 from tqdm.auto import tqdm
-from .solvers import euler, heun, ddpm_plus, renoise, sigma_lo_of
+from .solvers import euler, heun, ddpm_plus, renoise, sigma_lo_of, ab2
 import common.globals as g
 
 @torch.inference_mode()
@@ -71,6 +71,7 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
     latents = []
     sigmas_steps = []
     prev_v = None
+    hist_v, hist_h = None, None
 
     try:
         for i in tqdm(range(n), desc="sampling"):
@@ -119,7 +120,12 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
 
             elif calculate_type == "ddpm_plus":
                 x = ddpm_plus(x, v, z, sigma, sigma_next, eta_i)
-
+            elif calculate_type == "ab2":
+                h = float(sigma_lo) - float(sigma)
+                x = ab2(x, v, hist_v, sigma, sigma_lo, hist_h)
+                if use_noise:
+                    x = renoise(x, z, sigma_lo, sigma_next)
+                hist_v, hist_h = v.detach(), h
             else:
                 raise ValueError(f"Unsupported sampling method: {calculate_type}")
 
@@ -145,7 +151,7 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
                         )
                         vmin, vidx = v_tok[b].flatten().min(dim=0)
                         tqdm.write(
-                            f"[{i:02d}] σ={float(sigma):.3f} eta={eta_i:.4f} cfg={cfg_i:.1f} b{b} "
+                            f"[{i:02d}] a={float(sigma):.3f} eta={eta_i:.4f} cfg={cfg_i:.1f} b{b} "
                             f"med={med:.1e} low5(row,col):dv_rel= {pos} | "
                             f"min|v|={vmin.item():.1e}@({vidx.item() // W},{vidx.item() % W})"
                         )
