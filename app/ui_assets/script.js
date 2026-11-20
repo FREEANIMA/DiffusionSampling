@@ -433,7 +433,152 @@
   };
 
   // =========================================================
-  // Image editor (inpainting 마스크 / detailer 사각형) — 탭별 인스턴스
+  // 2-레이어 페인터
+  //   재생성(빨강) / 보존(파랑) 레이어를 따로 보관한다.
+  //   한쪽을 칠하면 반대쪽 레이어에서는 지워져서 서로 겹치지 않는다.
+  //   (나중에 칠한 쪽이 이김)
+  // =========================================================
+
+  const REGEN_COLOR = '#ff3b3b';
+  const KEEP_COLOR = '#3b6bff';
+
+  const createPainter = ({ view, brushEl, modeBox }) => {
+    const vctx = view.getContext('2d');
+    const regen = document.createElement('canvas');
+    const keep = document.createElement('canvas');
+    const rctx = regen.getContext('2d', { willReadFrequently: true });
+    const kctx = keep.getContext('2d', { willReadFrequently: true });
+
+    let mode = 'regen';
+    let last = null;
+
+    const render = () => {
+      vctx.clearRect(0, 0, view.width, view.height);
+      vctx.globalAlpha = 0.55;
+      vctx.drawImage(regen, 0, 0);
+      vctx.drawImage(keep, 0, 0);
+      vctx.globalAlpha = 1;
+    };
+
+    // 크기가 바뀌면 칠한 내용은 초기화됨
+    const resize = (w, h) => {
+      view.width = regen.width = keep.width = w;
+      view.height = regen.height = keep.height = h;
+      render();
+    };
+
+    const clear = () => {
+      rctx.clearRect(0, 0, regen.width, regen.height);
+      kctx.clearRect(0, 0, keep.width, keep.height);
+      render();
+    };
+
+    const xy = (e) => {
+      const b = view.getBoundingClientRect();
+      return [
+        (e.clientX - b.left) * view.width / b.width,
+        (e.clientY - b.top) * view.height / b.height,
+      ];
+    };
+
+    const paint = (ctx, op, color, a, b, w) => {
+      ctx.save();
+      ctx.globalCompositeOperation = op;
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = w;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(a[0], a[1]);
+      ctx.lineTo(b[0], b[1]);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(b[0], b[1], w / 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    };
+
+    const stroke = (a, b) => {
+      const w = Number(brushEl && brushEl.value) || 20;
+
+      if (mode === 'regen') {
+        paint(rctx, 'source-over', REGEN_COLOR, a, b, w);
+        paint(kctx, 'destination-out', '#000', a, b, w);
+      } else if (mode === 'keep') {
+        paint(kctx, 'source-over', KEEP_COLOR, a, b, w);
+        paint(rctx, 'destination-out', '#000', a, b, w);
+      } else {
+        paint(rctx, 'destination-out', '#000', a, b, w);
+        paint(kctx, 'destination-out', '#000', a, b, w);
+      }
+      render();
+    };
+
+    view.addEventListener('pointerdown', (e) => {
+      view.setPointerCapture(e.pointerId);
+      last = xy(e);
+      stroke(last, last);
+    });
+
+    view.addEventListener('pointermove', (e) => {
+      if (!last) return;
+      const cur = xy(e);
+      stroke(last, cur);
+      last = cur;
+    });
+
+    const end = () => { last = null; };
+    view.addEventListener('pointerup', end);
+    view.addEventListener('pointercancel', end);
+
+    modeBox.addEventListener('click', (e) => {
+      const btn = e.target.closest('.mode-btn');
+      if (!btn) return;
+      mode = btn.dataset.mode;
+      modeBox.querySelectorAll('.mode-btn').forEach((b) => b.classList.toggle('active', b === btn));
+    });
+
+    // 칠한 곳이 있으면 흑백 PNG(dataURL), 없으면 null
+    const exportLayer = (layer) => {
+      const { width, height } = layer;
+      if (!width || !height) return null;
+
+      const src = layer.getContext('2d').getImageData(0, 0, width, height).data;
+
+      const out = document.createElement('canvas');
+      out.width = width;
+      out.height = height;
+      const octx = out.getContext('2d');
+      const px = octx.createImageData(width, height);
+
+      let any = false;
+      for (let i = 0; i < src.length; i += 4) {
+        const v = src[i + 3] > 127 ? 255 : 0;
+        if (v) any = true;
+        px.data[i] = v;
+        px.data[i + 1] = v;
+        px.data[i + 2] = v;
+        px.data[i + 3] = 255;
+      }
+
+      if (!any) return null;
+
+      octx.putImageData(px, 0, 0);
+      return out.toDataURL('image/png');
+    };
+
+    return {
+      resize,
+      clear,
+      exportMasks: () => ({ regen: exportLayer(regen), keep: exportLayer(keep) }),
+    };
+  };
+
+  // =========================================================
+  // Image editor (inpainting 마스크 / detailer 사각형 + crop 마스크) — 탭별 인스턴스
   // kind: 'mask' | 'rect'
   // =========================================================
 
@@ -453,19 +598,23 @@
 
     let sourceImage = null;
     let drawing = false;
-    let localMask = null;
     let rect = null;
     let rectStart = null;
 
     const setStatus = (t) => { statusEl.textContent = t; };
 
-    // ----- Crop 확대 미리보기 + 마스크 (detailer) -----
+    // 칠하는 캔버스: inpainting = 원본 위, detailer = crop 위
+    const painter = createPainter({
+      view: isRect ? $(`${p}-crop-mask-canvas`) : canvas,
+      brushEl: $(`${p}-brush`),
+      modeBox: $(`${p}-paint-mode`),
+    });
+
+    // ----- Crop 확대 미리보기 (detailer) -----
     const cropCanvas = isRect ? $(`${p}-crop-canvas`) : null;
-    const cropMask = isRect ? $(`${p}-crop-mask-canvas`) : null;
     const cropStage = isRect ? $(`${p}-crop-stage`) : null;
     const cropEmpty = isRect ? $(`${p}-crop-empty`) : null;
     const cropInfo = isRect ? $(`${p}-crop-info`) : null;
-    const cropMaskCtx = isRect ? cropMask.getContext('2d') : null;
 
     const showCrop = (r) => {
       if (!cropCanvas) return;
@@ -477,8 +626,9 @@
         return;
       }
 
-      cropCanvas.width = cropMask.width = r.w;
-      cropCanvas.height = cropMask.height = r.h;
+      cropCanvas.width = r.w;
+      cropCanvas.height = r.h;
+      painter.resize(r.w, r.h);   // 크기가 바뀌므로 칠한 내용은 초기화됨
       cropCanvas.getContext('2d').drawImage(sourceImage, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
 
       cropStage.style.display = 'block';
@@ -487,94 +637,12 @@
       cropInfo.textContent = `${r.w}×${r.h} → ${Math.round(r.w * k)}×${Math.round(r.h * k)}`;
     };
 
-    if (isRect) {
-      const cropBrush = $(`${p}-brush`);
-      let cropDrawing = false;
-
-      const cropXY = (e) => {
-        const b = cropMask.getBoundingClientRect();
-        return [
-          (e.clientX - b.left) * cropMask.width / b.width,
-          (e.clientY - b.top) * cropMask.height / b.height,
-        ];
-      };
-
-      const cropStroke = (e) => {
-        const [x, y] = cropXY(e);
-
-        cropMaskCtx.lineWidth = Number(cropBrush.value) || 20;
-        cropMaskCtx.lineCap = 'round';
-        cropMaskCtx.lineJoin = 'round';
-        cropMaskCtx.strokeStyle = 'rgba(255,0,0,0.6)';
-
-        cropMaskCtx.lineTo(x, y);
-        cropMaskCtx.stroke();
-
-        cropMaskCtx.beginPath();
-        cropMaskCtx.moveTo(x, y);
-      };
-
-      cropMask.addEventListener('pointerdown', (e) => {
-        cropDrawing = true;
-        cropMask.setPointerCapture(e.pointerId);
-
-        const [x, y] = cropXY(e);
-        cropMaskCtx.beginPath();
-        cropMaskCtx.moveTo(x, y);
-        cropStroke(e);
-      });
-
-      cropMask.addEventListener('pointermove', (e) => {
-        if (cropDrawing) cropStroke(e);
-      });
-
-      const endCropStroke = () => {
-        cropDrawing = false;
-        cropMaskCtx.beginPath();
-      };
-      cropMask.addEventListener('pointerup', endCropStroke);
-      cropMask.addEventListener('pointercancel', endCropStroke);
-
-      $(`${p}-crop-mask-clear`).onclick = () => {
-        cropMaskCtx.clearRect(0, 0, cropMask.width, cropMask.height);
-      };
-    }
-
-    // 칠한 부분이 있으면 흑백 PNG(dataURL), 없으면 null (= 마스크 미사용)
-    const getCropMask = () => {
-      if (!cropMask || !rect || !cropMask.width || !cropMask.height) return null;
-
-      const { width, height } = cropMask;
-      const src = cropMaskCtx.getImageData(0, 0, width, height).data;
-
-      const output = document.createElement('canvas');
-      output.width = width;
-      output.height = height;
-      const outCtx = output.getContext('2d');
-      const outPixels = outCtx.createImageData(width, height);
-
-      let any = false;
-      for (let i = 0; i < src.length; i += 4) {
-        const v = src[i + 3] > 30 ? 255 : 0;
-        if (v) any = true;
-        outPixels.data[i] = v;
-        outPixels.data[i + 1] = v;
-        outPixels.data[i + 2] = v;
-        outPixels.data[i + 3] = 255;
-      }
-
-      if (!any) return null;
-
-      outCtx.putImageData(outPixels, 0, 0);
-      return output.toDataURL('image/png');
-    };
-
     const reset = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      localMask = null;
       rect = null;
       rectStart = null;
       showCrop(null);
+      painter.clear();
     };
 
     const getXY = (e) => {
@@ -602,8 +670,15 @@
         sourceImage = new Image();
 
         sourceImage.onload = () => {
-          bg.width = canvas.width = sourceImage.width;
-          bg.height = canvas.height = sourceImage.height;
+          bg.width = sourceImage.width;
+          bg.height = sourceImage.height;
+
+          if (isRect) {
+            canvas.width = sourceImage.width;
+            canvas.height = sourceImage.height;
+          } else {
+            painter.resize(sourceImage.width, sourceImage.height);
+          }
 
           bg.getContext('2d').drawImage(sourceImage, 0, 0);
           reset();
@@ -612,7 +687,7 @@
           $(`${p}-orig-empty`).style.display = 'none';
           setStatus(isRect
             ? `이미지 로드 완료. 드래그로 영역을 선택하세요. (${UNIT}px 단위)`
-            : '이미지 로드 완료.');
+            : '이미지 로드 완료. 재생성(빨강) / 보존(파랑)으로 칠하세요. 안 칠하면 전체 재생성.');
         };
 
         sourceImage.onerror = () => setStatus('이미지 로드 실패.');
@@ -620,24 +695,6 @@
       } catch (e) {
         outEl.textContent = `failed: ${e.message}`;
       }
-    };
-
-    // ----- Brush (inpainting) -----
-    const brushEl = $(`${p}-brush`);
-
-    const draw = (e) => {
-      const [x, y] = getXY(e);
-
-      ctx.lineWidth = Number(brushEl && brushEl.value) || 20;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = 'rgba(255,0,0,0.6)';
-
-      ctx.lineTo(x, y);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(x, y);
     };
 
     // ----- Rect (detailer) -----
@@ -696,131 +753,90 @@
       y = Math.max(0, Math.min(y, canvas.height - h));
 
       if (w > 0 && h > 0) {
-        ctx.fillStyle = 'rgba(255,0,0,0.25)';
+        ctx.fillStyle = 'rgba(255,255,255,0.18)';
         ctx.fillRect(x, y, w, h);
 
         ctx.lineWidth = Math.max(2, canvas.width / 400);
-        ctx.strokeStyle = 'rgba(255,0,0,0.95)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.95)';
         ctx.strokeRect(x, y, w, h);
       }
 
       return { x, y, w, h };
     };
 
-    // ----- Pointer events -----
-    canvas.addEventListener('pointerdown', (e) => {
-      if (!sourceImage) return;
+    if (isRect) {
+      canvas.addEventListener('pointerdown', (e) => {
+        if (!sourceImage) return;
 
-      drawing = true;
-      canvas.setPointerCapture(e.pointerId);
+        drawing = true;
+        canvas.setPointerCapture(e.pointerId);
 
-      localMask = null;
-      rect = null;
-
-      if (isRect) {
+        rect = null;
         rectStart = getXY(e);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         setStatus('영역 선택 중...');
-        return;
-      }
+      });
 
-      const [x, y] = getXY(e);
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      draw(e);
-      setStatus('마스크 수정 중...');
-    });
+      canvas.addEventListener('pointermove', (e) => {
+        if (!drawing) return;
 
-    canvas.addEventListener('pointermove', (e) => {
-      if (!drawing) return;
-
-      if (isRect) {
         const r = drawRect(rectStart, getXY(e));
         setStatus(`영역 선택 중... ${r.w}×${r.h}`);
         showCrop(r);
-      } else {
-        draw(e);
-      }
-    });
+      });
 
-    canvas.addEventListener('pointerup', (e) => {
-      if (!drawing) return;
-      drawing = false;
+      canvas.addEventListener('pointerup', (e) => {
+        if (!drawing) return;
+        drawing = false;
 
-      if (isRect && rectStart) {
-        const r = drawRect(rectStart, getXY(e));
+        if (rectStart) {
+          const r = drawRect(rectStart, getXY(e));
 
-        if (r.w >= UNIT && r.h >= UNIT) {
-          rect = {
-            x: Math.round(r.x),
-            y: Math.round(r.y),
-            w: Math.round(r.w),
-            h: Math.round(r.h),
-          };
-          setStatus(`영역 선택 완료 (${rect.w}×${rect.h})`);
-          showCrop(rect);
-        } else {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          setStatus('영역이 너무 작아요. 다시 드래그하세요.');
-          showCrop(null);
+          if (r.w >= UNIT && r.h >= UNIT) {
+            rect = {
+              x: Math.round(r.x),
+              y: Math.round(r.y),
+              w: Math.round(r.w),
+              h: Math.round(r.h),
+            };
+            setStatus(`영역 선택 완료 (${rect.w}×${rect.h}) — 가운데 crop에서 칠하세요`);
+            showCrop(rect);
+          } else {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            setStatus('영역이 너무 작아요. 다시 드래그하세요.');
+            showCrop(null);
+          }
+
+          rectStart = null;
         }
+      });
 
+      canvas.addEventListener('pointercancel', () => {
+        drawing = false;
         rectStart = null;
-      }
-    });
-
-    canvas.addEventListener('pointercancel', () => {
-      drawing = false;
-      rectStart = null;
-
-      if (isRect) {
         rect = null;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         setStatus('영역 선택이 취소되었습니다.');
         showCrop(null);
-      }
-    });
+      });
+
+      $(`${p}-crop-mask-clear`).onclick = () => painter.clear();
+    }
 
     // ----- Clear -----
     $(`${p}-mask-clear`).onclick = () => {
-      reset();
+      if (isRect) reset();
+      else painter.clear();
       setStatus('초기화 완료.');
     };
 
-    // ----- Finish mask (inpainting only) -----
-    const finishBtn = $(`${p}-mask-finish`);
-    if (finishBtn) {
-      finishBtn.onclick = () => {
-        const output = document.createElement('canvas');
-        output.width = canvas.width;
-        output.height = canvas.height;
-
-        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const outCtx = output.getContext('2d');
-        const outPixels = outCtx.createImageData(canvas.width, canvas.height);
-
-        for (let i = 0; i < pixels.data.length; i += 4) {
-          const value = pixels.data[i + 3] > 30 ? 255 : 0;
-          outPixels.data[i] = value;
-          outPixels.data[i + 1] = value;
-          outPixels.data[i + 2] = value;
-          outPixels.data[i + 3] = 255;
-        }
-
-        outCtx.putImageData(outPixels, 0, 0);
-        localMask = output.toDataURL('image/png');
-        setStatus('마스크 생성 완료.');
-      };
-    }
-
     setStatus(isRect
       ? `이미지를 로드한 뒤 드래그로 영역을 선택하세요. (${UNIT}px 단위)`
-      : '이미지를 로드한 뒤 마스크를 그리고 Finish mask를 눌러주세요.');
+      : '이미지를 로드한 뒤 재생성(빨강) / 보존(파랑)으로 칠하세요. 안 칠하면 전체 재생성.');
 
     return {
-      getMask: () => localMask,
+      getMasks: () => painter.exportMasks(),   // { regen, keep }  (칠한 게 없으면 null)
       getRect: () => rect,
-      getCropMask,
     };
   };
 
@@ -958,7 +974,7 @@
         return;
       }
 
-      // batch 입력칸이 없는 탭(detailer)은 1장
+      // batch 입력칸이 없는 탭이 있어도 안전하게 1장으로
       const batchEl = $(`${p}-batch`);
       const batch = batchEl
         ? Math.max(1, Math.min(parseInt(batchEl.value, 10) || 1, 8))
@@ -1058,6 +1074,8 @@
 
   // =========================================================
   // Tab 2 — Inpainting
+  //   regen_mask(빨강) / keep_mask(파랑): 칠한 게 없으면 null
+  //   둘 다 null 이면 전체 재생성
   // =========================================================
 
   (() => {
@@ -1069,8 +1087,7 @@
       const imgPath = $(`${p}-img_path`).value;
       if (!imgPath.trim()) return { error: '이미지 경로를 입력해 주세요.' };
 
-      const mask = editor.getMask();
-      if (!mask) return { error: '마스크를 그린 뒤 Finish mask를 눌러주세요.' };
+      const m = editor.getMasks();
 
       return {
         params: {
@@ -1080,7 +1097,8 @@
           cfg: $(`${p}-cfg`).value,
           img_path: imgPath,
           start_t: $(`${p}-start_t`).value,
-          mask,
+          regen_mask: m.regen,
+          keep_mask: m.keep,
         },
       };
     }, tools.loadHistory);
@@ -1102,6 +1120,8 @@
       const rect = editor.getRect();
       if (!rect) return { error: '드래그로 사각형 영역을 선택해 주세요.' };
 
+      const m = editor.getMasks();
+
       return {
         params: {
           tags: $(`${p}-tags`).value,
@@ -1111,7 +1131,8 @@
           img_path: imgPath,
           start_t: $(`${p}-start_t`).value,
           rect,
-          mask: editor.getCropMask(),
+          regen_mask: m.regen,
+          keep_mask: m.keep,
         },
       };
     });

@@ -288,7 +288,7 @@
               </div>
               <div class="grid-2">
                 <div class="field">
-                  <label for="inp-start_t">Start T</label>
+                  <label for="inp-start_t" title="마스크 없이 전체를 다시 그릴 땐 0.6 전후를 권장">Start T</label>
                   <input id="inp-start_t" type="number" min="0" max="1" step="0.01" value="0.95">
                 </div>
                 <div class="field">
@@ -296,6 +296,7 @@
                   <input id="inp-brush" type="number" value="20" min="1">
                 </div>
               </div>
+              <p class="hint">빨강 = 다시 그릴 곳, 파랑 = 절대 안 바뀌는 곳.<br>아무것도 안 칠하면 전체를 다시 그립니다.</p>
             </div>
 
           </div>
@@ -323,9 +324,13 @@
                 <canvas id="inp-mask-canvas" class="mask-canvas"></canvas>
               </div>
               <div class="mask-bar">
+                <div class="btn-group" id="inp-paint-mode">
+                  <button type="button" class="btn mode-btn regen active" data-mode="regen">재생성</button>
+                  <button type="button" class="btn mode-btn keep" data-mode="keep">보존</button>
+                  <button type="button" class="btn mode-btn erase" data-mode="erase">지우개</button>
+                </div>
                 <div class="btn-group">
                   <button id="inp-mask-clear" type="button" class="btn">Clear</button>
-                  <button id="inp-mask-finish" type="button" class="btn">Finish mask</button>
                 </div>
                 <span id="inp-mask-status" class="mask-status">대기 중...</span>
               </div>
@@ -471,6 +476,7 @@
                 <input id="det-brush" type="number" value="20" min="1">
               </div>
             </div>
+            <p class="hint">crop 위에서 빨강 = 다시 그릴 곳, 파랑 = 절대 안 바뀌는 곳.<br>아무것도 안 칠하면 crop 전체를 다시 그립니다.</p>
           </div>
 
         </div>
@@ -511,7 +517,7 @@
 
           <div class="empty-state" id="det-crop-empty">
             <div class="empty-icon">⌗</div>
-            <div>선택한 영역이 확대되어 표시됩니다<br>여기서 다듬을 부분을 칠하세요</div>
+            <div>선택한 영역이 확대되어 표시됩니다<br>여기서 재생성 / 보존할 부분을 칠하세요</div>
           </div>
 
           <div class="crop-stage" id="det-crop-stage" style="display:none;">
@@ -520,6 +526,11 @@
               <canvas id="det-crop-mask-canvas" class="mask-canvas"></canvas>
             </div>
             <div class="mask-bar">
+              <div class="btn-group" id="det-paint-mode">
+                <button type="button" class="btn mode-btn regen active" data-mode="regen">재생성</button>
+                <button type="button" class="btn mode-btn keep" data-mode="keep">보존</button>
+                <button type="button" class="btn mode-btn erase" data-mode="erase">지우개</button>
+              </div>
               <div class="btn-group">
                 <button id="det-crop-mask-clear" type="button" class="btn">Clear mask</button>
               </div>

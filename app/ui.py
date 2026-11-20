@@ -141,11 +141,13 @@ class UI:
 
     def _run_inpainting(self, p: dict):
         img_path = self._require_image(p)
-        mask = self._b64_to_pil(p.get("mask") or "")
+        keep_mask = self._b64_to_pil(p.get("keep_mask") or "")
+        regen_mask = self._b64_to_pil(p.get("regen_mask") or "")
 
         return self.handler.generate_inpainting(
             img_path=img_path,
-            mask=mask,
+            keep_mask=keep_mask,
+            regen_mask=regen_mask,
             start_t=float(p.get("start_t", 0.9)),
             **self._prompt_params(p),
             **self._sampling_params(p),

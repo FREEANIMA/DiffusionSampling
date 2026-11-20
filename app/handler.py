@@ -188,11 +188,9 @@ class Handler:
         )
     
     def generate_inpainting(self, tags_text: str, nsfw, calc_type, cfg_scale, steps, seed, img_path, fixed, shift, eta, 
-                            B=1, mask=None, start_t: float = 0.8, eta_mode="cos", frame_save=True):
+                            B=1, keep_mask=None, regen_mask=None, start_t: float = 0.8, eta_mode="cos", frame_save=True):
         if img_path is None:
             raise ValueError("경로를 입력해 주세요")
-        if mask is None:
-            raise ValueError("mask가 필요합니다.")
 
         self.progress.reset()
         tags_text = tags_text.lower()
@@ -213,7 +211,8 @@ class Handler:
             cfg_scale=float(cfg_scale),
             steps=int(steps),
             seed=_parse_seed(seed),
-            mask=mask,
+            keep_mask=keep_mask,
+            regen_mask=regen_mask,
             img_bytes=img_bytes,
             start_t=float(start_t),
             on_step=self.progress.update,
@@ -226,7 +225,7 @@ class Handler:
         )
 
     def generate_detailering(self, calc_type,  steps, seed, img_path, shift, tags_text : str, cfg_scale, nsfw, eta, 
-                             B=1, mask=None, fixed=True, box=None, start_t: float = 0.3, eta_mode="cos", frame_save=True):
+                             B=1, keep_mask=None, regen_mask=None, fixed=True, box=None, start_t: float = 0.3, eta_mode="cos", frame_save=True):
         if img_path is None:
             raise ValueError("경로를 입력해 주세요")
         if box is None:
@@ -290,7 +289,8 @@ class Handler:
             start_t=float(start_t),
             on_step=self.progress.update,
             shift=self._clamp_shift(shift),
-            mask=mask,
+            keep_mask=keep_mask,
+            regen_mask=regen_mask,
             H=new_H,
             W=new_W,
             eta=eta,

@@ -108,10 +108,16 @@ class InPainting:
         self.console.put(f"img saved: {save_paths[0]}")
 
         return save_paths
- 
+
+    def _mask_arr(self, m, W, H):
+        if m is None:
+            return None
+        a = np.array(m.convert("L").resize((W, H), Image.Resampling.NEAREST), dtype=np.uint8)
+        return a if a.max() > 0 else None 
+
     @torch.inference_mode()
     def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, img_bytes, start_t, 
-                 B=1, eta=0.3, seed=None, mask=None, on_step=None, save_dir=None, frame_save=False, eta_mode="cos"):
+                 B=1, eta=0.3, seed=None, regen_mask=None, keep_mask=None, on_step=None, frame_save=False, eta_mode="cos"):
 
 
         arr, H, W = img_resize(img_bytes, self.allowable_size, self.patch_size, self.f)
@@ -121,11 +127,22 @@ class InPainting:
 
         latent = self.vae_encode(img)
         
-        if mask is None:
-            mask_lat = None
+
+        red = self._mask_arr(regen_mask, W, H)
+        blue = self._mask_arr(keep_mask, W, H)
+
+        if red is None and blue is None:
+            mask_lat = None         
         else:
-            mask = mask.convert("L").resize((W, H), Image.Resampling.NEAREST)
-            mask_lat = self.mask_generation(np.array(mask, dtype=np.uint8), latent)
+            if red is not None:
+                mask_lat = self.mask_generation(red, latent)
+            else:
+                mask_lat = torch.ones_like(latent[:, :1]).float()
+
+            if blue is not None:
+                keep_lat = self.mask_generation(blue, latent)
+                mask_lat = mask_lat * (1.0 - keep_lat)
+
 
         cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds = self.set_init(tags, seed, steps, shift, B, H, W)
 
