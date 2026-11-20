@@ -2,7 +2,7 @@
 
 ## Update — 2026.11.20 Sampling ADD ETA injection Equation selection & Each velocity latents -> img frame save
 
-<img src="assets/eta_frame.png" alt="update" width="50%">
+<img src="assets/eta_frame.png" alt="update" width="20%">
 
 eta_mode = cosin | ln | sin
 
@@ -14,7 +14,7 @@ code => src.utilities.predict
 
 Image frame save: Collect the latent at each step, decode all latents into images, and save them as an MP4.
 
-<video src="assets/process.mp4" controls width="600"></video>
+<img src="assets/process.gif" controls width="600"></video>
 
 ## Installation
 ```bash
