@@ -309,7 +309,8 @@ class Handler:
         return self.detailer.merge_img(
             origin_img=img, fixed_imgs=fixed_imgs,
             box=box, final_tags=final_tags, tags=tags_reshape, steps=steps, shift=shift,
-            calculate_type=calc_type, cfg_scale=cfg_scale, seeds=seeds, sigmas_steps=sigmas_steps, paste_mask=None, video_imgs=video_imgs
+            calculate_type=calc_type, cfg_scale=cfg_scale, seeds=seeds, sigmas_steps=sigmas_steps, paste_mask=None, video_imgs=video_imgs,
+            eta=eta, eta_mode=eta_mode
         )
 
 

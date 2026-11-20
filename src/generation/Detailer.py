@@ -86,7 +86,7 @@ class Detailering:
 
         return cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds
 
-    def save_imgs(self, tags, cfg_scale, final_tags, imgs, steps, calculate_type, shift, seeds, video_imgs, sigmas_steps=None):
+    def save_imgs(self, tags, cfg_scale, final_tags, imgs, steps, calculate_type, shift, seeds, video_imgs, eta, eta_mode, sigmas_steps=None):
         save_dir = os.path.join(self.base_root, "detailer")
         save_paths = _save_img(imgs=imgs, filename="detailer", save_dir=save_dir, video_imgs=video_imgs, sigmas=sigmas_steps)
 
@@ -99,6 +99,8 @@ class Detailering:
             calc_type=calculate_type,
             shift=shift,
             seeds=seeds,
+            eta=eta,
+            eta_mode=eta_mode
         )
 
         self.console.put(f"img saved: {save_paths[0]}")
@@ -180,7 +182,7 @@ class Detailering:
         return imgs, sigmas_steps, seeds, video_imgs
 
     def merge_img(self, origin_img, fixed_imgs, box, sigmas_steps, tags, calculate_type, shift, seeds,
-                  steps, final_tags, cfg_scale, paste_mask=None, video_imgs=None):
+                  steps, final_tags, cfg_scale, eta, eta_mode, paste_mask=None, video_imgs=None):
         left, top, right, bottom = box
         w, h = right - left, bottom - top
 
@@ -201,7 +203,7 @@ class Detailering:
         save_paths = self.save_imgs(
             tags=tags, final_tags=final_tags, imgs=imgs, 
             calculate_type=calculate_type, shift=shift, video_imgs=video_imgs, 
-            sigmas_steps=sigmas_steps, cfg_scale=cfg_scale, steps=steps, seeds=seeds,
+            sigmas_steps=sigmas_steps, cfg_scale=cfg_scale, steps=steps, seeds=seeds, eta=eta, eta_mode=eta_mode,
             )
 
         return imgs, save_paths
