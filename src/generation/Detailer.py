@@ -111,7 +111,10 @@ class Detailering:
     def sampling(self, arr, tags, shift, H, W, calculate_type, cfg_scale, steps, start_t, 
                  B=1, eta=0.3, seed=None, mask=None, on_step=None, eta_mode="cos", frame_save=False):
         if mask is None:
-            raise ValueError("mask가 필요합니다.")
+            mask_lat = None                      # 전체 재생성 (img2img)
+        else:
+            mask = mask.convert("L").resize((W, H), Image.Resampling.NEAREST)
+            mask_lat = self.mask_generation(np.array(mask, dtype=np.uint8), latent)
 
         mask = mask.convert("L").resize((W, H), Image.Resampling.NEAREST)
         mask_arr = np.array(mask, dtype=np.uint8)
@@ -143,6 +146,9 @@ class Detailering:
             done += 1
             if on_step:
                 on_step(min(done, total), total)
+
+            if mask_lat is None:
+                return x
 
             s = sigma_next.view(1, 1, 1, 1) if torch.is_tensor(sigma_next) else float(sigma_next)
             orig_t = (1 - s) * latent + s * noise
