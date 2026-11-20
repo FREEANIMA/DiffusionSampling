@@ -21,7 +21,7 @@ Code: `src.utilities.predict`
 
 Collect the latent at every step, decode all of them into images, and save them as an MP4.
 
-<img src="assets/process.gif" controls width="600">
+<img src="assets/detailer_process.gif" controls width="600">
 
 Toggle with **Frame save** in the Sampling panel.
 
