@@ -180,9 +180,7 @@ class InPainting:
 
         video_imgs = None
         if frame_save:
-            video_imgs = []
-            for latent in latents:
-                video_imgs.append(self.vae_decode(latent)[0])
+            video_imgs = [self.vae_decode(latent) for latent in latents]
 
         del latents
         

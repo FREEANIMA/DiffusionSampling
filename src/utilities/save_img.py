@@ -4,7 +4,6 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from .sigma import sigma_schedular
 
-
 def _font(size):
     for name in ("DejaVuSans-Bold.ttf", "DejaVuSans.ttf", "arial.ttf"):
         try:
@@ -33,6 +32,12 @@ def _with_label(frame, text):
     return canvas
 
 
+def _as_frame_list(x):
+    if isinstance(x, Image.Image):
+        return [x]
+    return list(x)
+
+
 def _save_img(save_dir, filename, imgs=None, video_imgs=None, sigmas=None, shift=3.0):
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     save_dir = os.path.join(save_dir, stamp)
@@ -54,7 +59,14 @@ def _save_img(save_dir, filename, imgs=None, video_imgs=None, sigmas=None, shift
             print("[warn] imageio 미설치: mp4 저장 생략 (pip install imageio imageio-ffmpeg)")
             return paths
 
-        n = len(video_imgs)
+        # [step] 각 원소를 PIL 리스트로 통일 → [step][b]
+        per_step = [_as_frame_list(s) for s in video_imgs]
+        B = len(per_step[0])
+
+        # [step][b] → [b][step]
+        per_sample = [[s[b] for s in per_step] for b in range(B)]
+
+        n = len(per_step)
         if sigmas is None:
             sigmas = sigma_schedular(step=n, device="cpu", shift=shift)[:-1]
         sigmas = [float(s) for s in sigmas]
@@ -66,15 +78,19 @@ def _save_img(save_dir, filename, imgs=None, video_imgs=None, sigmas=None, shift
 
         half = lambda f: f.resize((f.width // 2, f.height // 2))
 
-        frames = [_with_label(half(f), label(i)) for i, f in enumerate(video_imgs)]
-        final = imgs[0] if imgs else video_imgs[-1]
-        frames += [_with_label(half(final), "final")] * 8
+        for b, frames in enumerate(per_sample):
+            name = "process.mp4" if B == 1 else f"process_{b}.mp4"
+            final = imgs[b] if imgs and b < len(imgs) else frames[-1]
 
-        with imageio.get_writer(
-            os.path.join(save_dir, "process.mp4"),
-            fps=6, codec="libx264", quality=8, macro_block_size=1,
-        ) as w:
-            for f in frames:
-                w.append_data(np.asarray(f))
+            with imageio.get_writer(
+                os.path.join(save_dir, name),
+                fps=6, codec="libx264", quality=8, macro_block_size=1,
+            ) as w:
+                for i, f in enumerate(frames):
+                    w.append_data(np.asarray(_with_label(half(f), label(i))))
+
+                last = np.asarray(_with_label(half(final), "final"))
+                for _ in range(8):
+                    w.append_data(last)
 
     return paths
