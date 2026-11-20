@@ -2,7 +2,7 @@
 
 ## Update — 2026.11.20 Sampling: ETA injection equation selection & per-step latent → frame save
 
-<img src="assets/eta_frame.png" alt="update" width="20%">
+<img src="assets/eta_frame.png" alt="update" width="50%">
 
 ### ETA mode
 
@@ -10,7 +10,7 @@
 
 `ln`: `eta * ln(2 / (1 + x)) / ln 2`
 
-<img src="assets/graph.png" alt="graph" width="20%">
+<img src="assets/graph.png" alt="graph" width="30%">
 
 Code: `src.utilities.predict`
 
