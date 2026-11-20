@@ -36,15 +36,6 @@ def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_ma
 
     return v
 
-def eta_at_sin(sigma_next, eta, mu=0.6, half_width=0.5, floor=0.5, sigma_fade=0.15):
-    sn = float(sigma_next)
-    d = min(abs(sn - mu) / half_width, 1.0)
-    bump = 0.5 * (1.0 + math.sin(math.pi * d))
-    w = floor + (1.0 - floor) * bump
-    t = min(max(sn / sigma_fade, 0.0), 1.0)
-    fade = 0.5 * (1.0 - math.sin(math.pi * t)) 
-    return eta * w * fade
-
 def eta_at(progress, eta, power=1.0):
     x = min(max(float(progress), 0.0), 1.0)
     w = math.log(2.0 / (x + 1.0)) / math.log(2.0)
@@ -90,14 +81,9 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale,
             progress = i / max(n - 1, 1)
 
             if eta_mode == "cos":
-                eta_i = eta_at_cos(float(sigma_next), eta)
+                eta_i = eta_at_cos(float(sigma_next), eta, mu=sigma_mean)
             elif eta_mode == "ln":
                 eta_i = eta_at(progress, eta, power=eta_power)
-            elif eta_mode == "sin":
-                eta_i = eta_at_sin(float(sigma_next), eta)
-
-            if float(sigma_next) < sigma_mean and calculate_type != "ddpm_plus":
-                eta_i = 0.0
                 
             use_noise = eta_i > 1e-4 and not last
             sigma_lo = sigma_lo_of(sigma_next, eta_i) if use_noise else sigma_next
