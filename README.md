@@ -1,6 +1,6 @@
 # Diffusion MMDiT Text2img with DC-AE f32c32
 
-## Update — 2026.11.19 Sampling
+## Update — 2026.11.20 Sampling
 
 - **Quantization**: optional quantized model loading, chosen at startup (`use quantization? y/n`). Lower VRAM usage; works with the block-offload mode.
 - **Batch generation**: generate up to 8 images per run (Text2img / Inpainting). Results appear with numbered buttons to switch between images.
