@@ -16,6 +16,8 @@ Image frame save: Collect the latent at each step, decode all latents into image
 
 <img src="assets/process.gif" controls width="600">
 
+DeTailing & InPainting
+
 ## Installation
 ```bash
 python -m pip install -r requirements.txt

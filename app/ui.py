@@ -86,18 +86,21 @@ class UI:
         return base64.b64encode(buf.getvalue()).decode("ascii")
 
     @staticmethod
-    def _b64_to_pil(data: str) -> Image.Image:
+    def _b64_to_pil(data):
         if not data:
-            raise ValueError("Mask data is empty.")
-
+            return None
         if "," in data:
             data = data.split(",", 1)[1]
-
         raw = base64.b64decode(data, validate=True)
-
         with Image.open(io.BytesIO(raw)) as img:
             return img.convert("L")
 
+    @staticmethod
+    def _as_list(x):
+        if x is None:
+            return []
+        return list(x) if isinstance(x, (list, tuple)) else [x]
+    
     @staticmethod
     def _require_image(p: dict) -> str:
         img_path = str(p.get("img_path", "")).strip()
@@ -126,11 +129,7 @@ class UI:
             cfg_scale=float(p["cfg"]),
             fixed=bool(p.get("fixed", True)),
         )
-
-    # ------------------------------------------------------------------
-    # Per-mode runners  (모두 (PIL.Image, path) 를 반환)
-    # ------------------------------------------------------------------
-
+    
     def _run_txt2img(self, p: dict):
         return self.handler.generate_txt2img(
             H=int(p["H"]),
@@ -141,8 +140,8 @@ class UI:
 
     def _run_inpainting(self, p: dict):
         img_path = self._require_image(p)
-        keep_mask = self._b64_to_pil(p.get("keep_mask") or "")
-        regen_mask = self._b64_to_pil(p.get("regen_mask") or "")
+        keep_mask = self._b64_to_pil(p.get("keep_mask"))
+        regen_mask = self._b64_to_pil(p.get("regen_mask"))
 
         return self.handler.generate_inpainting(
             img_path=img_path,
@@ -179,20 +178,6 @@ class UI:
         if run is None:
             raise ValueError(f"Unknown mode: {mode}")
         return run(p)
-
-    @staticmethod
-    def _b64_to_pil(data):
-        if not data:
-            return None          # 칠한 게 없으면 None
-        if "," in data:
-            data = data.split(",", 1)[1]
-        raw = base64.b64decode(data, validate=True)
-        with Image.open(io.BytesIO(raw)) as img:
-            return img.convert("L")
-
-    # ------------------------------------------------------------------
-    # Background worker
-    # ------------------------------------------------------------------
 
     def _worker(self, job_id: str, params: dict):
         job = self._jobs[job_id]
