@@ -170,7 +170,7 @@ class Detailering:
         if g.INIT_DEVICE == "cpu":
             self.model.to("cpu")
 
-        del cond_emb, uncond_emb, cond_mask, uncond_mask, latent, mask_lat, noise, x_t, sigmas, latents
+        del cond_emb, uncond_emb, cond_mask, uncond_mask, latent, mask_lat, noise, x_t, sigmas
         imgs = self.vae_decode(x)
 
         video_imgs = None
@@ -178,6 +178,8 @@ class Detailering:
             video_imgs = []
             for latent in latents:
                 video_imgs.append(self.vae_decode(latent)[0])
+
+        del latents
 
         return imgs, sigmas_steps, seeds, video_imgs
 

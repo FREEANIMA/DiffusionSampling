@@ -174,7 +174,7 @@ class InPainting:
 
         del cond_emb, uncond_emb, cond_mask, uncond_mask
         del latent, mask_lat, noise, x_t, sigmas
-        del latents
+        
 
         imgs = self.vae_decode(x)
 
@@ -184,6 +184,8 @@ class InPainting:
             for latent in latents:
                 video_imgs.append(self.vae_decode(latent)[0])
 
+        del latents
+        
         save_paths = self.save_imgs(
             tags=tags, cfg_scale=cfg_scale, final_tags=final_tags,
             imgs=imgs, steps=steps, calculate_type=calculate_type,
