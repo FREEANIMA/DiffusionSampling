@@ -136,6 +136,7 @@ def steps_sampling(
                 cfg_i = cfg_scale
 
             v = velocity_predict(
+                model=model,                      # ← 추가
                 x=x, sigma=sigma,
                 cfg_scale=cfg_i,
                 cond_emb=cond_emb, cond_mask=cond_mask,
@@ -235,6 +236,7 @@ def steps_sampling(
                 dv = (v - v_prev).abs().mean().item() if v_prev is not None else float("nan")
                 dx = (x - x_prev).abs().mean().item() if x_prev is not None else float("nan")
                 print(
+            
                     f"[{i:02d}] r={r:.2f} σ={float(sigma):.3f}→{float(sigma_next):.3f} "
                     f"[{i:02d}] r={r:.2f} amp={'off(fp32)' if r >= amp_ratio else 'on'} "
                     f"x_dtype={x.dtype} σ={float(sigma):.3f}→{float(sigma_next):.3f} "
