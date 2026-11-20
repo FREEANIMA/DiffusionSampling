@@ -2,13 +2,13 @@
 
 ## Update — 2026.11.20 Sampling ADD ETA injection Equation selection & Each velocity latents -> img frame save
 
-![update](assets/eta_frame.png)
+<img src="assets/eta_frame.png" alt="update" width="50%">
 
 eta_mode = cosin | ln | sin
 
 ln = eta * ln (2 / (1+x)) / ln 2
 
-![graph](assets/graph.png)
+<img src="assets/graph.png" alt="graph" width="20%">
 
 code => src.utilities.predict
 
