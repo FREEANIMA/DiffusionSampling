@@ -197,10 +197,17 @@ class UI:
             imgs, path = self._generate(params)
             imgs = self._as_list(imgs)
 
+            pngs = []
+            for im in imgs:
+                buf = io.BytesIO()
+                im.save(buf, format="PNG")
+                pngs.append(buf.getvalue())
+
+            job["pngs"] = pngs
             job["result"] = {
                 "success": True,
                 "path": [str(x) for x in self._as_list(path)],
-                "images": [self._pil_to_b64(im) for im in imgs],
+                "urls": [f"api/image/{job_id}/{i}" for i in range(len(pngs))],
             }
             job["state"] = "done"
 
@@ -278,8 +285,6 @@ class UI:
             if job["state"] == "running":
                 return jsonify({"status": "running"})
 
-            self._jobs.pop(job_id, None)
-
             if job["state"] == "error":
                 return jsonify({
                     "status": "error",
@@ -304,7 +309,17 @@ class UI:
         @self.app.get("/api/tag_tree")
         def tag_tree():
             return jsonify({"tree": self.handler.get_tag_tree()})
-
+        
+        @self.app.get("/api/image/<job_id>/<int:i>")
+        def image(job_id, i):
+            job = self._jobs.get(job_id)
+            if not job or job.get("state") != "done" or i >= len(job["pngs"]):
+                return ("", 404)
+            return Response(
+                job["pngs"][i],
+                mimetype="image/png",
+                headers={"Cache-Control": "no-store"},
+            )
 
     def run(self, host: str = "0.0.0.0", port: int = 7860,
             colab: bool | None = None, height: int = 1000):

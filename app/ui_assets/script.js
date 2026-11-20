@@ -895,25 +895,25 @@
     $(`${p}-pager`).innerHTML = '';
   };
 
-  const showImages = (p, images, seeds) => {
+  const showImages = (p, srcs, seeds) => {
     clearResult(p);
-    if (!images.length) return;
+    if (!srcs.length) return;
 
     const result = $(`${p}-result`);
     const pager = $(`${p}-pager`);
 
     const img = document.createElement('img');
+    img.onerror = () => { $(`${p}-out`).textContent = '이미지 로드 실패 (api/image 응답 확인)'; };
     result.append(img);
 
     const select = (i) => {
-      img.src = `data:image/png;base64,${images[i]}`;
+      img.src = srcs[i];
       img.title = seeds && seeds[i] !== undefined ? `seed ${seeds[i]}` : `#${i + 1}`;
       [...pager.children].forEach((b, j) => b.classList.toggle('active', j === i));
     };
 
-    // 1장이면 번호 버튼 없이 이미지만
-    if (images.length > 1) {
-      images.forEach((_, i) => {
+    if (srcs.length > 1) {
+      srcs.forEach((_, i) => {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'pager-btn';
@@ -1017,11 +1017,13 @@
           }
         }
 
-        // 서버가 images 배열을 주면 그대로, 구버전(image 하나)도 호환
-        const images = data.images || (data.image ? [data.image] : []);
-        showImages(p, images, data.seeds);
+        // 서버가 urls 를 주면 그대로, 구버전(base64)도 호환
+        const srcs = data.urls
+          || (data.images || (data.image ? [data.image] : []))
+               .map((b) => `data:image/png;base64,${b}`);
+        showImages(p, srcs, data.seeds);
 
-        out.textContent = images.length > 1 ? `done (${images.length} images)` : 'done';
+        out.textContent = srcs.length > 1 ? `done (${srcs.length} images)` : 'done';
       } catch (e) {
         out.textContent = `failed: ${e.message}`;
       } finally {
