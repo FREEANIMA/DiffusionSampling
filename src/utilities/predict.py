@@ -4,7 +4,6 @@ from tqdm.auto import tqdm
 from .solvers import euler, heun, ddpm_plus, renoise, sigma_lo_of
 import common.globals as g
 
-
 @torch.inference_mode()
 def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_mask, cfg_scale, dtype):
     x_in = x.to(dtype)
@@ -37,6 +36,15 @@ def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_ma
 
     return v
 
+def eta_at_sin(sigma_next, eta, mu=0.6, half_width=0.5, floor=0.5, sigma_fade=0.15):
+    sn = float(sigma_next)
+    d = min(abs(sn - mu) / half_width, 1.0)
+    bump = 0.5 * (1.0 + math.sin(math.pi * d))
+    w = floor + (1.0 - floor) * bump
+    t = min(max(sn / sigma_fade, 0.0), 1.0)
+    fade = 0.5 * (1.0 - math.sin(math.pi * t)) 
+    return eta * w * fade
+
 def eta_at(progress, eta, power=1.0):
     x = min(max(float(progress), 0.0), 1.0)
     w = math.log(2.0 / (x + 1.0)) / math.log(2.0)
@@ -53,7 +61,7 @@ def eta_at_cos(sigma_next, eta, mu=0.6, half_width=0.5, floor=0.5, sigma_fade=0.
 
 @torch.inference_mode()
 def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gens, dtype, eta, eta_mode="cos",
-                   after_step=None, cfg_min_sigma=0.0, debug_probe=True, eta_power=1.0):
+                   after_step=None, cfg_min_sigma=0.0, debug_probe=False, eta_power=1.0):
     model.eval()
     n = len(sigmas) - 1
     kw = dict(model=model, cond_emb=cond_emb, cond_mask=cond_mask,
@@ -82,6 +90,8 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
                 eta_i = eta_at_cos(float(sigma_next), eta)
             elif eta_mode == "ln":
                 eta_i = eta_at(progress, eta, power=eta_power)
+            elif eta_mode == "sin":
+                eta_i = eta_at_sin(float(sigma_next), eta)
 
             use_noise = eta_i > 1e-4 and not last
             sigma_lo = sigma_lo_of(sigma_next, eta_i) if use_noise else sigma_next

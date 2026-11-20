@@ -1,11 +1,21 @@
 # Diffusion MMDiT Text2img with DC-AE f32c32
 
-## Update — 2026.11.20 Sampling
+## Update — 2026.11.20 Sampling ADD ETA injection Equation selection & Each velocity latents -> img frame save
 
-- **Quantization**: optional quantized model loading, chosen at startup (`use quantization? y/n`). Lower VRAM usage; works with the block-offload mode.
-- **Batch generation**: generate up to 8 images per run (Text2img / Inpainting). Results appear with numbered buttons to switch between images.
-- **Detailer batch**: each generated patch is merged into a copy of the original image and saved separately. The original is never modified.
-- **API**: `/api/generate` now accepts `batch` and returns `images` (array) and `path` (list) instead of a single `image`.
+![update](asserts/eta_frame.png)
+
+eta_mode = cosin | ln
+
+ln = eta * ln (2 / (1+x)) / ln 2
+
+![graph](asserts/graph.png)
+
+code => src.utilities.predict
+
+Image frame save: Collect the latent at each step, decode all latents into images, and save them as an MP4.
+
+![mp4_1](asserts/process.mp4)
+
 
 ## Installation
 ```bash
