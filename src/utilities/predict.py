@@ -50,6 +50,11 @@ def eta_at_cos(sigma_next, eta, mu=0.6, half_width=0.5, floor=0.5, sigma_fade=0.
     fade = 0.5 * (1.0 - math.cos(math.pi * t)) 
     return eta * w * fade
 
+def eta_at_custom_sin(sigma_next, eta, mu=0.6):
+    y = (math.sin(math.pi * sigma_next - mu) - math.sin(-mu)) / (1.0 - math.sin(-mu))
+
+    return eta * y
+
 @torch.inference_mode()
 def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, 
                    cond_emb, cond_mask, uncond_emb, uncond_mask, 
@@ -84,6 +89,8 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale,
                 eta_i = eta_at_cos(float(sigma_next), eta, mu=sigma_mean)
             elif eta_mode == "ln":
                 eta_i = eta_at(progress, eta, power=eta_power)
+            elif eta_mode == "custom_sin":
+                eta_i = eta_at_custom_sin(sigma_next, eta, sigma_mean)
                 
             use_noise = eta_i > 1e-4 and not last
             sigma_lo = sigma_lo_of(sigma_next, eta_i) if use_noise else sigma_next
