@@ -97,7 +97,7 @@ def steps_sampling(
     renoise_hi_ratio=0.5,       # 이 비율 이상에서만 renoise 축소 적용
     cfg_hi_factor=0.5,          # high sigma CFG 감쇠 (velocity_predict와 일치)
     amp_ratio=0.35,             # 이 비율 이상은 fp32
-    debug_probe=False,          # |Δv|, |Δx| 로그
+    debug_probe=True,          # |Δv|, |Δx| 로그
 ):
     model.eval()
     n = len(sigmas) - 1
