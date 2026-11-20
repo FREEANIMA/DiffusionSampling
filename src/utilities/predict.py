@@ -236,6 +236,8 @@ def steps_sampling(
                 dx = (x - x_prev).abs().mean().item() if x_prev is not None else float("nan")
                 print(
                     f"[{i:02d}] r={r:.2f} σ={float(sigma):.3f}→{float(sigma_next):.3f} "
+                    f"[{i:02d}] r={r:.2f} amp={'off(fp32)' if r >= amp_ratio else 'on'} "
+                    f"x_dtype={x.dtype} σ={float(sigma):.3f}→{float(sigma_next):.3f} "
                     f"cfg={cfg_i:.2f} eta={eta_i:.2f} lo={float(sigma_lo):.3f} "
                     f"rt={float(renoise_target):.3f} |v|={v.abs().mean().item():.3e} "
                     f"|Δv|={dv:.3e} |Δx|={dx:.3e}"
