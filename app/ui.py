@@ -7,6 +7,7 @@ import logging
 import sys
 import threading
 import traceback
+import uuid
 from pathlib import Path
 
 from flask import Flask, jsonify, request, Response
@@ -20,7 +21,12 @@ class UI:
     def __init__(self, handler: Handler):
         self.handler = handler
         self.app = Flask(__name__)
-        self._lock = threading.Lock()
+
+        # 생성은 백그라운드 스레드에서 돌리고, 클라이언트가 결과를 폴링한다.
+        # (HTTP 연결을 오래 잡고 있으면 프록시 타임아웃으로 HTML 에러 페이지가 돌아옴)
+        self._state_lock = threading.Lock()
+        self._running = False
+        self._jobs: dict = {}   # job_id -> {"state", "result", "error"}
 
         self._modes = {
             "txt2img": self._run_txt2img,
@@ -181,6 +187,32 @@ class UI:
             return []
         return list(x) if isinstance(x, (list, tuple)) else [x]
 
+    # ------------------------------------------------------------------
+    # Background worker
+    # ------------------------------------------------------------------
+
+    def _worker(self, job_id: str, params: dict):
+        job = self._jobs[job_id]
+        try:
+            imgs, path = self._generate(params)
+            imgs = self._as_list(imgs)
+
+            job["result"] = {
+                "success": True,
+                "path": [str(x) for x in self._as_list(path)],
+                "images": [self._pil_to_b64(im) for im in imgs],
+            }
+            job["state"] = "done"
+
+        except Exception as e:
+            traceback.print_exc()
+            job["error"] = f"{type(e).__name__}: {e}"
+            job["state"] = "error"
+
+        finally:
+            with self._state_lock:
+                self._running = False
+
     def _register_routes(self):
 
         @self.app.get("/")
@@ -212,33 +244,50 @@ class UI:
 
         @self.app.post("/api/generate")
         def generate():
-            if not self._lock.acquire(blocking=False):
+            params = request.get_json(force=True)
+
+            with self._state_lock:
+                if self._running:
+                    return jsonify({
+                        "success": False,
+                        "error": "이미 생성 중입니다.",
+                    }), 409
+                self._running = True
+
+            job_id = uuid.uuid4().hex
+            self._jobs = {job_id: {"state": "running"}}   # 이전 결과는 버림
+
+            threading.Thread(
+                target=self._worker,
+                args=(job_id, params),
+                daemon=True,
+            ).start()
+
+            return jsonify({"success": True, "job_id": job_id})
+
+        @self.app.get("/api/result/<job_id>")
+        def result(job_id):
+            job = self._jobs.get(job_id)
+            if job is None:
                 return jsonify({
+                    "status": "error",
                     "success": False,
-                    "error": "이미 생성 중입니다.",
-                }), 409
+                    "error": "알 수 없는 작업입니다.",
+                }), 404
 
-            try:
-                params = request.get_json(force=True)
-                imgs, path = self._generate(params)
-                imgs = self._as_list(imgs)
+            if job["state"] == "running":
+                return jsonify({"status": "running"})
 
+            self._jobs.pop(job_id, None)
+
+            if job["state"] == "error":
                 return jsonify({
-                    "success": True,
-                    "path": [str(p) for p in self._as_list(path)],
-                    "images": [self._pil_to_b64(im) for im in imgs],
+                    "status": "error",
+                    "success": False,
+                    "error": job["error"],
                 })
 
-            except Exception as e:
-                traceback.print_exc()
-
-                return jsonify({
-                    "success": False,
-                    "error": f"{type(e).__name__}: {e}",
-                }), 500
-
-            finally:
-                self._lock.release()
+            return jsonify({"status": "done", **job["result"]})
 
         @self.app.get("/api/progress")
         def progress():

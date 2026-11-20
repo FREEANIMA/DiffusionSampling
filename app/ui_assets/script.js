@@ -19,6 +19,19 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
 
+  // JSON이 아닌 응답(프록시의 HTML 에러 페이지 등)이 와도 원인을 알 수 있게 함
+  const fetchJson = async (url, opts) => {
+    const r = await fetch(url, opts);
+    const text = await r.text();
+    try {
+      return { ok: r.ok, status: r.status, data: JSON.parse(text) };
+    } catch (_) {
+      throw new Error(`HTTP ${r.status} (JSON 아님: ${text.slice(0, 60).replace(/\s+/g, ' ')})`);
+    }
+  };
+
+  const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
   // =========================================================
   // Tabs
   // =========================================================
@@ -915,7 +928,15 @@
 
   // =========================================================
   // Generate (공통)
+  // 요청은 job_id 만 받고 바로 끝나고, 결과는 api/result/<job_id> 를 폴링해서 받음
+  // → 오래 걸려도 프록시 타임아웃에 걸리지 않는다.
   // =========================================================
+
+  // 일시적인 네트워크/프록시 오류인지 (재시도 대상)
+  const isTransient = (e) =>
+    e instanceof TypeError || String(e.message).startsWith('HTTP');
+
+  const MAX_POLL_FAILS = 30;
 
   // collect() → { params } 또는 { error }
   const initRun = (mode, collect, afterRun) => {
@@ -965,15 +986,35 @@
       startPoll(p);
 
       try {
-        const response = await fetch('api/generate', {
+        const start = await fetchJson('api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(params),
         });
+        if (!start.ok || !start.data.success) {
+          throw new Error(start.data.error || 'Generation failed');
+        }
 
-        const data = await response.json();
-        if (!response.ok || !data.success) {
-          throw new Error(data.error || 'Generation failed');
+        const jobId = start.data.job_id;
+        let data = null;
+        let fails = 0;
+
+        // 결과가 나올 때까지 폴링 (일시적인 네트워크/프록시 오류는 무시하고 재시도)
+        while (!data) {
+          await sleep(1000);
+
+          try {
+            const res = await fetchJson(`api/result/${jobId}`);
+            fails = 0;
+
+            if (res.data.status === 'running') continue;
+            if (!res.data.success) throw new Error(res.data.error || 'Generation failed');
+
+            data = res.data;
+          } catch (e) {
+            if (isTransient(e) && ++fails < MAX_POLL_FAILS) continue;
+            throw e;
+          }
         }
 
         // 서버가 images 배열을 주면 그대로, 구버전(image 하나)도 호환
