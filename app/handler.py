@@ -216,7 +216,6 @@ class Handler:
             img_bytes=img_bytes,
             start_t=float(start_t),
             on_step=self.progress.update,
-            save_dir=os.path.join(self.base_root, "inpainting"),
             shift=self._clamp_shift(shift),
             eta=eta,
             eta_mode=eta_mode,

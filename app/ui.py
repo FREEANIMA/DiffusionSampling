@@ -163,14 +163,11 @@ class UI:
         x, y = int(r["x"]), int(r["y"])
         box = (x, y, x + int(r["w"]), y + int(r["h"]))
 
-        # crop 위에 칠한 마스크 (없으면 None → 영역 전체)
-        mask_b64 = p.get("mask")
-        mask = self._b64_to_pil(mask_b64) if mask_b64 else None
-
         return self.handler.generate_detailering(
             img_path=img_path,
             box=box,
-            mask=mask,
+            keep_mask=self._b64_to_pil(p.get("keep_mask")),
+            regen_mask=self._b64_to_pil(p.get("regen_mask")),
             start_t=float(p.get("start_t", 0.95)),
             **self._prompt_params(p),
             **self._sampling_params(p),
@@ -184,10 +181,14 @@ class UI:
         return run(p)
 
     @staticmethod
-    def _as_list(x):
-        if x is None:
-            return []
-        return list(x) if isinstance(x, (list, tuple)) else [x]
+    def _b64_to_pil(data):
+        if not data:
+            return None          # 칠한 게 없으면 None
+        if "," in data:
+            data = data.split(",", 1)[1]
+        raw = base64.b64decode(data, validate=True)
+        with Image.open(io.BytesIO(raw)) as img:
+            return img.convert("L")
 
     # ------------------------------------------------------------------
     # Background worker

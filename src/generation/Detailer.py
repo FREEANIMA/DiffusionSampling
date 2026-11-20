@@ -26,7 +26,8 @@ class Detailering:
 
     @torch.inference_mode()
     def vae_encode(self, img):
-        return self.vae.encoder(img)
+        with gpu_context(self.vae.vae, self.device):
+            return self.vae.encoder(img)
 
     @torch.inference_mode()
     def text_encode(self, tags):
