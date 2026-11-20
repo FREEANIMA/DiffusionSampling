@@ -14,8 +14,7 @@ code => src.utilities.predict
 
 Image frame save: Collect the latent at each step, decode all latents into images, and save them as an MP4.
 
-![mp4_1](assets/process.mp4)
-
+<video src="assets/process.mp4" controls width="600"></video>
 
 ## Installation
 ```bash
