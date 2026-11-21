@@ -119,6 +119,8 @@ class InPainting:
     def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, img_bytes, start_t, 
                  B=1, eta=0.3, seed=None, regen_mask=None, keep_mask=None, on_step=None, frame_save=False, eta_mode="cos"):
 
+        arr, H, W = img_resize(img_bytes, self.allowable_size, self.patch_size, self.f)
+
         if max(H, W) > 1024:
             allowable_size = 2048
         else:
@@ -126,7 +128,6 @@ class InPainting:
 
         max_side = allowable_size // (self.f * self.patch_size)
 
-        arr, H, W = img_resize(img_bytes, self.allowable_size, self.patch_size, self.f)
 
         img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
         img = img.to(device=self.device, dtype=self.dtype)
