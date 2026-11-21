@@ -1,7 +1,7 @@
 import math
 import torch
 from tqdm.auto import tqdm
-from .solvers import euler, heun, ddpm_plus, renoise, sigma_lo_of, ab2
+from .solvers import euler, heun, renoise, sigma_lo_of, ab2
 import common.globals as g
 
 @torch.inference_mode()
@@ -115,9 +115,6 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale,
                     del x_e, v2
                 if use_noise:
                     x = renoise(x, z, sigma_lo, sigma_next)
-
-            elif calculate_type == "ddpm_plus":
-                x = ddpm_plus(x, v, z, sigma, sigma_next, eta_i)
             elif calculate_type == "ab2":
                 h = float(sigma_lo) - float(sigma)
                 x = ab2(x, v, hist_v, sigma, sigma_lo, hist_h)
