@@ -116,11 +116,11 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale,
                 if use_noise:
                     x = renoise(x, z, sigma_lo, sigma_next)
             elif calculate_type == "ab2":
-                h = float(sigma_lo) - float(sigma)
+                h_eval = float(sigma_next) - float(sigma)
                 x = ab2(x, v, hist_v, sigma, sigma_lo, hist_h)
                 if use_noise:
                     x = renoise(x, z, sigma_lo, sigma_next)
-                hist_v, hist_h = v.detach(), h
+                hist_v, hist_h = v.detach(), h_eval
             else:
                 raise ValueError(f"Unsupported sampling method: {calculate_type}")
 
