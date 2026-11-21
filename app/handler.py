@@ -9,6 +9,7 @@ import os
 import io
 from src.utilities import gpu_context, img_resize
 import common.globals as g
+from version import HUGGINGFACE, VERSION
 
 def _parse_seed(seed) -> Optional[int]:
     return None if seed in (None, "", -1, "-1") else int(seed)
@@ -67,8 +68,26 @@ class Handler:
         self.f = self.config["compression_ratio"]
         self.patch_size = self.config["patch_size"]
         self.allowable_size = self.config["allowable_size"]
-        print(f"allowable size : {self.allowable_size}")
-        print(f"patch size : {self.patch_size}")
+        self.version = VERSION
+
+        info = {
+            "version": self.version,
+            "allowable size": f"{self.allowable_size}px",
+            "patch size": self.patch_size,
+            "compression ratio": f"{self.f}x",
+            "latent grid (max)": f"{self.allowable_size // (self.f * self.patch_size)}²",
+        }
+
+        w = max(len(k) for k in info)
+        rows = [f"  {k:<{w}} : {v}" for k, v in info.items()]
+        bar = "─" * (max(len(r) for r in rows) + 2)
+
+        print(f"┌{bar}┐")
+        print(f"│{'MODEL CONFIG':^{len(bar)}}│")
+        print(f"├{bar}┤")
+        for r in rows:
+            print(f"│{r:<{len(bar)}}│")
+        print(f"└{bar}┘")
         
         self.model = self.model.to(device=init_device, dtype=dtype)
         self.text_encoder = T5TextModel(init_device=init_device, device=self.device, dtype=dtype, console=self.console)
