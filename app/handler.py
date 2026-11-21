@@ -193,7 +193,7 @@ class Handler:
         self.progress.reset()
         tags_text = tags_text.lower()
 
-        H, W = self._fit_size(limit=self.allowable_size, H=int(H), w=int(W))
+        H, W = self._fit_size(limit=self.allowable_size, H=int(H), W=int(W))
 
         tags_reshape, final_tags = self._resolve_tags(tags_text, nsfw, H, W, fixed)
         
