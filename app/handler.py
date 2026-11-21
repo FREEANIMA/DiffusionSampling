@@ -78,6 +78,8 @@ class Handler:
             "latent grid (max)": f"{self.allowable_size // (self.f * self.patch_size)}²",
         }
 
+        self.scale = 1024
+
         w = max(len(k) for k in info)
         rows = [f"  {k:<{w}} : {v}" for k, v in info.items()]
         bar = "─" * (max(len(r) for r in rows) + 2)
@@ -148,10 +150,9 @@ class Handler:
     def _snap(self, x: float, unit: int) -> int:
         return max(unit, int(round(x / unit)) * unit)
 
-    def _fit_size(self, H: int, W: int) -> tuple[int, int]:
+    def _fit_size(self, limit, H: int, W: int) -> tuple[int, int]:
         unit = self.f * self.patch_size
-        limit = self.allowable_size
-    
+
         scale = min(1.0, limit / max(H, W))
         H = int(H * scale)
         W = int(W * scale)
@@ -192,7 +193,7 @@ class Handler:
         self.progress.reset()
         tags_text = tags_text.lower()
 
-        H, W = self._fit_size(int(H), int(W))
+        H, W = self._fit_size(limit=self.allowable_size, H=int(H), w=int(W))
 
         tags_reshape, final_tags = self._resolve_tags(tags_text, nsfw, H, W, fixed)
         
@@ -225,7 +226,9 @@ class Handler:
 
         with Image.open(io.BytesIO(img_bytes)) as im:
             W0, H0 = im.size
-        H, W = self._fit_size(H0, W0)
+
+        limit = max(H0, W0)
+        H, W = self._fit_size(limit=limit, H=H0, W=W0)
 
         tags_reshape, final_tags = self._resolve_tags(tags_text, nsfw, H, W, fixed)
 
@@ -258,6 +261,8 @@ class Handler:
         self.progress.reset()
         img = Image.open(img_path).convert("RGB")
 
+        orgin_w, origin_h = img.size
+        limit = max(origin_h, orgin_w)
         unit = self.f * self.patch_size
         left, top, right, bottom = box
         left, top = max(int(left), 0), max(int(top), 0)
@@ -276,8 +281,8 @@ class Handler:
         crop_img.save(buf, format="PNG")
 
         w, h = crop_img.size
-
-        scale = self.allowable_size / max(w, h)
+        
+        scale = self.scale / max(w, h)
 
         unit = (self.patch_size * self.f)
 
@@ -285,9 +290,9 @@ class Handler:
         H = max(unit, round(h * scale / unit) * unit)
 
         if w >= h:
-            W = self.allowable_size
+            W = self.scale
         else:
-            H = self.allowable_size
+            H = self.scale
 
         crop_img = crop_img.resize((W, H), Image.Resampling.LANCZOS)
 
@@ -330,6 +335,8 @@ class Handler:
                 im = im.resize((w, h), Image.Resampling.LANCZOS)
             fixed_imgs.append(im)
 
+        video_imgs = self._half_frames(video_imgs, self.allowable_size)
+
         return self.detailer.merge_img(
             origin_img=img, fixed_imgs=fixed_imgs,
             box=box, final_tags=final_tags, tags=tags_reshape, steps=steps, shift=shift,
@@ -338,3 +345,14 @@ class Handler:
         )
 
 
+    def _half_frames(self, frames, allowable):
+        target = allowable // 2
+        out = []
+        for f in frames:
+            if not isinstance(f, Image.Image):
+                f = Image.fromarray(f)
+            s = target / max(f.size)
+            w2 = max(2, int(round(f.width * s)) // 2 * 2)   # ffmpeg 짝수
+            h2 = max(2, int(round(f.height * s)) // 2 * 2)
+            out.append(f.resize((w2, h2), Image.Resampling.LANCZOS))
+        return out
