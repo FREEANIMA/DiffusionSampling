@@ -1,10 +1,10 @@
 import torch
 
-def ab2(x, v, v_prev, sigma, sigma_next, h_prev):
+def ab2(x, v, v_prev, sigma, sigma_next, h_prev, r_max=2.0):
     h = sigma_next - sigma
     if v_prev is None or h_prev is None or h_prev == 0:
         return x + h * v
-    r = h / h_prev
+    r = min(max(h / h_prev, 0.0), r_max)
     return x + h * ((1.0 + 0.5 * r) * v - 0.5 * r * v_prev)
 
 def v_to_x0_eps(x, v, sigma):
