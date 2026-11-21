@@ -19,7 +19,6 @@ class Rope2D(nn.Module):
 
     def forward(self, q, k, H, W):
         B, nh, N, D = q.shape
-
         assert N == H * W
         assert D % 4 == 0
 

@@ -88,11 +88,9 @@ class Sampling:
     def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, H, W, B=1, 
                  eta=0.3, seed=None, on_step=None, frame_save=False, eta_mode="cos"):
 
-        if H == 2048 or W  == 2048:
-            self.model.rope2d.pos_scale = 0.25
+        if max(H, W) > 1024:
             allowable_size = 2048
         else:
-            self.model.rope2d.pos_scale = 0.5
             allowable_size = 1024
 
         max_side = allowable_size // (self.f * self.patch_size)

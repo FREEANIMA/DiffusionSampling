@@ -82,6 +82,7 @@ class Model(nn.Module):
             x = F.pad(x, (0, pad_w, 0, pad_h))
 
         img_emb = self.patch_embedding(x)
+  
         T_img = max_side * max_side
         txt_emb = self.txt_emb(txt_emb)
 

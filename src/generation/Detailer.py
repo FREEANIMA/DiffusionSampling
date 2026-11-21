@@ -118,11 +118,9 @@ class Detailering:
     def sampling(self, arr, tags, shift, H, W, calculate_type, cfg_scale, steps, start_t, 
                  B=1, eta=0.3, seed=None, regen_mask=None, keep_mask=None, on_step=None, eta_mode="cos", frame_save=False):
 
-        if H == 2048 or W  == 2048:
-            self.model.rope2d.pos_scale = 0.25
+        if max(H, W) > 1024:
             allowable_size = 2048
         else:
-            self.model.rope2d.pos_scale = 0.5
             allowable_size = 1024
 
         max_side = allowable_size // (self.f * self.patch_size)
