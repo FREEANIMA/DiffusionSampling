@@ -32,7 +32,7 @@ class VaeModel():
         return vae
 
     @torch.no_grad()
-    def encoder(self, img, chunk_size=4):
+    def encoder(self, img, chunk_size=8):
         img = img.to(device=self.device, dtype=self.dtype, non_blocking=True)
 
         if img.min() >= 0.0 and img.max() <= 1.0:
@@ -80,7 +80,7 @@ class VaeModel():
         return [Image.fromarray(a) for a in img]
 
     @torch.no_grad()
-    def decoder(self, latent, chunk_size=4):
+    def decoder(self, latent, chunk_size=8):
         latent = latent.to(device=self.device, dtype=self.dtype, non_blocking=True)
 
         images = []
