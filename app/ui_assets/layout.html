@@ -126,16 +126,21 @@
         </div>
 
         <div class="section-title">Size</div>
-        <div class="grid-2">
-          <div class="field">
-            <label for="t2i-H">Height</label>
-            <input id="t2i-H" type="number" value="1024">
-          </div>
-          <div class="field">
-            <label for="t2i-W">Width</label>
-            <input id="t2i-W" type="number" value="1024">
+        <div class="field">
+          <label for="t2i-H">Height</label>
+          <div class="slider-row">
+            <input id="t2i-H-range" class="size-slider" type="range" min="64" max="2048" step="32" value="1024" aria-label="Height slider">
+            <input id="t2i-H" class="size-num" type="number" min="64" max="2048" step="32" value="1024">
           </div>
         </div>
+        <div class="field">
+          <label for="t2i-W">Width</label>
+          <div class="slider-row">
+            <input id="t2i-W-range" class="size-slider" type="range" min="64" max="2048" step="32" value="1024" aria-label="Width slider">
+            <input id="t2i-W" class="size-num" type="number" min="64" max="2048" step="32" value="1024">
+          </div>
+        </div>
+        <p class="hint">둘 다 1024 이하면 자유. 한 변이라도 1024를 넘으면 큰 변이 2048로 고정됩니다.</p>
 
         <div class="actions">
           <button id="t2i-run" type="button" class="btn primary">Generate</button>

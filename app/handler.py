@@ -63,17 +63,19 @@ class Handler:
                 print(f"Please enter an integer between 1 and {max_chunk}")
 
         g.INIT_DEVICE = init_device
-
+        
+        self.f = self.config["compression_ratio"]
+        self.patch_size = self.config["patch_size"]
+        self.allowable_size = self.config["allowable_size"]
+        print(f"allowable size : {self.allowable_size}")
+        print(f"patch size : {self.patch_size}")
+        
         self.model = self.model.to(device=init_device, dtype=dtype)
         self.text_encoder = T5TextModel(init_device=init_device, device=self.device, dtype=dtype, console=self.console)
         self.vae = VaeModel(init_device=init_device, device=self.device, dtype=torch.float32, console=self.console)
         self.tag_generation = TagGenration(init_device=init_device, device=self.device, dtype=dtype, console=self.console)
 
         self.tag_tree = self.tag_generation.tag_tree
-
-        self.f = self.config["compression_ratio"]
-        self.patch_size = self.config["patch_size"]
-        self.allowable_size = self.config["allowable_size"]
 
         self._sampler: Optional[Sampling] = None
         self._detailer: Optional[Detailering] = None
@@ -129,9 +131,13 @@ class Handler:
 
     def _fit_size(self, H: int, W: int) -> tuple[int, int]:
         unit = self.f * self.patch_size
-        if H >= W:
-            return 1024, self._snap(W * 1024 / H, unit)
-        return self._snap(H * 1024 / W, unit), 1024
+        limit = self.allowable_size
+    
+        scale = min(1.0, limit / max(H, W))
+        H = int(H * scale)
+        W = int(W * scale)
+    
+        return self._snap(H, unit), self._snap(W, unit)
 
     def get_tag_list(self) -> list[str]:
         return self.tag_generation.get_ac_tags()
@@ -276,7 +282,7 @@ class Handler:
 
         assert H == new_H, f"Height mismatch: expected={H}, actual={new_H}"
         assert W == new_W, f"Width mismatch: expected={W}, actual={new_W}"
-
+        
         tags_reshape, final_tags = self._resolve_tags(tags_text, nsfw, new_H, new_W, fixed)
         imgs, sigmas_steps, seeds, video_imgs = self.detailer.sampling(
             tags=tags_reshape,

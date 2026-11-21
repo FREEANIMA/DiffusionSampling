@@ -585,7 +585,7 @@
   // ui.py 가 window.DETAILER_CFG 로 내려줌 (없으면 기본값)
   const CFG = window.DETAILER_CFG || {};
   const UNIT = CFG.unit || 32;          // patch_size * compression_ratio
-  const ALLOW = CFG.allowable || 1024;  // allowable_size
+  const ALLOW = CFG.allowable || 1024 ;  // allowable_size
 
   const initEditor = (p, kind) => {
     const isRect = kind === 'rect';
@@ -1136,6 +1136,71 @@
         },
       };
     });
+  })();
+
+  // =========================================================
+  // Size controls (Text2img): 슬라이더 + 숫자 입력
+  //   - 두 변 모두 1024 이하 → 자유
+  //   - 한 변이라도 1024 초과 → 큰 변을 2048로 보정
+  // =========================================================
+
+  (() => {
+    const p = PREFIX.txt2img;
+    const SIZE_MIN = 64;
+    const SIZE_MAX = 2048;
+    const FREE_MAX = 1024;
+    const STEP = 32;
+
+    const els = {
+      H: { num: $(`${p}-H`), range: $(`${p}-H-range`) },
+      W: { num: $(`${p}-W`), range: $(`${p}-W-range`) },
+    };
+
+    const snap = (v) => {
+      v = Number(v);
+      if (!Number.isFinite(v)) v = FREE_MAX;
+      v = Math.round(v / STEP) * STEP;
+      return Math.max(SIZE_MIN, Math.min(SIZE_MAX, v));
+    };
+
+    const write = (k, v) => {
+      els[k].num.value = v;
+      els[k].range.value = v;
+    };
+
+    // edited: 방금 사용자가 건드린 변 ('H' | 'W')
+    const apply = (edited) => {
+      const other = edited === 'H' ? 'W' : 'H';
+
+      let a = snap(els[edited].num.value);
+      let b = snap(els[other].num.value);
+
+      // 한 변이라도 1024 초과인데 2048인 변이 없으면 → 큰 변을 2048로
+      if (Math.max(a, b) > FREE_MAX && Math.max(a, b) < SIZE_MAX) {
+        if (a >= b) a = SIZE_MAX;
+        else b = SIZE_MAX;
+      }
+
+      write(edited, a);
+      write(other, b);
+    };
+
+    ['H', 'W'].forEach((k) => {
+      // 슬라이더: 움직이는 즉시 보정
+      els[k].range.addEventListener('input', () => {
+        els[k].num.value = els[k].range.value;
+        apply(k);
+      });
+
+      // 숫자 입력: 타이핑 중에는 건드리지 않고, 확정(Enter/blur/스피너)될 때 보정
+      els[k].num.addEventListener('change', () => apply(k));
+      els[k].num.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') apply(k);
+      });
+    });
+
+    // 초기값 정리
+    apply('H');
   })();
 
   // =========================================================

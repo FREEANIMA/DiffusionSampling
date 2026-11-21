@@ -5,7 +5,7 @@ from .solvers import euler, heun, renoise, sigma_lo_of, ab2
 import common.globals as g
 
 @torch.inference_mode()
-def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_mask, cfg_scale, dtype):
+def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_mask, cfg_scale, dtype, max_side):
     x_in = x.to(dtype)
     use_cfg = cfg_scale != 1.0
     B = x_in.shape[0]
@@ -19,7 +19,7 @@ def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_ma
     def fwd(x_, emb, mask):
         sig = sigma.expand(x_.shape[0])
         fn = model.forward_cpu if g.INIT_DEVICE == "cpu" else model.forward
-        out, _ = fn(x=x_, sigma=sig, txt_emb=emb, txt_mask=mask)
+        out, _ = fn(x=x_, sigma=sig, txt_emb=emb, txt_mask=mask, max_side=max_side)
         return out.float()
 
     with torch.amp.autocast(device_type=x.device.type, dtype=dtype):
@@ -57,14 +57,14 @@ def eta_at_custom_sin(sigma_next, eta, mu=0.6):
 
 @torch.inference_mode()
 def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, 
-                   cond_emb, cond_mask, uncond_emb, uncond_mask, 
+                   cond_emb, cond_mask, uncond_emb, uncond_mask, max_side,
                    gens, dtype, eta, sigma_mean, eta_mode="cos", 
                    after_step=None, cfg_min_sigma=0.0, debug_probe=False, eta_power=1.0):
     model.eval()
     n = len(sigmas) - 1
     kw = dict(model=model, cond_emb=cond_emb, cond_mask=cond_mask,
               uncond_emb=uncond_emb, uncond_mask=uncond_mask,
-              cfg_scale=cfg_scale, dtype=dtype)
+              cfg_scale=cfg_scale, dtype=dtype, max_side=max_side)
 
     latents = []
     sigmas_steps = []

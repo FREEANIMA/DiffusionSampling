@@ -11,12 +11,11 @@ import common.globals as g
 
 class Model(nn.Module):
     def __init__(self, hidden_size, nhead, num_layers, dropout, pos_scale,
-                 sigma_emb_hz, in_channels, patch_size, rope_hz, sigma_scale, txt_hidden_size, allowable_size, compression_ratio,
+                 sigma_emb_hz, in_channels, patch_size, rope_hz, sigma_scale, txt_hidden_size,
                  check=False, **kwargs):
         super().__init__()
         dim_feedforward = 3 * hidden_size
         self.patch_size = patch_size
-        self.max_side = allowable_size // (compression_ratio * patch_size)
         self.in_channels = in_channels
         self.sigma_scale = sigma_scale
 
@@ -72,26 +71,25 @@ class Model(nn.Module):
         nn.init.zeros_(self.final_mod.weight)
         nn.init.zeros_(self.final_mod.bias)
 
-    def forward(self, x, sigma, txt_emb, txt_mask=None, use_checkpoint=False, collects_stats=False, attn_collects_stats=False):
+    def forward(self, x, sigma, txt_emb, max_side, txt_mask=None, use_checkpoint=False, collects_stats=False, attn_collects_stats=False):
         B, C, H, W = x.shape
         p = self.patch_size
         h, w = H // p, W // p
-        MAX = self.max_side
-        assert h <= MAX and w <= MAX, f"token grid {h}x{w} > {MAX}x{MAX}"
+        assert h <= max_side and w <= max_side, f"token grid {h}x{w} > {max_side}x{max_side}"
 
-        pad_h, pad_w = (MAX - h) * p, (MAX - w) * p
+        pad_h, pad_w = (max_side - h) * p, (max_side - w) * p
         if pad_h or pad_w:
             x = F.pad(x, (0, pad_w, 0, pad_h))
 
         img_emb = self.patch_embedding(x)
-        T_img = MAX * MAX
+        T_img = max_side * max_side
         txt_emb = self.txt_emb(txt_emb)
 
         sigma = sigma.to(device=x.device, dtype=torch.float32)
         sigma_emb = self.sigma_proj(sigma * self.sigma_scale)
         sigma_norm = self.sigma_norm(self.sigma_embed(sigma_emb))
         
-        img_mask = torch.zeros(MAX, MAX, dtype=torch.bool, device=x.device)
+        img_mask = torch.zeros(max_side, max_side, dtype=torch.bool, device=x.device)
         img_mask[:h, :w] = True
         img_mask = img_mask.reshape(1, T_img).expand(B, -1)
 
@@ -105,8 +103,8 @@ class Model(nn.Module):
 
         param = {
             "vec"       : sigma_norm,
-            "H"         : MAX,
-            "W"         : MAX,
+            "H"         : max_side,
+            "W"         : max_side,
             "attn_mask" : attn_mask,
             "collects_stats" : collects_stats,
             "attn_collects_stats" : attn_collects_stats
@@ -137,27 +135,26 @@ class Model(nn.Module):
 
         pred_velocity = self.output_proj(x_final)
         pred_velocity = self.patch_embedding.unpatchify(
-            pred_velocity, MAX * p, MAX * p, out_channels=self.in_channels
+            pred_velocity, max_side * p, max_side * p, out_channels=self.in_channels
         )
         pred_velocity = pred_velocity[:, :, :H, :W]
 
         return pred_velocity, _stats
     
     @torch.inference_mode()
-    def forward_cpu(self, x, sigma, txt_emb, txt_mask=None, collects_stats=False, attn_collects_stats=False):
+    def forward_cpu(self, x, sigma, txt_emb, max_side, txt_mask=None, collects_stats=False, attn_collects_stats=False):
         B, C, H, W = x.shape
         device = x.device
         p = self.patch_size
         h, w = H // p, W // p
-        MAX = self.max_side
-        assert h <= MAX and w <= MAX, f"token grid {h}x{w} > {MAX}x{MAX}"
+        assert h <= max_side and w <= max_side, f"token grid {h}x{w} > {max_side}x{max_side}"
 
-        pad_h, pad_w = (MAX - h) * p, (MAX - w) * p
+        pad_h, pad_w = (max_side - h) * p, (max_side - w) * p
         if pad_h or pad_w:
             x = F.pad(x, (0, pad_w, 0, pad_h))
 
         img_emb = self.patch_embedding(x)
-        T_img = MAX * MAX
+        T_img = max_side * max_side
 
         txt_emb = self.txt_emb(txt_emb)
 
@@ -166,7 +163,7 @@ class Model(nn.Module):
         sigma_norm = self.sigma_norm(self.sigma_embed(sigma_emb))
 
         # Mask
-        img_mask = torch.zeros(MAX, MAX, dtype=torch.bool, device=device)
+        img_mask = torch.zeros(max_side, max_side, dtype=torch.bool, device=device)
         img_mask[:h, :w] = True
         img_mask = img_mask.reshape(1, T_img).expand(B, -1)
 
@@ -194,8 +191,8 @@ class Model(nn.Module):
 
         param = {
             "vec": sigma_norm,
-            "H": MAX,
-            "W": MAX,
+            "H": max_side,
+            "W": max_side,
             "attn_mask": attn_mask,
             "collects_stats": collects_stats,
             "attn_collects_stats": attn_collects_stats,
@@ -248,8 +245,8 @@ class Model(nn.Module):
 
         pred_velocity = self.patch_embedding.unpatchify(
             pred_velocity,
-            MAX * p,
-            MAX * p,
+            max_side * p,
+            max_side * p,
             out_channels=self.in_channels
         )
 

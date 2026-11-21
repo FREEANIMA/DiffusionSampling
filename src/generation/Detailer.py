@@ -120,8 +120,12 @@ class Detailering:
 
         if H == 2048 or W  == 2048:
             self.model.rope2d.pos_scale = 0.25
+            allowable_size = 2048
         else:
             self.model.rope2d.pos_scale = 0.5
+            allowable_size = 1024
+
+        max_side = allowable_size // (self.f * self.patch_size)
             
         img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
         img = img.to(device=self.device, dtype=self.dtype)
@@ -190,7 +194,8 @@ class Detailering:
             after_step=after_step,
             eta=eta,
             eta_mode=eta_mode,
-            sigma_mean=mean
+            sigma_mean=mean,
+            max_side=max_side
         )
         if g.INIT_DEVICE == "cpu":
             self.model.to("cpu")

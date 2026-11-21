@@ -1,16 +1,26 @@
-myenv310
-
+cat > .gitignore << 'EOF'
+# Python
 __pycache__/
 *.pyc
 *.pyo
 
-data/metadata
-.env
+# 가상환경 / 환경변수
+.venv/
 venv/
-scripts/
+myenv310
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# 에디터
 .vscode/
 .idea/
 
-generation
+# 프로젝트
+data/metadata
+scripts/
+/generation/
 *.tmp
 tree.txt
+EOF

@@ -121,8 +121,12 @@ class InPainting:
 
         if H == 2048 or W  == 2048:
             self.model.rope2d.pos_scale = 0.25
+            allowable_size = 2048
         else:
             self.model.rope2d.pos_scale = 0.5
+            allowable_size = 1024
+
+        max_side = allowable_size // (self.f * self.patch_size)
 
         arr, H, W = img_resize(img_bytes, self.allowable_size, self.patch_size, self.f)
 
@@ -193,7 +197,8 @@ class InPainting:
             dtype=self.dtype,
             after_step=after_step,
             eta=eta,
-            sigma_mean=mean
+            sigma_mean=mean,
+            max_side=max_side
         )
         if g.INIT_DEVICE == "cpu":
             self.model.to("cpu")
