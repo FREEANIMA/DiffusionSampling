@@ -55,20 +55,10 @@ def eta_at_custom_sin(sigma_next, eta, mu=0.6):
 
     return eta * y
 
-def cfg_at_cos(sigma, cfg_scale, mu=0.5, half_width=0.5, high_floor=0.3, sigma_fade=0.1):
-    s = float(sigma)
-    d = min(abs(s - mu) / half_width, 1.0)
-    bump = 0.5 * (1.0 + math.cos(math.pi * d))
-    w = high_floor + (1.0 - high_floor) * bump
-    t = min(max(s / sigma_fade, 0.0), 1.0)
-    fade = 0.5 * (1.0 - math.cos(math.pi * t))
-
-    return 1.0 + (cfg_scale - 1.0) * w * fade
-
 @torch.inference_mode()
 def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, 
                    cond_emb, cond_mask, uncond_emb, uncond_mask, max_side,
-                   gens, dtype, eta, sigma_mean, eta_mode="cos", cfg_mu=0.6,
+                   gens, dtype, eta, sigma_mean, eta_mode="cos", 
                    after_step=None, cfg_min_sigma=0.0, debug_probe=False, eta_power=1.0):
     model.eval()
     n = len(sigmas) - 1
@@ -86,9 +76,7 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale,
             sigma, sigma_next = sigmas[i], sigmas[i + 1]
 
             sigmas_steps.append(float(sigma_next))
-            cfg_i = cfg_at_cos(sigma, cfg_scale, mu=cfg_mu)
-            if cfg_i < 1.05: 
-                cfg_i = 1.0
+            cfg_i = cfg_scale if float(sigma) > cfg_min_sigma else 1.0
             kw_i = {**kw, "cfg_scale": cfg_i}
             v = velocity_predict(x=x, sigma=sigma, **kw_i)
             last = (i == n - 1)
@@ -121,9 +109,7 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale,
                     x = euler(x, v, sigma, sigma_next)
                 else:
                     x_e = euler(x, v, sigma, sigma_lo)
-                    cfg_i2 = cfg_at_cos(sigma_lo, cfg_scale, mu=cfg_mu)
-                    if cfg_i2 < 1.05:
-                        cfg_i2 = 1.0
+                    cfg_i2 = cfg_scale if float(sigma_lo) > cfg_min_sigma else 1.0
                     v2 = velocity_predict(x=x_e, sigma=sigma_lo, **{**kw, "cfg_scale": cfg_i2})
                     x = heun(x, v, v2, sigma, sigma_lo)
                     del x_e, v2
