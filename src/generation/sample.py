@@ -87,6 +87,12 @@ class Sampling:
     @torch.inference_mode()
     def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, H, W, B=1, 
                  eta=0.3, seed=None, on_step=None, frame_save=False, eta_mode="cos"):
+
+        if H == 2048 or W  == 2048:
+            self.model.rope2d.pos_scale = 0.25
+        else:
+            self.model.rope2d.pos_scale = 0.5
+            
         cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds, mean = self.set_init(tags, seed, steps, shift, B, H, W)
 
         total = len(sigmas) - 1

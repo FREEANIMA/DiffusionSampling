@@ -118,6 +118,11 @@ class Detailering:
     def sampling(self, arr, tags, shift, H, W, calculate_type, cfg_scale, steps, start_t, 
                  B=1, eta=0.3, seed=None, regen_mask=None, keep_mask=None, on_step=None, eta_mode="cos", frame_save=False):
 
+        if H == 2048 or W  == 2048:
+            self.model.rope2d.pos_scale = 0.25
+        else:
+            self.model.rope2d.pos_scale = 0.5
+            
         img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
         img = img.to(device=self.device, dtype=self.dtype)
 

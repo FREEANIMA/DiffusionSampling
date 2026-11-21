@@ -119,6 +119,10 @@ class InPainting:
     def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, img_bytes, start_t, 
                  B=1, eta=0.3, seed=None, regen_mask=None, keep_mask=None, on_step=None, frame_save=False, eta_mode="cos"):
 
+        if H == 2048 or W  == 2048:
+            self.model.rope2d.pos_scale = 0.25
+        else:
+            self.model.rope2d.pos_scale = 0.5
 
         arr, H, W = img_resize(img_bytes, self.allowable_size, self.patch_size, self.f)
 
