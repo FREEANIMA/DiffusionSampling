@@ -83,9 +83,9 @@ class Detailering:
             for g_ in gens
         ], dim=0)
 
-        sigmas = sigma_schedular(step=steps, device=self.device, shift=shift)
+        sigmas, mean = sigma_schedular(step=steps, device=self.device, shift=shift)
 
-        return cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds
+        return cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds, mean
 
     def _mask_arr(self, m, W, H):
         if m is None:
@@ -118,6 +118,11 @@ class Detailering:
     def sampling(self, arr, tags, shift, H, W, calculate_type, cfg_scale, steps, start_t, 
                  B=1, eta=0.3, seed=None, regen_mask=None, keep_mask=None, on_step=None, eta_mode="cos", frame_save=False):
 
+        if H == 2048 or W  == 2048:
+            self.model.rope2d.pos_scale = 0.25
+        else:
+            self.model.rope2d.pos_scale = 0.5
+            
         img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
         img = img.to(device=self.device, dtype=self.dtype)
 
@@ -139,9 +144,8 @@ class Detailering:
                 mask_lat = mask_lat * (1.0 - keep_lat)
 
 
-        cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds = self.set_init(tags, seed, steps, shift, B, H, W)
+        cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds, mean = self.set_init(tags, seed, steps, shift, B, H, W)
 
-        sigmas = sigma_schedular(step=steps, device=self.device, shift=shift)
         start_idx = int(torch.argmin((sigmas - start_t).abs()).item())
         sigmas = sigmas[start_idx:]
         if len(sigmas) < 2:
@@ -185,7 +189,8 @@ class Detailering:
             dtype=self.dtype,
             after_step=after_step,
             eta=eta,
-            eta_mode=eta_mode
+            eta_mode=eta_mode,
+            sigma_mean=mean
         )
         if g.INIT_DEVICE == "cpu":
             self.model.to("cpu")

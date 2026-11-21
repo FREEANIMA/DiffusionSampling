@@ -1,7 +1,7 @@
 import math
 import torch
 from tqdm.auto import tqdm
-from .solvers import euler, heun, ddpm_plus, renoise, sigma_lo_of
+from .solvers import euler, heun, renoise, sigma_lo_of, ab2
 import common.globals as g
 
 @torch.inference_mode()
@@ -36,15 +36,6 @@ def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_ma
 
     return v
 
-def eta_at_sin(sigma_next, eta, mu=0.6, half_width=0.5, floor=0.5, sigma_fade=0.15):
-    sn = float(sigma_next)
-    d = min(abs(sn - mu) / half_width, 1.0)
-    bump = 0.5 * (1.0 + math.sin(math.pi * d))
-    w = floor + (1.0 - floor) * bump
-    t = min(max(sn / sigma_fade, 0.0), 1.0)
-    fade = 0.5 * (1.0 - math.sin(math.pi * t)) 
-    return eta * w * fade
-
 def eta_at(progress, eta, power=1.0):
     x = min(max(float(progress), 0.0), 1.0)
     w = math.log(2.0 / (x + 1.0)) / math.log(2.0)
@@ -59,8 +50,15 @@ def eta_at_cos(sigma_next, eta, mu=0.6, half_width=0.5, floor=0.5, sigma_fade=0.
     fade = 0.5 * (1.0 - math.cos(math.pi * t)) 
     return eta * w * fade
 
+def eta_at_custom_sin(sigma_next, eta, mu=0.6):
+    y = (math.sin(math.pi * sigma_next - mu) - math.sin(-mu)) / (1.0 - math.sin(-mu))
+
+    return eta * y
+
 @torch.inference_mode()
-def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_mask, uncond_emb, uncond_mask, gens, dtype, eta, eta_mode="cos",
+def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, 
+                   cond_emb, cond_mask, uncond_emb, uncond_mask, 
+                   gens, dtype, eta, sigma_mean, eta_mode="cos", 
                    after_step=None, cfg_min_sigma=0.0, debug_probe=False, eta_power=1.0):
     model.eval()
     n = len(sigmas) - 1
@@ -71,6 +69,7 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
     latents = []
     sigmas_steps = []
     prev_v = None
+    hist_v, hist_h = None, None
 
     try:
         for i in tqdm(range(n), desc="sampling"):
@@ -87,12 +86,12 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
             progress = i / max(n - 1, 1)
 
             if eta_mode == "cos":
-                eta_i = eta_at_cos(float(sigma_next), eta)
+                eta_i = eta_at_cos(float(sigma_next), eta, mu=sigma_mean)
             elif eta_mode == "ln":
                 eta_i = eta_at(progress, eta, power=eta_power)
-            elif eta_mode == "sin":
-                eta_i = eta_at_sin(float(sigma_next), eta)
-
+            elif eta_mode == "custom_sin":
+                eta_i = eta_at_custom_sin(sigma_next, eta, sigma_mean)
+                
             use_noise = eta_i > 1e-4 and not last
             sigma_lo = sigma_lo_of(sigma_next, eta_i) if use_noise else sigma_next
             z = (torch.cat([
@@ -116,10 +115,12 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
                     del x_e, v2
                 if use_noise:
                     x = renoise(x, z, sigma_lo, sigma_next)
-
-            elif calculate_type == "ddpm_plus":
-                x = ddpm_plus(x, v, z, sigma, sigma_next, eta_i)
-
+            elif calculate_type == "ab2":
+                h = float(sigma_lo) - float(sigma)
+                x = ab2(x, v, hist_v, sigma, sigma_lo, hist_h)
+                if use_noise:
+                    x = renoise(x, z, sigma_lo, sigma_next)
+                hist_v, hist_h = v.detach(), h
             else:
                 raise ValueError(f"Unsupported sampling method: {calculate_type}")
 
@@ -145,7 +146,7 @@ def steps_sampling(model, x, sigmas, calculate_type, cfg_scale, cond_emb, cond_m
                         )
                         vmin, vidx = v_tok[b].flatten().min(dim=0)
                         tqdm.write(
-                            f"[{i:02d}] σ={float(sigma):.3f} eta={eta_i:.4f} cfg={cfg_i:.1f} b{b} "
+                            f"[{i:02d}] a={float(sigma):.3f} eta={eta_i:.4f} cfg={cfg_i:.1f} b{b} "
                             f"med={med:.1e} low5(row,col):dv_rel= {pos} | "
                             f"min|v|={vmin.item():.1e}@({vidx.item() // W},{vidx.item() % W})"
                         )

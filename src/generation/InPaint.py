@@ -84,9 +84,9 @@ class InPainting:
             for g_ in gens
         ], dim=0)
 
-        sigmas = sigma_schedular(step=steps, device=self.device, shift=shift)
+        sigmas, mean = sigma_schedular(step=steps, device=self.device, shift=shift)
 
-        return cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds
+        return cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds, mean
 
     def save_imgs(self, tags, cfg_scale, final_tags, imgs, steps, calculate_type, shift, seeds, video_imgs, eta, eta_mode, sigmas_steps=None):
         save_dir = os.path.join(self.base_root, "inpainting")
@@ -119,6 +119,10 @@ class InPainting:
     def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, img_bytes, start_t, 
                  B=1, eta=0.3, seed=None, regen_mask=None, keep_mask=None, on_step=None, frame_save=False, eta_mode="cos"):
 
+        if H == 2048 or W  == 2048:
+            self.model.rope2d.pos_scale = 0.25
+        else:
+            self.model.rope2d.pos_scale = 0.5
 
         arr, H, W = img_resize(img_bytes, self.allowable_size, self.patch_size, self.f)
 
@@ -144,7 +148,7 @@ class InPainting:
                 mask_lat = mask_lat * (1.0 - keep_lat)
 
 
-        cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds = self.set_init(tags, seed, steps, shift, B, H, W)
+        cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds, mean = self.set_init(tags, seed, steps, shift, B, H, W)
 
         start_idx = int(torch.argmin((sigmas - start_t).abs()).item())
         sigmas = sigmas[start_idx:]
@@ -188,7 +192,8 @@ class InPainting:
             gens=gens,
             dtype=self.dtype,
             after_step=after_step,
-            eta=eta
+            eta=eta,
+            sigma_mean=mean
         )
         if g.INIT_DEVICE == "cpu":
             self.model.to("cpu")
