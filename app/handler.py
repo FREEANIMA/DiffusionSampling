@@ -344,15 +344,17 @@ class Handler:
             eta=eta, eta_mode=eta_mode
         )
 
-
     def _half_frames(self, frames, allowable):
         target = allowable // 2
         out = []
-        for f in frames:
-            if not isinstance(f, Image.Image):
-                f = Image.fromarray(f)
-            s = target / max(f.size)
-            w2 = max(2, int(round(f.width * s)) // 2 * 2)   # ffmpeg 짝수
-            h2 = max(2, int(round(f.height * s)) // 2 * 2)
-            out.append(f.resize((w2, h2), Image.Resampling.LANCZOS))
+        for seq in frames:                      # 바깥: 배치별 리스트
+            new_seq = []
+            for f in seq:                       # 안쪽: 실제 프레임
+                if not isinstance(f, Image.Image):
+                    f = Image.fromarray(f)
+                s = target / max(f.size)
+                w2 = max(2, int(round(f.width * s)) // 2 * 2)
+                h2 = max(2, int(round(f.height * s)) // 2 * 2)
+                new_seq.append(f.resize((w2, h2), Image.Resampling.LANCZOS))
+            out.append(new_seq)
         return out
