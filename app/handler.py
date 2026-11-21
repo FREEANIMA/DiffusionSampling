@@ -335,26 +335,9 @@ class Handler:
                 im = im.resize((w, h), Image.Resampling.LANCZOS)
             fixed_imgs.append(im)
 
-        video_imgs = self._half_frames(video_imgs, self.allowable_size)
-
         return self.detailer.merge_img(
             origin_img=img, fixed_imgs=fixed_imgs,
             box=box, final_tags=final_tags, tags=tags_reshape, steps=steps, shift=shift,
             calculate_type=calc_type, cfg_scale=cfg_scale, seeds=seeds, sigmas_steps=sigmas_steps, paste_mask=None, video_imgs=video_imgs,
             eta=eta, eta_mode=eta_mode
         )
-
-    def _half_frames(self, frames, allowable):
-        target = allowable // 2
-        out = []
-        for seq in frames:                      # 바깥: 배치별 리스트
-            new_seq = []
-            for f in seq:                       # 안쪽: 실제 프레임
-                if not isinstance(f, Image.Image):
-                    f = Image.fromarray(f)
-                s = target / max(f.size)
-                w2 = max(2, int(round(f.width * s)) // 2 * 2)
-                h2 = max(2, int(round(f.height * s)) // 2 * 2)
-                new_seq.append(f.resize((w2, h2), Image.Resampling.LANCZOS))
-            out.append(new_seq)
-        return out

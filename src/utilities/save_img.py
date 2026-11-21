@@ -82,6 +82,11 @@ def _save_img(save_dir, filename, imgs=None, video_imgs=None, sigmas=None, shift
             name = "process.mp4" if B == 1 else f"process_{b}.mp4"
             final = imgs[b] if imgs and b < len(imgs) else frames[-1]
 
+            size = half(frames[0]).size
+            final_half = half(final)
+            if final_half.size != size:
+                final_half = final_half.resize(size, Image.Resampling.LANCZOS)
+
             with imageio.get_writer(
                 os.path.join(save_dir, name),
                 fps=6, codec="libx264", quality=8, macro_block_size=1,
@@ -89,7 +94,7 @@ def _save_img(save_dir, filename, imgs=None, video_imgs=None, sigmas=None, shift
                 for i, f in enumerate(frames):
                     w.append_data(np.asarray(_with_label(half(f), label(i))))
 
-                last = np.asarray(_with_label(half(final), "final"))
+                last = np.asarray(_with_label(final_half, "final"))
                 for _ in range(8):
                     w.append_data(last)
 
