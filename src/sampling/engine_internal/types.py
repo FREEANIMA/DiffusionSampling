@@ -28,7 +28,7 @@ class InitOutput:
 class InpaintInput():
     img: Image.Image
     start_t: float
-    mask: bytes | None = None
+    mask: Image.Image
 
 @dataclass
 class Txt2ImgInput(InitInput):

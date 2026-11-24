@@ -3,17 +3,17 @@ from PIL import Image
 import numpy as np
 import cv2
 
-from .types import Txt2ImgInput, InitOutput, InpaintInput, InpaintCtx
-from .setup import setup_init
 
 from src.core import log, state, error_report
 from src.external import TE, VAE
 from src.network import MMDIT, LLM
 
-from .steps import sampling
-from .utils import arr_resize, mask_generation, upscale_to, img_to_bytes
+from src.sampling.engine_internal import (
+    Txt2ImgInput, InitOutput, InpaintInput, InpaintCtx,
+    setup_init, sampling, arr_resize, mask_generation
+)
 
-class Generation:
+class SamplingEngine:
     def __init__(self, model:MMDIT, llm:LLM, te:TE, vae:VAE, console=None):
         self.console = console
         self.te = te
@@ -34,9 +34,9 @@ class Generation:
 
     def txt2img(self, txt2img_input, start_t=0, inpaint_ctx: InpaintCtx | None = None) -> tuple[list[Image.Image], list[Image.Image], list[float]]:
         try:
-            init_out:InitOutput = setup_init(txt2img_input)
+            init_out:InitOutput = setup_init(model=self.te, config=state.config, txt2img_input=txt2img_input)
 
-            start_idx = int(torch.argmin((init_out.sigmas - start_t).abs()).item())
+            start_idx = int(np.argmin(np.abs(init_out.sigmas - start_t)))
             init_out.sigmas = init_out.sigmas[start_idx:]
 
             x, latents, sigmas_steps = sampling(

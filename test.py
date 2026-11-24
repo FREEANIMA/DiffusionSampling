@@ -2,17 +2,16 @@ import numpy as np
 from src.core import state
 
 def sigma_cdf(x) -> np.ndarray:
-    z = np.clip(state.config.beta - state.config.gamma * x, -1.0, 1.0)
-    y = state.config.alpha * np.arccos(z) - state.config.zeta
+    z = np.clip(state.config.beta + state.config.gamma * x, -1.0, 1.0)
+    y = state.config.alpha * np.arccos(z) + state.config.zeta
     y = np.clip(y, state.config.low_sigma, state.config.high_sigma)
 
     return y
 
-
 def cfg_cdf(x, cfg_scale) -> np.ndarray:
-    z = np.pi*(state.config.cfg_beta + state.config.cfg_gamma * x) / state.config.cfg_zeta
-    y = state.config.cfg_alpha * np.sin(z)
-    y = np.clip(y, state.config.low_sigma, state.config.high_sigma)
+    z = np.pi*(state.config.cfg_alpha + state.config.cfg_beta * x) / state.config.cfg_gamma
+    y = np.sin(z)
+    y = np.clip(y, 0, 1)
 
     return y * cfg_scale
 
