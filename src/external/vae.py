@@ -7,8 +7,8 @@ import torch.nn.functional as F
 # DC-AE 32×	mit-han-lab/dc-ae-f32c32-sana-1.0-diffusers	32×	32
 # DC-AE 64×	mit-han-lab/dc-ae-f64c128-in-1.0-diffusers	64×	128
 
-class VaeModel():
-    def __init__(self, init_device, model_name="mit-han-lab/dc-ae-f32c32-sana-1.0-diffusers", device="cuda", dtype=torch.bfloat16, console=None):
+class VAE():
+    def __init__(self, init_device="cuda", model_name="mit-han-lab/dc-ae-f32c32-sana-1.0-diffusers", device="cuda", dtype=torch.bfloat16, console=None):
         self.model_name = model_name
         self.device = device
         self.dtype = dtype
@@ -32,7 +32,7 @@ class VaeModel():
         return vae
 
     @torch.no_grad()
-    def encoder(self, img, chunk_size=4):
+    def encoder(self, img, chunk_size=8):
         img = img.to(device=self.device, dtype=self.dtype, non_blocking=True)
 
         if img.min() >= 0.0 and img.max() <= 1.0:
@@ -80,7 +80,7 @@ class VaeModel():
         return [Image.fromarray(a) for a in img]
 
     @torch.no_grad()
-    def decoder(self, latent, chunk_size=4):
+    def decoder(self, latent, chunk_size=8):
         latent = latent.to(device=self.device, dtype=self.dtype, non_blocking=True)
 
         images = []

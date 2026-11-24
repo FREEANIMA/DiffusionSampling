@@ -36,7 +36,17 @@ class PathSettins:
     CKPT_LOCAL_DIR: float
 
 @dataclass(kw_only=True)
-class Config(ModelSettings, PathSettins, SigmaSettings):
+class SamplingSettings:
+    dtype: str
+    device: str
+
+@dataclass(kw_only=True)
+class FineTuningSettings:
+    NAS: list
+    init_prompt: str
+
+@dataclass(kw_only=True)
+class Config(ModelSettings, PathSettins, SigmaSettings, FineTuningSettings, SamplingSettings):
     ver_number: int
 
     def __post_init__(self):

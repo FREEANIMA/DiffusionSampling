@@ -1,7 +1,7 @@
 import queue
 from .runtime import config_settings
 
-config, deadline = config_settings()
+config = config_settings()
 timings = {}
 vram = {}
 MONITOR = {}

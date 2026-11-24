@@ -11,7 +11,7 @@ import random
 from src.utils import sigma_schedular, steps_sampling, img_resize, gpu_context, _save_img, _save_text
 INIT_PROMPT = "general img; "
 
-class InPainting:
+class InPaint:
     def __init__(self, base_root, model, text_encoder, vae, config, console=None):
         self.base_root = base_root
         self.device = "cuda"

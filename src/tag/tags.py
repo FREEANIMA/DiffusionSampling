@@ -61,8 +61,6 @@ class TagGenration:
         self.id_to_tag = {v: k for k, v in self.vocab.items()}
         self.console = console
 
-
-
     def _download(self):
         VERSION_CODE = sum(
             int(v) * (100, 10, 1)[i]

@@ -1,26 +1,19 @@
 import torch
-from transformers import (
-    T5EncoderModel,
-    T5Tokenizer,
-)
+from transformers import T5EncoderModel, T5Tokenizer
 
-class T5TextModel():
-    def __init__(self, init_device, model_name="google/t5-v1_1-large", device="cuda", dtype=torch.bfloat16, console=None):
+class TE():
+    def __init__(self, model_name="google/t5-v1_1-large", device="cuda", dtype=torch.bfloat16):
         self.max_length = 256
         self.model_name = model_name
         self.device = device
         self.dtype = dtype
-        self.init_device = init_device
         self.text_encoder, self.tokenizer = self.download_t5()
-
-        if console is not None:
-            console.put("text encoder complete")
 
     def download_t5(self):
         text_encoder = T5EncoderModel.from_pretrained(
             self.model_name,
             torch_dtype=self.dtype,
-            device_map=self.init_device,
+            device_map=self.device,
             use_safetensors=True,  
         )
 
@@ -32,7 +25,7 @@ class T5TextModel():
         return text_encoder, tokenizer
 
     @torch.no_grad()
-    def encoder(self, captions):
+    def encoder(self, captions) -> tuple[torch.Tensor, torch.Tensor]:
         if isinstance(captions, str):
             captions = [captions]
 
@@ -53,8 +46,3 @@ class T5TextModel():
         attn_mask = tokens.attention_mask.bool()
 
         return text_emb, attn_mask
-
-    def to(self, device):
-        self.text_encoder.to(device)
-        self.device = str(device)
-        return self    
