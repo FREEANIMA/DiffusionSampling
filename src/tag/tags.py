@@ -1,7 +1,6 @@
 import torch
 import pandas as pd
 import json
-import random
 
 from src.network import LLM
 from src.storage import download_model, load_llm_model
@@ -12,7 +11,6 @@ from .utils import build_tag_maps, unk_separation, mapping
 class TagGenration:
     def __init__(self, console=None):
         self.MIN_FIXED_TAGS = 5
-        self.SAMPLE_RETRY = 5
 
         self.NAS = state.config.NAS
         self.init_prompt = state.config.init_prompt
