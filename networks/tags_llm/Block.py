@@ -5,13 +5,13 @@ import torch.nn.functional as F
 from .Rope1D import Rope1D
 
 class Block(nn.Module):
-    def __init__(self, hidden_size, nhead, dim_forward, drop_out, rope: Rope1D):
+    def __init__(self, hidden_size, nhead, dim_forward, dropout, rope: Rope1D):
         super().__init__()
         assert hidden_size % nhead == 0
         self.nhead = nhead
         self.head_dim = hidden_size // nhead
         self.rope = rope
-        self.p = drop_out
+        self.p = dropout
 
         # self attn
         self.emb_norm = nn.RMSNorm(hidden_size)

@@ -170,8 +170,8 @@ class TagGenration:
                 next_logits = logits[:, -1, :]
 
         return [self.id_to_tag.get(i, f"<{i}>") for i in generated]
-    
-    def text_generation(self, tags_infer, nsfw, H, W, user_tags=None):
+        
+    def text_generation(self, tags_infer, nsfw, H, W, user_tags=None, keep_all=False):
         nsfw_text = f"nsfw: {str(nsfw).lower()}; "
         size_text = f"size: {H}x{W}; "
         merged, seen = [], set()
@@ -184,27 +184,30 @@ class TagGenration:
                 seen.add(rep)
                 merged.append(t)
 
-        user_tag_set = set(user_tags or [])
-        used_types = set()
+        if keep_all:
+            filtered = merged
+        else:
+            user_tag_set = set(user_tags or [])
+            used_types = set()
 
-        for t in (user_tags or []):
-            _type = self.type_map.get(t)
-            if _type in self.TYPES:
-                used_types.add(_type)
+            for t in (user_tags or []):
+                _type = self.type_map.get(t)
+                if _type in self.TYPES:
+                    used_types.add(_type)
 
-        filtered = []
-        for t in merged:
-            _type = self.type_map.get(t)
-            if _type in self.TYPES:
-                if t in user_tag_set:
+            filtered = []
+            for t in merged:
+                _type = self.type_map.get(t)
+                if _type in self.TYPES:
+                    if t in user_tag_set:
+                        filtered.append(t)
+                        continue
+                    if _type in used_types:
+                        continue
+                    used_types.add(_type)
                     filtered.append(t)
-                    continue
-                if _type in used_types:
-                    continue
-                used_types.add(_type)
-                filtered.append(t)
-            else:
-                filtered.append(t)
+                else:
+                    filtered.append(t)
 
         merged = filtered
         valid_tag_count = len(set(merged))
@@ -247,7 +250,9 @@ class TagGenration:
 
         if not fixed:
             tags_infer = tags_s()
-            result, _, final_tags = self.text_generation(tags_infer, nsfw, H, W, user_tags=user_tags)
+            result, _, final_tags = self.text_generation(
+                tags_infer, nsfw, H, W, user_tags=user_tags, keep_all=True
+            )
             return result, final_tags
 
         if len(user_tags) >= self.MIN_FIXED_TAGS:

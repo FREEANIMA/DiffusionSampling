@@ -6,7 +6,7 @@ from .Block import Block
 from .Rope1D import Rope1D
 
 class Model(nn.Module):
-    def __init__(self, hidden_size, vocab_size, nhead, num_layers, rope_hz, drop_out, max_len, **kwargs):
+    def __init__(self, hidden_size, vocab_size, nhead, num_layers, rope_hz, dropout, max_len, **kwargs):
         super().__init__()
         dim_forward = 4 * hidden_size
 
@@ -18,7 +18,7 @@ class Model(nn.Module):
                 hidden_size=hidden_size, 
                 nhead=nhead,
                 dim_forward=dim_forward,
-                drop_out=drop_out,
+                dropout=dropout,
                 rope=self.rope,
             )
             for _ in range(num_layers)
