@@ -19,6 +19,8 @@ class VAE():
         if console is not None:
             console.put("vae complete")
 
+        self.vae.eval()
+
     def download_flux_vae(self):
         vae = AutoencoderDC.from_pretrained(
             self.model_name,
@@ -31,7 +33,7 @@ class VAE():
 
         return vae
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def encoder(self, img, chunk_size=8):
         img = img.to(device=self.device, dtype=self.dtype, non_blocking=True)
 
@@ -79,8 +81,8 @@ class VAE():
 
         return [Image.fromarray(a) for a in img]
 
-    @torch.no_grad()
-    def decoder(self, latent, chunk_size=8):
+    @torch.inference_mode()
+    def decoder(self, latent, chunk_size=8) -> torch.Tensor:
         latent = latent.to(device=self.device, dtype=self.dtype, non_blocking=True)
 
         images = []

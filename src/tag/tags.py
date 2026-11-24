@@ -2,55 +2,34 @@ import torch
 import pandas as pd
 import json
 import random
-from dataclasses import asdict, is_dataclass
-from networks.tags_llm import Model
-from huggingface_hub import hf_hub_download
-from version import HUGGINGFACE, VERSION
+
+from src.network import LLM
+from src.storage import download_model, load_llm_model
+from src.core import state
 
 class TagGenration:
-    def __init__(self, init_device, device="cuda", dtype=torch.bfloat16, console=None):
+    def __init__(self, device="cuda", dtype=torch.bfloat16, console=None):
         self.device = device
         self.dtype = dtype
         self.MIN_TAG_FREQ = 1_000
         self.MIN_FIXED_TAGS = 5
         self.SAMPLE_RETRY = 5
 
-        self.NAS = [
-            "style", "person_count", "gender", "species", "hair_color", "hair_length", "hair_style", "eye_color",
-            "body_type", "clothing", "accessory", "background", "pose", "expression", "composition", "gaze", "sex_act"
-        ]
+        self.NAS = state.config.NAS
+        self.init_prompt = state.config.init_prompt
 
-        self.TYPES = self.NAS + [
-            t for t in [
-                "accessory", "age", "animal", "background", "bdsm", "body_part", "body_type", "breast_size",
-                "character", "clothing", "composition", "expression", "eye_color", "eye_state", "fluid",
-                "focus", "food", "footwear", "gaze", "gender", "genital", "genre", "hair_color", "hair_length", "hair_style",
-                "meme", "meta", "nudity_level", "object", "other", "person_count", "pose", "sex_act", "sex_position",
-                "skin", "species", "style", "swimwear", "time_weather", "underwear", "weapon",
-            ] if t not in self.NAS
-        ]
-
-        self.INIT_PROMPT = "general img; "
-
-        ckpt_path, vocab_path, tags_type_path = self._download()
+        download_model(config=state.config, filename="tags_llm.pt")
+        type_path = download_model(config=state.config, filename="tags_type.parquet")
+        vocab_path = download_model(config=state.config, filename="vocab.json")        
 
         with open(vocab_path, "r", encoding="utf-8") as f:
             self.vocab = json.load(f)
 
         vocab_size = len(self.vocab)
+        model_class = LLM()
+        load_llm_model(config=console, network=model_class, vocab_size=vocab_size, console=console)
 
-        chk = torch.load(ckpt_path, map_location="cpu", weights_only=True)
-        config = chk["config"]
-        param = asdict(config) if is_dataclass(config) else dict(config)
-        param["vocab_size"] = vocab_size
-
-        self.text_model = Model(**param)
-        self.text_model.load_state_dict(chk["model"])
-        self.text_model = self.text_model.to(device=init_device, dtype=dtype)
-        self.text_model.eval()
-
-        tags_type_df = pd.read_parquet(tags_type_path)
-
+        tags_type_df = pd.read_parquet(type_path)
         self.type_map, self.dup_map, self.tag_tree = self.build_tag_maps(tags_type_df=tags_type_df)
 
         self.PAD_ID = self.vocab["<pad>"]
@@ -60,29 +39,6 @@ class TagGenration:
 
         self.id_to_tag = {v: k for k, v in self.vocab.items()}
         self.console = console
-
-    def _download(self):
-        VERSION_CODE = sum(
-            int(v) * (100, 10, 1)[i]
-            for i, v in enumerate(VERSION.split("."))
-        )        
-        model_path = hf_hub_download(
-            repo_id=f"{HUGGINGFACE}/ver{VERSION_CODE}",
-            filename="tags_llm.pt",
-            repo_type="model",
-        )
-        vocab_path = hf_hub_download(
-            repo_id=f"{HUGGINGFACE}/ver{VERSION_CODE}",
-            filename="vocab.json",
-            repo_type="model",
-        )
-        tags_type_path = hf_hub_download(
-            repo_id=f"{HUGGINGFACE}/ver{VERSION_CODE}",
-            filename="tags_type.parquet",
-            repo_type="model",
-        )
-
-        return model_path, vocab_path, tags_type_path
 
     def build_tag_maps(self, tags_type_df):
         s = tags_type_df[["tag", "type", "dup", "count"]].drop_duplicates(subset="tag", keep="first")

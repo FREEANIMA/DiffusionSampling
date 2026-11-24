@@ -3,11 +3,11 @@ from tqdm.auto import tqdm
 
 from src.network import MMDIT
 from src.core import state
-from .types import SamplingInput, InitOutput
+from .types import Txt2ImgInput, InitOutput
 
 @torch.inference_mode()
 @torch.amp.autocast(device_type=state.config.device, dtype=state.config.torch_dtype)
-def one_steps(model:MMDIT, x, sampling_input:SamplingInput, init_out:InitOutput, sigma) -> torch.Tensor:
+def one_steps(model:MMDIT, x, txt2img_input:Txt2ImgInput, init_out:InitOutput, sigma) -> torch.Tensor:
     x_in = x.to(state.config.torch_dtype)
     B, _, _, _ = x_in.shape
     sigma_1d = torch.full((2 * B,), sigma, device=state.config.device, dtype=torch.float32)
@@ -20,11 +20,11 @@ def one_steps(model:MMDIT, x, sampling_input:SamplingInput, init_out:InitOutput,
     )
 
     c, u = out.float().chunk(2, dim=0)
-    v = u + sampling_input.cfg_scale * (c - u)
+    v = u + txt2img_input.cfg_scale * (c - u)
 
     return v
 
-def sampling(model:MMDIT, sampling_input:SamplingInput, init_out:InitOutput) -> torch.Tensor:
+def sampling(model:MMDIT, txt2img_input:Txt2ImgInput, init_out:InitOutput) -> torch.Tensor:
     sigmas = init_out.sigmas
     n = len(sigmas) - 1
 
@@ -39,20 +39,20 @@ def sampling(model:MMDIT, sampling_input:SamplingInput, init_out:InitOutput) -> 
         v = one_steps(
             model=model,
             x=x,
-            sampling_input=sampling_input,
+            txt2img_input=txt2img_input,
             init_out=init_out,
             sigma=sigma,
         )
 
         x0_hat = (x - float(sigma) * v).detach().float().cpu()
 
-        if sampling_input.calculate_type == "euler":
+        if txt2img_input.calculate_type == "euler":
 
-        elif sampling_input.calculate_type == "heun":
+        elif txt2img_input.calculate_type == "heun":
 
-        elif sampling_input.calculate_type == "ddpm_plus":
+        elif txt2img_input.calculate_type == "ddpm_plus":
 
-        elif sampling_input.calculate_type ==
+        elif txt2img_input.calculate_type ==
 
 
         latents.append(x0_hat)

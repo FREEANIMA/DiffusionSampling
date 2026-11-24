@@ -19,7 +19,7 @@ def load_checkpoint_bin(config:Config, filename:str, path=None, console=None) ->
 
     return ckpt
 
-def load_ema_only(config: Config, network, console=None) -> MMDIT:
+def load_ema_only(config: Config, network:MMDIT, console=None) -> MMDIT:
     path = os.path.join(config.CKPT_LOCAL_DIR, config.EMA_FILENAME)
     ckpt = load_checkpoint_bin(config=config, path=path, filename=config.EMA_FILENAME, console=console)
     if ckpt is None:

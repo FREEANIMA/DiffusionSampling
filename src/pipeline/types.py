@@ -23,7 +23,13 @@ class InitOutput:
     seeds: list[int]
 
 @dataclass
-class SamplingInput(InitInput):
+class InpaintInput():
+    img_bytes: bytes
+    start_t: float
+    mask: bytes | None = None
+
+@dataclass
+class Txt2ImgInput(InitInput):
     final_tags: list[str]
     cfg_scale: float
     calculate_type: str
