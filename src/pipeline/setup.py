@@ -4,12 +4,16 @@ import numpy as np
 
 from src.external import TE
 from src.core import Config
-from src.sigma import SigmaScheduler
-
 from .types import Txt2ImgInput, InitOutput
 
+def transform(self, x):
+    z = np.clip(state.config.beta - state.config.gamma * x, -1.0, 1.0)
+    y = state.config.alpha * np.arccos(z) - state.config.zeta
+    y = np.clip(y, state.config.low_sigma, state.config.high_sigma)
+    return y
+
 @torch.inference_mode()
-def setup_init(model:TE, config:Config, device, sigma_schedular:SigmaScheduler, txt2img_input:Txt2ImgInput) -> InitOutput:
+def setup_init(model:TE, config:Config, device, txt2img_input:Txt2ImgInput) -> InitOutput:
     B = len(txt2img_input.tags)
     tags_batch = txt2img_input.tags
     init_prompt_batch = config.init_prompt * len(txt2img_input.tags)
@@ -38,6 +42,6 @@ def setup_init(model:TE, config:Config, device, sigma_schedular:SigmaScheduler, 
     ], dim=0)
 
     u = np.linspace(0.0, 1.0, txt2img_input.steps + 1)
-    sigmas = sigma_schedular.transform(u)[::-1].copy()
+    sigmas = transform(u)[::-1].copy()
 
     return InitOutput(cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds)
