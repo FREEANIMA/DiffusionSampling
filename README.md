@@ -2,9 +2,9 @@
 
 | [UPDATE](CHANGELOG.md) | [TRAINSTATE](docs/training.md) | [ARCHITECTURE](docs/architecture.md) | [UI](docs/ui.md) |
 
-![sample_1](docs/images/sample.png)
+![sample_1](docs/imgs/sample.png)
 
-![sample_2](docs/images/detailer_process.gif)
+![sample_2](docs/imgs/detailer_process.gif)
 
 ## Installation
 ```bash
@@ -26,21 +26,7 @@ python main.py
 
 ---
 
-## Train Environment
 
-- **Framework:** PyTorch (no custom CUDA kernels)
-- **GPU:** NVIDIA RTX PRO 6000 (96GB VRAM) x 1
-- **Platform:** Google Colab
-- **Batch Size:** Micro-batch 4 × Gradient Accumulation 8 = Effective Batch 32
-
-- **Training Speed:** ~2.3 s / optimizer step
-- **Max Resolution:** 1024 × 1024
-- **Dataset:** 2M images
-- **Objective:** Flow Matching
-- **Precision:** BF16
-- **Optimizer:** AdamW
-- **Learning Rate:** 1e-4 ~ 5e~5
-- **EMA:** Enabled
 
 ### Training Stages
 

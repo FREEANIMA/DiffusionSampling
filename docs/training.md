@@ -15,7 +15,8 @@
 - **EMA:** Enabled
 
 ## Train UI
-![train_ui](images/train_img.png)
+
+![train_ui](imgs/train_img.png)
 
 ### Loss by Noise Level
 
@@ -35,14 +36,14 @@
 
 ### Patch Size 2 + DC-AE f32c32
 
-![Patch Size 2](assets/patch_size_2.png)
+![Patch Size 2](imgs/patch_size_2.png)
 
 - **Issue:** Facial features, particularly the eyes, tend to collapse or become distorted.
 - **Observation:** Limited spatial detail makes accurate reconstruction of fine facial features challenging.
 
 ### Patch Size 1 + DC-AE f32c32
 
-![Patch Size 1](assets/patch_size_1.png)
+![Patch Size 1](imgs/patch_size_1.png)
 
 - **Fine-tuning Result:** Fine-tuning with patch size 1 improved facial feature reconstruction.
 - **Improvement:** Eye and facial distortions were partially resolved, with better preservation of fine details.
