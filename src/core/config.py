@@ -35,11 +35,18 @@ class CfgSettings:
     cfg_gamma: float
 
 @dataclass(kw_only=True)
+class EtaSettings:
+    eta_alpha: float
+    eta_beta: float
+    eta_gamma: float
+
+@dataclass(kw_only=True)
 class PathSettins:
     GENERATION_DIR: str
-    DETAIL_DIR: float
-    ERROR_REPORT: float
-    CKPT_LOCAL_DIR: float
+    DETAIL_DIR: str
+    ERROR_REPORT: str
+    CKPT_LOCAL_DIR: str
+    CKPT_REPO_ID: str
 
 @dataclass(kw_only=True)
 class SamplingSettings:

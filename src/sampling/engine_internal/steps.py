@@ -43,9 +43,9 @@ def sampling(model, txt2img_input:Txt2ImgInput, init_out:InitOutput, inpaint_ctx
     for i in tqdm(range(n), desc="sampling"):
         sigma, sigma_next = sigmas[i], sigmas[i + 1]
         cfg = init_out.cfgs[i]
-        
-        sigmas_steps.append(float(sigma_next))
+        eta = init_out.etas[i]
 
+        sigmas_steps.append(float(sigma_next))
         v = one_steps(model=model, x=x, init_out=init_out, sigma=sigma, cfg=cfg)
 
         x0_hat = (x - float(sigma) * v).detach().float().cpu()

@@ -5,7 +5,7 @@ import numpy as np
 from src.external import TE
 from src.core import Config
 from .types import Txt2ImgInput, InitOutput
-from .trajectory import sigma_cdf, cfg_cdf
+from .trajectory import sigma_cdf, cfg_schedular, eta_schedular
 
 @torch.inference_mode()
 def setup_init(model:TE, config:Config, txt2img_input:Txt2ImgInput) -> InitOutput:
@@ -40,6 +40,9 @@ def setup_init(model:TE, config:Config, txt2img_input:Txt2ImgInput) -> InitOutpu
     sigmas = sigma_cdf(u, config)[::-1].copy()
 
     c = np.linspace(0.0, 1.0, txt2img_input.steps + 1)
-    cfgs = cfg_cdf(c, txt2img_input.cfg_scale, config)[::-1].copy()
+    cfgs = cfg_schedular(c, txt2img_input.cfg_scale, config)[::-1].copy()
 
-    return InitOutput(cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds, cfgs)
+    d = np.linspace(0.0, 1.0, txt2img_input.steps + 1)
+    etas = eta_schedular(d, txt2img_input.eta, config)[::-1].copy()
+
+    return InitOutput(cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds, cfgs, etas)

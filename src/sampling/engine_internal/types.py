@@ -23,6 +23,7 @@ class InitOutput:
     sigmas: np.ndarray
     seeds: list[int]
     cfgs: np.ndarray
+    etas: np.ndarray
 
 @dataclass
 class InpaintInput():

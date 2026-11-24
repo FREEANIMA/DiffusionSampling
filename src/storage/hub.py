@@ -6,7 +6,7 @@ from src.core import Config, error_report
 def download_model(config:Config, filename) -> str | None:
     try:
         path = hf_hub_download(
-            repo_id=config.CKPT_REPO_ID,
+            repo_id=f"{config.CKPT_REPO_ID}/{config.ver_number}",
             filename=filename,
             repo_type="model",
             local_dir=config.CKPT_LOCAL_DIR

@@ -1,12 +1,11 @@
 import torch
 from PIL import Image
 import numpy as np
-import cv2
-
-
 from src.core import log, state, error_report
 from src.external import TE, VAE
 from src.network import MMDIT, LLM
+from src.tag import TagGenration
+from src.storage import download_model, load_ema_only
 
 from src.sampling.engine_internal import (
     Txt2ImgInput, InitOutput, InpaintInput, InpaintCtx,
@@ -14,13 +13,17 @@ from src.sampling.engine_internal import (
 )
 
 class SamplingEngine:
-    def __init__(self, model:MMDIT, llm:LLM, te:TE, vae:VAE, console=None):
+    def __init__(self, te:TE, vae:VAE, console=None):
         self.console = console
         self.te = te
         self.vae = vae
-        self.llm = llm
-        self.model = model
-        self.model.eval()
+        download_model(config=state.config, filename="model.pt")
+        self.model:MMDIT = load_ema_only(
+            config=state.config,
+            network=MMDIT,
+            console=console
+        )
+        self.llm:LLM = TagGenration(console=console)
 
     def vae_decode(self, x: torch.Tensor, latents: list[torch.Tensor], video_save: bool) -> tuple[list[Image.Image], list[Image.Image]]:
         imgs: list[Image.Image] = self.vae._tensor_to_pils(self.vae.decoder(x))

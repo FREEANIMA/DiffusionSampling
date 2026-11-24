@@ -36,6 +36,8 @@ class TagGenration:
         self.id_to_tag = {v: k for k, v in self.vocab.items()}
         self.console = console
 
+        return self.model
+
     def to_ids(self, xs, max_len=256):
         body = []
         for t in xs:    
