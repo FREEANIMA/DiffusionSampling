@@ -1,3 +1,5 @@
+// scripts.js
+
 (() => {
   'use strict';
 

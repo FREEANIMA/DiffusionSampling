@@ -1,3 +1,5 @@
+# ui.py
+
 from __future__ import annotations
 
 import base64
@@ -15,7 +17,7 @@ from PIL import Image
 from .handler import Handler
 
 class UI:
-    ASSET_DIR = Path(__file__).with_name("ui_assets")
+    ASSETS_DIR = Path(__file__).resolve().parent
 
     def __init__(self, handler: Handler):
         self.handler = handler
