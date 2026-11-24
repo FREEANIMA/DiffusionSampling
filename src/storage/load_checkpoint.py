@@ -46,15 +46,9 @@ def load_llm_model(config: Config, network:LLM, vocab_size, console=None) -> LLM
         log(console, msg)
         raise FileNotFoundError(msg)
 
-    config = ckpt["config"]
-    config = {
-        **config,
-        "vocab_size" : vocab_size
-    }
+    model_cfg = {**ckpt["config"], "vocab_size": vocab_size}
 
-    model: LLM = network(**config)
+    model = network(**model_cfg)
     model.load_state_dict(ckpt["model"])
 
-    model.eval()
-
-    return model.to(device=config.device, dtype=config.torch_dtype).eval()
+    return model.to(device=config.device, dtype=config.dtype).eval()

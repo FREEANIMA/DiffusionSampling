@@ -7,11 +7,10 @@ from src.network import LLM
 from src.storage import download_model, load_llm_model
 from src.core import state
 
+from .utils import build_tag_maps, unk_separation, mapping
+
 class TagGenration:
-    def __init__(self, device="cuda", dtype=torch.bfloat16, console=None):
-        self.device = device
-        self.dtype = dtype
-        self.MIN_TAG_FREQ = 1_000
+    def __init__(self, console=None):
         self.MIN_FIXED_TAGS = 5
         self.SAMPLE_RETRY = 5
 
@@ -26,11 +25,10 @@ class TagGenration:
             self.vocab = json.load(f)
 
         vocab_size = len(self.vocab)
-        model_class = LLM()
-        load_llm_model(config=console, network=model_class, vocab_size=vocab_size, console=console)
+        self.model = load_llm_model(config=console, network=LLM, vocab_size=vocab_size, console=console)
 
         tags_type_df = pd.read_parquet(type_path)
-        self.type_map, self.dup_map, self.tag_tree = self.build_tag_maps(tags_type_df=tags_type_df)
+        self.type_map, self.dup_map, self.tag_tree = build_tag_maps(tags_type_df=tags_type_df)
 
         self.PAD_ID = self.vocab["<pad>"]
         self.CLS_ID = self.vocab["<cls>"]
@@ -40,197 +38,73 @@ class TagGenration:
         self.id_to_tag = {v: k for k, v in self.vocab.items()}
         self.console = console
 
-    def build_tag_maps(self, tags_type_df):
-        s = tags_type_df[["tag", "type", "dup", "count"]].drop_duplicates(subset="tag", keep="first")
-
-        dup_map = dict(zip(s["tag"], s["dup"].fillna(s["tag"])))
-
-        common = s[s["count"].fillna(0) >= self.MIN_TAG_FREQ]
-        type_map = dict(zip(common["tag"], common["type"]))
-
-        t = common.assign(dup=common["dup"].fillna(common["tag"]))
-        t = t.sort_values(["count", "dup"], ascending=[False, True])
-        t = t.drop_duplicates(subset="dup", keep="first")
-
-        tag_tree = {}
-        for typ, tag, cnt in zip(t["type"], t["dup"], t["count"]):
-            if isinstance(typ, str) and isinstance(tag, str):
-                tag_tree.setdefault(typ, []).append([tag, int(cnt)])
-
-        return type_map, dup_map, tag_tree
-
-    def get_ac_tags(self):
-        return sorted(t for t in self.type_map if t in self.vocab)
-
-    def canonicalize(self, tag_list: list):
-        out = []
-        seen = set()
-        for t in tag_list:
-            t = t.strip()
-            if not t:
-                continue
-            rep = self.dup_map.get(t, t)
-            if rep not in seen:
-                seen.add(rep)
-                out.append(rep)
-        return out
-
     def to_ids(self, xs, max_len=256):
         body = []
-        for t in xs:
-            body.append(self.vocab.get(t, self.UNK_ID))
+        for t in xs:    
+            tid = self.vocab.get(t)
+            if tid is None:
+                continue
+            body.append(tid)
             if len(body) >= max_len - 1:
                 break
         return [self.CLS_ID] + body
 
     @torch.inference_mode()
-    def sampling(self, batch, max_new=256, temperature=0.4, top_k=20, top_p=0.8):
-        min_new = self.MIN_FIXED_TAGS
-        ids = batch
+    @torch.amp.autocast(device_type=state.config.device, dtype=state.config.dtype)
+    def one_step(self, idx, past=None, step=0, temperature=0.4, top_k=20, top_p=0.8):
+        logits, past = self.model(x=idx, attn_mask=None, past_kv=past, use_cache=True)
+        next_logits = logits[:, -1, :].float() / max(temperature, 1e-5)
+
+        for bad in (self.PAD_ID, self.CLS_ID, self.UNK_ID):
+            next_logits[:, bad] = float("-inf")
+        if step < self.MIN_FIXED_TAGS:
+            next_logits[:, self.EOS_ID] = float("-inf")
+
+        if top_k and top_k > 0:
+            kth = torch.topk(next_logits, min(top_k, next_logits.size(-1))).values[:, -1:]
+            next_logits = next_logits.masked_fill(next_logits < kth, float("-inf"))
+
+        if top_p is not None and top_p < 1.0:
+            sorted_logits, sorted_idx = torch.sort(next_logits, descending=True)
+            probs = torch.softmax(sorted_logits, dim=-1)
+            remove = probs.cumsum(dim=-1) - probs > top_p
+            sorted_logits = sorted_logits.masked_fill(remove, float("-inf"))
+            next_logits = torch.full_like(next_logits, float("-inf")).scatter(1, sorted_idx, sorted_logits)
+
+        probs = torch.softmax(next_logits, dim=-1)
+        next_id = torch.multinomial(probs, num_samples=1)
+
+        return next_id, past
+
+    @torch.inference_mode()
+    def inference(self, ids, max_new=256, temperature=0.4, top_k=20, top_p=0.8):
         generated = []
 
-        with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
-            logits, past = self.text_model(x=ids, attn_mask=None, use_cache=True)
-            next_logits = logits[:, -1, :]            # (1, V)
+        next_id, past = self.one_step(ids, past=None, step=0, temperature=temperature, top_k=top_k, top_p=top_p)
 
-            for step in range(max_new):
-                next_logits = next_logits.float() / max(temperature, 1e-5)
-                for bad in (self.PAD_ID, self.CLS_ID, self.UNK_ID):
-                    next_logits[:, bad] = float("-inf")
-                if step < min_new:
-                    next_logits[:, self.EOS_ID] = float("-inf")
-
-                if top_k is not None and top_k > 0:
-                    kth = torch.topk(next_logits, min(top_k, next_logits.size(-1))).values[:, -1:]
-                    next_logits = next_logits.masked_fill(next_logits < kth, float("-inf"))
-
-                if top_p is not None and top_p < 1.0:
-                    sorted_logits, sorted_idx = torch.sort(next_logits, descending=True)
-                    probs = torch.softmax(sorted_logits, dim=-1)
-                    cum = probs.cumsum(dim=-1)
-                    remove = cum - probs > top_p
-                    sorted_logits = sorted_logits.masked_fill(remove, float("-inf"))
-                    next_logits = torch.full_like(next_logits, float("-inf")).scatter(1, sorted_idx, sorted_logits)
-
-                probs = torch.softmax(next_logits, dim=-1)
-                next_id = torch.multinomial(probs, num_samples=1)
-
-                tok = next_id.item()
-                if tok == self.EOS_ID:
-                    break
-                generated.append(tok)
-
-                logits, past = self.text_model(x=next_id, attn_mask=None, past_kv=past, use_cache=True)
-                next_logits = logits[:, -1, :]
-
-        return [self.id_to_tag.get(i, f"<{i}>") for i in generated]
-    
-    def text_generation(self, tags_infer, nsfw, H, W, user_tags=None):
-        nsfw_text = f"nsfw: {str(nsfw).lower()}; "
-        size_text = f"size: {H}x{W}; "
-        merged, seen = [], set()
-
-        for t in list(user_tags or []) + list(tags_infer):
-            if t in ("<unk>", "<pad>", "<cls>", "<eos>"):
-                continue
-            rep = self.dup_map.get(t, t)
-            if rep not in seen:
-                seen.add(rep)
-                merged.append(t)
-
-        user_tag_set = set(user_tags or [])
-        used_types = set()
-
-        for t in (user_tags or []):
-            _type = self.type_map.get(t)
-            if _type in self.TYPES:
-                used_types.add(_type)
-
-        filtered = []
-        for t in merged:
-            _type = self.type_map.get(t)
-            if _type in self.TYPES:
-                if t in user_tag_set:
-                    filtered.append(t)
-                    continue
-                if _type in used_types:
-                    continue
-                used_types.add(_type)
-                filtered.append(t)
-            else:
-                filtered.append(t)
-
-        merged = filtered
-        valid_tag_count = len(set(merged))
-
-        grouped, others = {}, []
-        for tag in merged:
-            _type = self.type_map.get(tag)
-            if _type is None or pd.isna(_type) or not str(_type).strip():
-                others.append(tag)
-            else:
-                grouped.setdefault(_type, []).append(tag)
-
-        ordered_types = [t for t in self.TYPES if t in grouped]
-        ordered_types += [t for t in grouped if t not in self.TYPES]
-
-        text = "".join(f"{t}: {', '.join(grouped[t])}; " for t in ordered_types)
-        others_text = f"others: {', '.join(others)}; " if others else ""
-
-        final_tags = []
-        for t in ordered_types:
-            final_tags.extend(grouped[t])
-        final_tags.extend(others)
-
-        result_text = self.INIT_PROMPT + nsfw_text + size_text + text + others_text
-        return [result_text], valid_tag_count, final_tags
-
-    def tags_mapping_worker(self, tags: str, nsfw, H, W, device=None, fixed: bool = True):
-        device = device or self.device
-        nsfw_str = "nsfw" if nsfw else "general"
-
-        user_tags = self.canonicalize(tag_list=tags.split(","))
-
-        def tags_s():
-            known = [t for t in user_tags if t in self.vocab]
-            dup_list = known + [nsfw_str]
-            random.shuffle(dup_list)
-            ids = self.to_ids(dup_list)
-            batch = torch.tensor([ids], dtype=torch.long, device=device)
-            return self.sampling(batch)
-
-        if not fixed:
-            tags_infer = tags_s()
-            result, _, final_tags = self.text_generation(tags_infer, nsfw, H, W, user_tags=user_tags)
-            return result, final_tags
-
-        if len(user_tags) >= self.MIN_FIXED_TAGS:
-            tags_infer = []
-            result, _, final_tags = self.text_generation(tags_infer, nsfw, H, W, user_tags=user_tags)
-            return result, final_tags
-
-        if self.console is not None:
-            self.console.put(f"tags 수 부족, 안정을 위해 tag sampling")
-
-        best_result, best_final, best_count = None, [], -1
-        for _ in range(self.SAMPLE_RETRY):
-            tags_infer = tags_s()
-            result, count, final_tags = self.text_generation(tags_infer, nsfw, H, W, user_tags=user_tags)
-
-            if count > best_count:
-                best_result, best_final, best_count = result, final_tags, count
-
-            if count >= self.MIN_FIXED_TAGS:
+        for step in range(max_new):
+            tok = next_id.item()
+            if tok == self.EOS_ID:
                 break
+            generated.append(tok)
 
-        if self.console is not None and best_count < self.MIN_FIXED_TAGS:
-            self.console.put(f"재샘플링 후에도 tags 부족")
+            next_id, past = self.one_step(next_id, past=past, step=step + 1, temperature=temperature, top_k=top_k, top_p=top_p)
 
-        return best_result, best_final
+        return [self.id_to_tag[i] for i in generated if i in self.id_to_tag]
+    
+    def generation(self, tags, nsfw, H, W):
+        tags_list = [tag.split(", ") for tag in tags]
+        unks_list, dups_list = unk_separation(self.dup_map, tags_list)
 
-def test():
-    tag_g = TagGenration()
+        generation_list = []
+        for dups in dups_list:
+            ids = torch.tensor([self.to_ids(dups)], dtype=torch.long, device=state.config.device)
+            gen = self.inference(ids=ids)
+            generation_list.append(list(dict.fromkeys(dups + gen)))
 
-    for _ in range(5):
-        tag = tag_g.tags_mapping_worker(tags="woman", H="1024", W="1024", nsfw=True)
-        print(tag)
+        nsfw_text_list = [f"nsfw: {str(n).lower()}; " for n in nsfw]
+        size_text_list = [f"size: {H}x{W}; " for _ in nsfw]
+        init_text_list = [state.config.init_prompt for _ in nsfw]
+
+        return mapping(generation_list, nsfw_text_list, size_text_list,
+                    init_text_list, unks_list, self.NAS, self.type_map)
