@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from PIL import Image
 from dataclasses import dataclass
 
 @dataclass
@@ -24,7 +25,7 @@ class InitOutput:
 
 @dataclass
 class InpaintInput():
-    img_bytes: bytes
+    img: Image.Image
     start_t: float
     mask: bytes | None = None
 

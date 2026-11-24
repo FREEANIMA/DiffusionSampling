@@ -71,3 +71,28 @@ def img_resize(img_bytes, allowable_size, patch_size, compression_ratio):
     arr = np.ascontiguousarray(arr)
 
     return arr, new_H, new_W
+
+# ============================================================================= #
+# img upscale
+
+def upscale_to(img, target=1024):
+    H, W = img.shape[:2]
+    scale = target / max(H, W)
+    if scale <= 1:
+        return img
+    return cv2.resize(img, (round(W * scale), round(H * scale)), interpolation=cv2.INTER_CUBIC)
+
+# ============================================================================= #
+# img -> bytes
+
+def img_to_bytes(img, ext=".png"):
+    ok, buf = cv2.imencode(ext, img)
+    if not ok:
+        raise ValueError(f"encode failed: ext={ext}")
+    return buf.tobytes()
+
+# ============================================================================= #
+# img merge delicated detail
+
+def merge_img():
+    pass

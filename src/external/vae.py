@@ -8,11 +8,10 @@ import torch.nn.functional as F
 # DC-AE 64×	mit-han-lab/dc-ae-f64c128-in-1.0-diffusers	64×	128
 
 class VAE():
-    def __init__(self, init_device="cuda", model_name="mit-han-lab/dc-ae-f32c32-sana-1.0-diffusers", device="cuda", dtype=torch.bfloat16, console=None):
+    def __init__(self, model_name="mit-han-lab/dc-ae-f32c32-sana-1.0-diffusers", device="cuda", dtype=torch.bfloat16, console=None):
         self.model_name = model_name
         self.device = device
         self.dtype = dtype
-        self.init_device = init_device
 
         self.vae = self.download_flux_vae()
         
