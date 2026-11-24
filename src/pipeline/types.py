@@ -37,3 +37,9 @@ class Txt2ImgInput(InitInput):
     eta: float
     eta_mode: str
     video_save: bool
+
+@dataclass
+class InpaintCtx:
+    z0: torch.Tensor
+    mask: torch.Tensor
+    noise: torch.Tensor

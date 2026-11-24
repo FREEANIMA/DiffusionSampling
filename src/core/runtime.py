@@ -7,7 +7,6 @@ from .shared import BASE_ROOT
 def _parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--ver", type=int, default=None)
-    parser.add_argument("--deadline", type=int, default=None)
     args, _ = parser.parse_known_args(sys.argv[1:])
     return args
 
