@@ -38,7 +38,7 @@ def load_ema_only(config: Config, network:MMDIT, console=None) -> MMDIT:
 
     return model.to(device=config.device, dtype=config.torch_dtype).eval()
 
-def load_llm_model(config: Config, network:LLM, vocab_size, console=None) -> LLM:
+def load_llm_model(config: Config, network, vocab_size, console=None):
     path = os.path.join(config.CKPT_LOCAL_DIR, config.LLM_FILENAME)
     ckpt = load_checkpoint_bin(config=config, path=path, filename=config.LLM_FILENAME, console=console)
     if ckpt is None:
@@ -46,9 +46,7 @@ def load_llm_model(config: Config, network:LLM, vocab_size, console=None) -> LLM
         log(console, msg)
         raise FileNotFoundError(msg)
 
-    model_cfg = {**ckpt["config"], "vocab_size": vocab_size}
+    model = network(**{**ckpt["config"], "vocab_size": vocab_size})
+    model.load_state_dict({k.removeprefix("_orig_mod."): v for k, v in ckpt["model"].items()})
 
-    model = network(**model_cfg)
-    model.load_state_dict(ckpt["model"])
-
-    return model.to(device=config.device, dtype=config.dtype).eval()
+    return model.to(device=config.device, dtype=config.torch_dtype).eval()
