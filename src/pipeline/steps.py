@@ -44,8 +44,7 @@ def sampling(model, txt2img_input:Txt2ImgInput, init_out:InitOutput, inpaint_ctx
         sigma, sigma_next = sigmas[i], sigmas[i + 1]
         sigmas_steps.append(float(sigma_next))
 
-        v = one_steps(model=model, x=x, txt2img_input=txt2img_input,
-                      init_out=init_out, sigma=sigma)
+        v = one_steps(model=model, x=x, txt2img_input=txt2img_input, init_out=init_out, sigma=sigma)
 
         x0_hat = (x - float(sigma) * v).detach().float().cpu()
 
