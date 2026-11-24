@@ -1,16 +1,20 @@
 # Diffusion MMDiT Text2img with DC-AE f32c32
 
-[VIEW UPDATE](CHANGELOG.md)
-[VIEW TRAINSTATE](/docs/training.md)
-[VIEW ARCHITECTURE](/docs/architecture.md)
-[VIEW UI](/docs/ui.md)
+| [UPDATE](CHANGELOG.md) | [TRAINSTATE](docs/training.md) | [ARCHITECTURE](docs/architecture.md) | [UI](docs/ui.md) |
+
+![sample_1](docs/images/sample.png)
+
+![sample_2](docs/images/detailer_process.gif)
 
 ## Installation
 ```bash
+git clone https://github.com/FREEANIMA/DiffusionSampling.git
+cd DiffusionSampling
+python3 -m venv .venv
+source .venv/bin/activate
 python -m pip install -r requirements.txt
+python main.py
 ```
-
-![MMDIT](doc/images/sample.png)
 
 ## Architecture
 
