@@ -5,12 +5,7 @@ import numpy as np
 from src.external import TE
 from src.core import Config
 from .types import Txt2ImgInput, InitOutput
-
-def transform(self, x):
-    z = np.clip(state.config.beta - state.config.gamma * x, -1.0, 1.0)
-    y = state.config.alpha * np.arccos(z) - state.config.zeta
-    y = np.clip(y, state.config.low_sigma, state.config.high_sigma)
-    return y
+from .trajectory import sigma_cdf, cfg_cdf
 
 @torch.inference_mode()
 def setup_init(model:TE, config:Config, device, txt2img_input:Txt2ImgInput) -> InitOutput:
@@ -42,6 +37,9 @@ def setup_init(model:TE, config:Config, device, txt2img_input:Txt2ImgInput) -> I
     ], dim=0)
 
     u = np.linspace(0.0, 1.0, txt2img_input.steps + 1)
-    sigmas = transform(u)[::-1].copy()
+    sigmas = sigma_cdf(u)[::-1].copy()
 
-    return InitOutput(cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds)
+    c = np.linspace(0.0, 1.0, txt2img_input.steps + 1)
+    cfgs = cfg_cdf(c, txt2img_input.cfg_scale)[::-1].copy()
+
+    return InitOutput(cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds, cfg_cdf)

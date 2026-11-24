@@ -1,6 +1,7 @@
 {
     "GENERATION_DIR": "generaion",
-    "INPAINTING_DIR": "inpainting",
+    "INPAINTING_DIR": "inpaint",
+    "DETAIL_DIR": "detail",
     "ERROR_REPORT": "error_report",
     "CKPT_LOCAL_DIR": "ckpt"
 }

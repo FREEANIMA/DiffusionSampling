@@ -7,7 +7,7 @@ from .types import Txt2ImgInput, InitOutput, InpaintCtx
 
 @torch.inference_mode()
 @torch.amp.autocast(device_type=state.config.device, dtype=state.config.torch_dtype)
-def one_steps(model:MMDIT, x, txt2img_input:Txt2ImgInput, init_out:InitOutput, sigma) -> torch.Tensor:
+def one_steps(model:MMDIT, x, txt2img_input:Txt2ImgInput, init_out:InitOutput, sigma, cfg) -> torch.Tensor:
     x_in = x.to(state.config.torch_dtype)
     B, _, _, _ = x_in.shape
     sigma_1d = torch.full((2 * B,), sigma, device=state.config.device, dtype=torch.float32)
@@ -20,7 +20,7 @@ def one_steps(model:MMDIT, x, txt2img_input:Txt2ImgInput, init_out:InitOutput, s
     )
 
     c, u = out.float().chunk(2, dim=0)
-    v = u + txt2img_input.cfg_scale * (c - u)
+    v = u + cfg * (c - u)
 
     return v
 
@@ -42,9 +42,11 @@ def sampling(model, txt2img_input:Txt2ImgInput, init_out:InitOutput, inpaint_ctx
 
     for i in tqdm(range(n), desc="sampling"):
         sigma, sigma_next = sigmas[i], sigmas[i + 1]
+        cfg = init_out.cfgs[i]
+        
         sigmas_steps.append(float(sigma_next))
 
-        v = one_steps(model=model, x=x, txt2img_input=txt2img_input, init_out=init_out, sigma=sigma)
+        v = one_steps(model=model, x=x, txt2img_input=txt2img_input, init_out=init_out, sigma=sigma, cfg=cfg)
 
         x0_hat = (x - float(sigma) * v).detach().float().cpu()
 

@@ -25,8 +25,14 @@ class SigmaSettings:
     high_sigma: float
     alpha: float
     beta: float
-    gamma: list
-    zeta: list
+    gamma: float
+    zeta: float
+
+@dataclass(kw_only=True)
+class CfgSettings:
+    cfg_alpha: float
+    cfg_beta: float
+    cfg_gamma: float
 
 @dataclass(kw_only=True)
 class PathSettins:
@@ -46,7 +52,7 @@ class FineTuningSettings:
     init_prompt: str
 
 @dataclass(kw_only=True)
-class Config(ModelSettings, PathSettins, SigmaSettings, FineTuningSettings, SamplingSettings):
+class Config(ModelSettings, PathSettins, SigmaSettings, FineTuningSettings, SamplingSettings, CfgSettings):
     ver_number: int
 
     def __post_init__(self):

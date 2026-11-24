@@ -22,6 +22,7 @@ class InitOutput:
     gens: list[torch.Generator]
     sigmas: np.ndarray
     seeds: list[int]
+    cfgs: np.ndarray
 
 @dataclass
 class InpaintInput():
