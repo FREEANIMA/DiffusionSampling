@@ -1,9 +1,9 @@
 import math
 import torch
 from tqdm.auto import tqdm
-from .solvers import euler, heun, ddpm_plus, renoise, sigma_lo_of
 import common.globals as g
 
+from .solvers import euler, heun, ddpm_plus, renoise, sigma_lo_of
 
 @torch.inference_mode()
 def velocity_predict(model, x, sigma, cond_emb, cond_mask, uncond_emb, uncond_mask, cfg_scale, dtype):

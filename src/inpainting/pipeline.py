@@ -1,29 +1,35 @@
 import os
-import torch
-import random
-from src.utilities import sigma_schedular, steps_sampling, gpu_context, _save_img, _save_text, _save_plot
-import common.globals as g
-import matplotlib.pyplot as plt
+from datetime import datetime
 
+import numpy as np
+import torch
+import torch.nn.functional as F
+from PIL import Image
+import common.globals as g
+import random
+
+from src.utils import sigma_schedular, steps_sampling, img_resize, gpu_context, _save_img, _save_text
 INIT_PROMPT = "general img; "
 
-class Sampling:
+class InPainting:
     def __init__(self, base_root, model, text_encoder, vae, config, console=None):
         self.base_root = base_root
         self.device = "cuda"
-        self.dtype=torch.bfloat16
+        self.dtype = torch.bfloat16
         self.f = config["compression_ratio"]
         self.in_channels = config["in_channels"]
         self.patch_size = config["patch_size"]
+        self.allowable_size = config["allowable_size"]
 
         self.model = model
         self.text_encoder = text_encoder
         self.vae = vae
+        self.console= console
 
-        self.console = console
-
-    def _snap(self, v, unit):
-        return max(round(v / unit), 1) * unit
+    @torch.inference_mode()
+    def vae_encode(self, img):
+        with gpu_context(self.vae.vae, self.device):
+            return self.vae.encoder(img)
 
     @torch.inference_mode()
     def text_encode(self, tags):
@@ -40,6 +46,25 @@ class Sampling:
 
         img = self.vae._tensor_to_pils(decoded)
         return img
+
+    def mask_generation(self, mask_arr, latent):
+        if isinstance(mask_arr, np.ndarray):
+            m = torch.from_numpy(mask_arr).float()
+        else:
+            m = mask_arr.float()
+
+        if m.max() > 1.0:
+            m = m / 255.0
+
+        if m.ndim == 2:
+            m = m[None, None]
+        elif m.ndim == 3:
+            m = m[None]
+
+        m = m.to(latent.device, latent.dtype)
+
+        m_lat = F.adaptive_max_pool2d(m, output_size=latent.shape[-2:])
+        return (m_lat > 0.5).float()
 
     def set_init(self, tags, seed, steps, shift, B, H, W):
         tags_batch = tags * B
@@ -64,8 +89,8 @@ class Sampling:
         return cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds
 
     def save_imgs(self, tags, cfg_scale, final_tags, imgs, steps, calculate_type, shift, seeds, video_imgs, sigmas_steps=None):
-        save_dir = os.path.join(self.base_root, "generation")
-        save_paths = _save_img(imgs=imgs, filename="sample", save_dir=save_dir, video_imgs=video_imgs, sigmas=sigmas_steps)
+        save_dir = os.path.join(self.base_root, "inpainting")
+        save_paths = _save_img(imgs=imgs, filename="inpainting", save_dir=save_dir, video_imgs=video_imgs, sigmas=sigmas_steps)
 
         _save_text(
             os.path.dirname(save_paths[0]),
@@ -81,51 +106,73 @@ class Sampling:
         self.console.put(f"img saved: {save_paths[0]}")
 
         return save_paths
-
+ 
     @torch.inference_mode()
-    def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, H, W, B=1, 
-                 eta=0.3, seed=None, on_step=None, frame_save=False, eta_mode="cos"):
+    def sampling(self, tags, final_tags, shift, calculate_type, cfg_scale, steps, img_bytes, start_t, 
+                 B=1, eta=0.3, seed=None, mask=None, on_step=None, save_dir=None, frame_save=False, eta_mode="cos"):
+        if mask is None:
+            raise ValueError("mask가 필요합니다.")
+
+        arr, H, W = img_resize(img_bytes, self.allowable_size, self.patch_size, self.f)
+
+        mask = mask.convert("L").resize((W, H), Image.Resampling.NEAREST)
+        mask_arr = np.array(mask, dtype=np.uint8)
+
+        img = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
+        img = img.to(device=self.device, dtype=self.dtype)
+
+        latent = self.vae_encode(img)
+        mask_lat = self.mask_generation(mask_arr, latent)
+
         cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds = self.set_init(tags, seed, steps, shift, B, H, W)
+
+        start_idx = int(torch.argmin((sigmas - start_t).abs()).item())
+        sigmas = sigmas[start_idx:]
+        if len(sigmas) < 2:
+            raise ValueError("start_t가 너무 작아 샘플링할 step이 없습니다.")
+        start_sigma = sigmas[0]
+
+        x_t = (1 - start_sigma) * latent + start_sigma * noise
 
         total = len(sigmas) - 1
         done = 0
         if on_step:
             on_step(0, total)
-
+            
         def after_step(x, sigma, sigma_next):
             nonlocal done
             done += 1
             if on_step:
                 on_step(min(done, total), total)
-            return x
+
+            s = sigma_next.view(1, 1, 1, 1) if torch.is_tensor(sigma_next) else float(sigma_next)
+            orig_t = (1 - s) * latent + s * noise
+            return (1 - mask_lat) * orig_t + mask_lat * x
 
         if g.INIT_DEVICE == "cpu":
             self.model.to(self.device)
             self.model.blocks.to("cpu")
-            torch.cuda.empty_cache()   
-
+            torch.cuda.empty_cache() 
+            
         x, latents, sigmas_steps = steps_sampling(
             model=self.model,
-            x=noise,
+            x=x_t,
             sigmas=sigmas,
             calculate_type=calculate_type,
             cfg_scale=cfg_scale,
-            cond_emb=cond_emb,
-            cond_mask=cond_mask,
-            uncond_emb=uncond_emb,
-            uncond_mask=uncond_mask,
+            cond_emb=cond_emb, cond_mask=cond_mask,
+            uncond_emb=uncond_emb, uncond_mask=uncond_mask,
             gens=gens,
             dtype=self.dtype,
             after_step=after_step,
-            eta=eta,
-            eta_mode=eta_mode
+            eta=eta
         )
-
         if g.INIT_DEVICE == "cpu":
             self.model.to("cpu")
 
         del cond_emb, uncond_emb, cond_mask, uncond_mask
-        del noise, sigmas
+        del latent, mask_lat, noise, x_t, sigmas
+        del latents
 
         imgs = self.vae_decode(x)
 
@@ -134,8 +181,6 @@ class Sampling:
             video_imgs = []
             for latent in latents:
                 video_imgs.append(self.vae_decode(latent)[0])
-
-        del latents
 
         save_paths = self.save_imgs(
             tags=tags, cfg_scale=cfg_scale, final_tags=final_tags,

@@ -9,6 +9,7 @@ import logging
 import sys
 import threading
 import traceback
+import uuid
 from pathlib import Path
 
 from flask import Flask, jsonify, request, Response
@@ -22,7 +23,12 @@ class UI:
     def __init__(self, handler: Handler):
         self.handler = handler
         self.app = Flask(__name__)
-        self._lock = threading.Lock()
+
+        # 생성은 백그라운드 스레드에서 돌리고, 클라이언트가 결과를 폴링한다.
+        # (HTTP 연결을 오래 잡고 있으면 프록시 타임아웃으로 HTML 에러 페이지가 돌아옴)
+        self._state_lock = threading.Lock()
+        self._running = False
+        self._jobs: dict = {}   # job_id -> {"state", "result", "error"}
 
         self._modes = {
             "txt2img": self._run_txt2img,
@@ -82,18 +88,21 @@ class UI:
         return base64.b64encode(buf.getvalue()).decode("ascii")
 
     @staticmethod
-    def _b64_to_pil(data: str) -> Image.Image:
+    def _b64_to_pil(data):
         if not data:
-            raise ValueError("Mask data is empty.")
-
+            return None
         if "," in data:
             data = data.split(",", 1)[1]
-
         raw = base64.b64decode(data, validate=True)
-
         with Image.open(io.BytesIO(raw)) as img:
             return img.convert("L")
 
+    @staticmethod
+    def _as_list(x):
+        if x is None:
+            return []
+        return list(x) if isinstance(x, (list, tuple)) else [x]
+    
     @staticmethod
     def _require_image(p: dict) -> str:
         img_path = str(p.get("img_path", "")).strip()
@@ -122,11 +131,7 @@ class UI:
             cfg_scale=float(p["cfg"]),
             fixed=bool(p.get("fixed", True)),
         )
-
-    # ------------------------------------------------------------------
-    # Per-mode runners  (모두 (PIL.Image, path) 를 반환)
-    # ------------------------------------------------------------------
-
+    
     def _run_txt2img(self, p: dict):
         return self.handler.generate_txt2img(
             H=int(p["H"]),
@@ -137,11 +142,13 @@ class UI:
 
     def _run_inpainting(self, p: dict):
         img_path = self._require_image(p)
-        mask = self._b64_to_pil(p.get("mask") or "")
+        keep_mask = self._b64_to_pil(p.get("keep_mask"))
+        regen_mask = self._b64_to_pil(p.get("regen_mask"))
 
         return self.handler.generate_inpainting(
             img_path=img_path,
-            mask=mask,
+            keep_mask=keep_mask,
+            regen_mask=regen_mask,
             start_t=float(p.get("start_t", 0.9)),
             **self._prompt_params(p),
             **self._sampling_params(p),
@@ -157,14 +164,11 @@ class UI:
         x, y = int(r["x"]), int(r["y"])
         box = (x, y, x + int(r["w"]), y + int(r["h"]))
 
-        # crop 위에 칠한 마스크 (없으면 None → 영역 전체)
-        mask_b64 = p.get("mask")
-        mask = self._b64_to_pil(mask_b64) if mask_b64 else None
-
         return self.handler.generate_detailering(
             img_path=img_path,
             box=box,
-            mask=mask,
+            keep_mask=self._b64_to_pil(p.get("keep_mask")),
+            regen_mask=self._b64_to_pil(p.get("regen_mask")),
             start_t=float(p.get("start_t", 0.95)),
             **self._prompt_params(p),
             **self._sampling_params(p),
@@ -177,11 +181,34 @@ class UI:
             raise ValueError(f"Unknown mode: {mode}")
         return run(p)
 
-    @staticmethod
-    def _as_list(x):
-        if x is None:
-            return []
-        return list(x) if isinstance(x, (list, tuple)) else [x]
+    def _worker(self, job_id: str, params: dict):
+        job = self._jobs[job_id]
+        try:
+            imgs, path = self._generate(params)
+            imgs = self._as_list(imgs)
+
+            pngs = []
+            for im in imgs:
+                buf = io.BytesIO()
+                im.save(buf, format="PNG")
+                pngs.append(buf.getvalue())
+
+            job["pngs"] = pngs
+            job["result"] = {
+                "success": True,
+                "path": [str(x) for x in self._as_list(path)],
+                "urls": [f"api/image/{job_id}/{i}" for i in range(len(pngs))],
+            }
+            job["state"] = "done"
+
+        except Exception as e:
+            traceback.print_exc()
+            job["error"] = f"{type(e).__name__}: {e}"
+            job["state"] = "error"
+
+        finally:
+            with self._state_lock:
+                self._running = False
 
     def _register_routes(self):
 
@@ -214,33 +241,48 @@ class UI:
 
         @self.app.post("/api/generate")
         def generate():
-            if not self._lock.acquire(blocking=False):
+            params = request.get_json(force=True)
+
+            with self._state_lock:
+                if self._running:
+                    return jsonify({
+                        "success": False,
+                        "error": "이미 생성 중입니다.",
+                    }), 409
+                self._running = True
+
+            job_id = uuid.uuid4().hex
+            self._jobs = {job_id: {"state": "running"}}   # 이전 결과는 버림
+
+            threading.Thread(
+                target=self._worker,
+                args=(job_id, params),
+                daemon=True,
+            ).start()
+
+            return jsonify({"success": True, "job_id": job_id})
+
+        @self.app.get("/api/result/<job_id>")
+        def result(job_id):
+            job = self._jobs.get(job_id)
+            if job is None:
                 return jsonify({
+                    "status": "error",
                     "success": False,
-                    "error": "이미 생성 중입니다.",
-                }), 409
+                    "error": "알 수 없는 작업입니다.",
+                }), 404
 
-            try:
-                params = request.get_json(force=True)
-                imgs, path = self._generate(params)
-                imgs = self._as_list(imgs)
+            if job["state"] == "running":
+                return jsonify({"status": "running"})
 
+            if job["state"] == "error":
                 return jsonify({
-                    "success": True,
-                    "path": [str(p) for p in self._as_list(path)],
-                    "images": [self._pil_to_b64(im) for im in imgs],
+                    "status": "error",
+                    "success": False,
+                    "error": job["error"],
                 })
 
-            except Exception as e:
-                traceback.print_exc()
-
-                return jsonify({
-                    "success": False,
-                    "error": f"{type(e).__name__}: {e}",
-                }), 500
-
-            finally:
-                self._lock.release()
+            return jsonify({"status": "done", **job["result"]})
 
         @self.app.get("/api/progress")
         def progress():
@@ -257,7 +299,17 @@ class UI:
         @self.app.get("/api/tag_tree")
         def tag_tree():
             return jsonify({"tree": self.handler.get_tag_tree()})
-
+        
+        @self.app.get("/api/image/<job_id>/<int:i>")
+        def image(job_id, i):
+            job = self._jobs.get(job_id)
+            if not job or job.get("state") != "done" or i >= len(job["pngs"]):
+                return ("", 404)
+            return Response(
+                job["pngs"][i],
+                mimetype="image/png",
+                headers={"Cache-Control": "no-store"},
+            )
 
     def run(self, host: str = "0.0.0.0", port: int = 7860,
             colab: bool | None = None, height: int = 1000):

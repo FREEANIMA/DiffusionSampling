@@ -7,10 +7,10 @@ __pycache__/
 data/metadata
 .env
 venv/
-scripts/
+
 .vscode/
 .idea/
 
-generation
 *.tmp
 tree.txt
+test

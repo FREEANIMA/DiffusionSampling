@@ -238,7 +238,12 @@ select {
 .switch-text { font-size: 12px; font-weight: 600; color: var(--muted); }
 
 /* select 와 높이를 맞추기 위한 필드 안 스위치 (Frame save 등) */
-.field > .switch { min-height: 40px; }
+.field > label.switch {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 0;
+  min-height: 40px;
+}
 
 /* ---------- Autocomplete ---------- */
 .ac-wrap { position: relative; }
@@ -465,3 +470,21 @@ progress::-moz-progress-bar { background: linear-gradient(90deg, var(--accent), 
 .brush-inline label { font-size: 12px; font-weight: 600; color: var(--muted); }
 .brush-inline input { width: 72px; padding: 6px 8px; font-size: 12px; }
 .crop-info { margin-top: 10px; font-size: 12px; color: var(--muted); min-height: 18px; }
+
+.slider-row { display: flex; align-items: center; gap: 12px; }
+.slider-row .size-num { width: 92px; flex: none; }
+
+input[type="range"].size-slider {
+  flex: 1; min-width: 0; width: auto;
+  padding: 0; height: 22px;
+  background: transparent; border: 0; box-shadow: none;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+input[type="range"].size-slider:hover,
+input[type="range"].size-slider:focus {
+  border: 0; background: transparent; box-shadow: none;
+}
+input[type="range"].size-slider:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px;
+}
