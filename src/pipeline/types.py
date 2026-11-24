@@ -42,4 +42,3 @@ class Txt2ImgInput(InitInput):
 class InpaintCtx:
     z0: torch.Tensor
     mask: torch.Tensor
-    noise: torch.Tensor

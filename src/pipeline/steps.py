@@ -3,7 +3,7 @@ from tqdm.auto import tqdm
 
 from src.network import MMDIT
 from src.core import state
-from .types import Txt2ImgInput, InitOutput
+from .types import Txt2ImgInput, InitOutput, InpaintCtx
 
 @torch.inference_mode()
 @torch.amp.autocast(device_type=state.config.device, dtype=state.config.torch_dtype)
@@ -24,36 +24,42 @@ def one_steps(model:MMDIT, x, txt2img_input:Txt2ImgInput, init_out:InitOutput, s
 
     return v
 
-def sampling(model:MMDIT, txt2img_input:Txt2ImgInput, init_out:InitOutput) -> torch.Tensor:
+def sampling(model, txt2img_input:Txt2ImgInput, init_out:InitOutput, inpaint_ctx:InpaintCtx = None):
     sigmas = init_out.sigmas
     n = len(sigmas) - 1
 
     latents = []
     sigmas_steps = []
-    x = init_out.noise
+    noise = init_out.noise
+
+    if inpaint_ctx is not None:
+        z0 = inpaint_ctx.z0.to(device=noise.device, dtype=noise.dtype)
+        mask = inpaint_ctx.mask.to(device=noise.device, dtype=noise.dtype)
+        s0 = float(sigmas[0])
+        x = (1 - s0) * z0 + s0 * noise
+    else:
+        x = noise
 
     for i in tqdm(range(n), desc="sampling"):
         sigma, sigma_next = sigmas[i], sigmas[i + 1]
         sigmas_steps.append(float(sigma_next))
 
-        v = one_steps(
-            model=model,
-            x=x,
-            txt2img_input=txt2img_input,
-            init_out=init_out,
-            sigma=sigma,
-        )
+        v = one_steps(model=model, x=x, txt2img_input=txt2img_input,
+                      init_out=init_out, sigma=sigma)
 
         x0_hat = (x - float(sigma) * v).detach().float().cpu()
 
         if txt2img_input.calculate_type == "euler":
-
+            x = x + (sigma_next - sigma) * v
         elif txt2img_input.calculate_type == "heun":
-
+            ...
         elif txt2img_input.calculate_type == "ddpm_plus":
+            ...
 
-        elif txt2img_input.calculate_type ==
-
+        if inpaint_ctx is not None:
+            s_next = float(sigma_next)
+            z_known = (1 - s_next) * z0 + s_next * noise
+            x = mask * x + (1 - mask) * z_known
 
         latents.append(x0_hat)
 

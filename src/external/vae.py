@@ -2,17 +2,15 @@ from diffusers import AutoencoderDC
 from PIL import Image
 import torch
 import torch.nn.functional as F
+from src.core import state
 
 # FLUX	black-forest-labs/FLUX.1-dev (vae 서브폴더)	8×	16
 # DC-AE 32×	mit-han-lab/dc-ae-f32c32-sana-1.0-diffusers	32×	32
 # DC-AE 64×	mit-han-lab/dc-ae-f64c128-in-1.0-diffusers	64×	128
 
 class VAE():
-    def __init__(self, model_name="mit-han-lab/dc-ae-f32c32-sana-1.0-diffusers", device="cuda", dtype=torch.bfloat16, console=None):
+    def __init__(self, model_name="mit-han-lab/dc-ae-f32c32-sana-1.0-diffusers", console=None):
         self.model_name = model_name
-        self.device = device
-        self.dtype = dtype
-
         self.vae = self.download_flux_vae()
         
         if console is not None:
@@ -23,7 +21,7 @@ class VAE():
     def download_flux_vae(self):
         vae = AutoencoderDC.from_pretrained(
             self.model_name,
-            torch_dtype=self.dtype
+            torch_dtype=state.config.dtype
         )
 
         vae.eval()
@@ -34,7 +32,7 @@ class VAE():
 
     @torch.inference_mode()
     def encoder(self, img, chunk_size=8):
-        img = img.to(device=self.device, dtype=self.dtype, non_blocking=True)
+        img = img.to(device=state.config.device, dtype=state.config.dtype, non_blocking=True)
 
         if img.min() >= 0.0 and img.max() <= 1.0:
             img = img * 2.0 - 1.0
@@ -82,8 +80,8 @@ class VAE():
 
     @torch.inference_mode()
     def decoder(self, latent, chunk_size=8) -> torch.Tensor:
-        latent = latent.to(device=self.device, dtype=self.dtype, non_blocking=True)
-
+        latent = latent.to(device=state.config.device, dtype=state.config.dtype, non_blocking=True)
+        
         images = []
         for i in range(0, latent.shape[0], chunk_size):
             chunk = latent[i:i+chunk_size]
@@ -99,5 +97,5 @@ class VAE():
     
     def to(self, device):
         self.vae.to(device)
-        self.device = str(device)
+        state.config.device = str(device)
         return self    

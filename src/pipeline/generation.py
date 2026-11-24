@@ -1,6 +1,7 @@
 import torch
 from PIL import Image
 import numpy as np
+import cv2
 
 from .types import Txt2ImgInput, InitOutput, InpaintInput, InpaintCtx
 from .setup import setup_init
@@ -10,7 +11,7 @@ from src.external import TE, VAE
 from src.network import MMDIT, LLM
 
 from .steps import sampling
-from .utils import img_resize, mask_generation, upscale_to, img_to_bytes
+from .utils import arr_resize, mask_generation, upscale_to, img_to_bytes
 
 class Generation:
     def __init__(self, model:MMDIT, llm:LLM, te:TE, vae:VAE, console=None):
@@ -58,13 +59,17 @@ class Generation:
         img = inpaint_input.img
 
         try:
-            if upscale:
-                img = upscale_to(inpaint_input.img, target=1024)
+            arr, H, W = arr_resize(
+                img,
+                state.config.allowable_size,
+                state.config.patch_size,
+                state.config.compression_ratio,
+                upscale=upscale
+            )
 
-            img_bytes = img_to_bytes(img, ".png")
-
-            f = state.config.compression_ratio * state.config.patch_size
-            arr, H, W = img_resize(img_bytes, state.config.allowable_size, state.config.patch_size, f)
+            txt2img_input.H = H
+            txt2img_input.W = W
+            
             mask = inpaint_input.mask.convert("L").resize((W, H), Image.Resampling.NEAREST)
             mask_arr = np.array(mask, dtype=np.uint8)
 
@@ -74,11 +79,16 @@ class Generation:
             latent = self.vae.encoder(np_tensor)
             mask_lat = mask_generation(mask_arr, latent)
 
-            ctx = InpaintCtx(z0=latent, mask=mask_lat, noise=torch.randn_like(latent))
+            B = len(txt2img_input.tags)
+
+            ctx = InpaintCtx(
+                z0=latent.expand(B, -1, -1, -1),
+                mask=mask_lat.expand(B, -1, -1, -1)
+            )
 
             return self.txt2img(txt2img_input, start_t=inpaint_input.start_t, inpaint_ctx=ctx)
         
         except Exception as e:
-            error_report(e, "txt2img")
+            error_report(e, "inpaint")
             log(self.console, e)
             raise    
