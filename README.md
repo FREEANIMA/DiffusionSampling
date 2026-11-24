@@ -1,6 +1,6 @@
 # Diffusion MMDiT Text2img with DC-AE f32c32
 
-|:---:|---|---:|:---:|
+
 | [UPDATE](CHANGELOG.md) | [TRAINSTATE](docs/training.md) | [ARCHITECTURE](docs/architecture.md) | [UI](docs/ui.md) |
 
 ![sample_1](docs/imgs/sample.png)
