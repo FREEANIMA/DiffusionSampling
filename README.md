@@ -1,18 +1,16 @@
 # Diffusion MMDiT Text2img with DC-AE f32c32
 
-## Update — 2026.11.19 Sampling
-
-- **Quantization**: optional quantized model loading, chosen at startup (`use quantization? y/n`). Lower VRAM usage; works with the block-offload mode.
-- **Batch generation**: generate up to 8 images per run (Text2img / Inpainting). Results appear with numbered buttons to switch between images.
-- **Detailer batch**: each generated patch is merged into a copy of the original image and saved separately. The original is never modified.
-- **API**: `/api/generate` now accepts `batch` and returns `images` (array) and `path` (list) instead of a single `image`.
+[VIEW UPDATE](CHANGELOG.md)
+[VIEW TRAINSTATE](/docs/training.md)
+[VIEW ARCHITECTURE](/docs/architecture.md)
+[VIEW UI](/docs/ui.md)
 
 ## Installation
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-![MMDIT](assets/sample.png)
+![MMDIT](doc/images/sample.png)
 
 ## Architecture
 
@@ -22,24 +20,22 @@ python -m pip install -r requirements.txt
 - **Implementation:** Custom implementation (no pretrained base model)
 - **Parameters:** 4B
 
+---
+
 ## Train Environment
 
 - **Framework:** PyTorch (no custom CUDA kernels)
-- **GPU:** NVIDIA RTX PRO 6000 (96GB VRAM)
+- **GPU:** NVIDIA RTX PRO 6000 (96GB VRAM) x 1
 - **Platform:** Google Colab
-
-## Training
-
-### Configuration
-
 - **Batch Size:** Micro-batch 4 × Gradient Accumulation 8 = Effective Batch 32
+
 - **Training Speed:** ~2.3 s / optimizer step
 - **Max Resolution:** 1024 × 1024
 - **Dataset:** 2M images
-- **Objective:** Flow Matching (shift = 3.0)
+- **Objective:** Flow Matching
 - **Precision:** BF16
 - **Optimizer:** AdamW
-- **Learning Rate:** 1e-4
+- **Learning Rate:** 1e-4 ~ 5e~5
 - **EMA:** Enabled
 
 ### Training Stages
@@ -53,63 +49,12 @@ python -m pip install -r requirements.txt
 - Reset patch embedding weights.
 - Reset output projection weights.
 
-### Loss by Noise Level
-
-| Noise Level | Average Loss |
-|:---:|---:|
-| 1.0 – 0.9 | 4.0 ~ 4.3 |
-| 0.9 – 0.8 | 2.9 ~ 3.1 |
-| 0.8 – 0.7 | 2.4 ~ 2.6 |
-| 0.7 – 0.6 | 2.0 ~ 2.1 |
-| 0.6 – 0.5 | 1.8 ~ 1.9 |
-| 0.5 – 0.4 | 1.6 ~ 1.7 |
-| 0.4 – 0.3 | 1.3 ~ 1.6 |
-| 0.3 – 0.2 | 1.2 ~ 1.4 |
-| 0.2 – 0.1 | 1.0 ~ 1.1 |
-
-## Generation Results
-
-### Patch Size 2 + DC-AE f32c32
-
-![Patch Size 2](assets/patch_size_2.png)
-
-- **Issue:** Facial features, particularly the eyes, tend to collapse or become distorted.
-- **Observation:** Limited spatial detail makes accurate reconstruction of fine facial features challenging.
-
-### Patch Size 1 + DC-AE f32c32
-
-![Patch Size 1](assets/patch_size_1.png)
-
-- **Fine-tuning Result:** Fine-tuning with patch size 1 improved facial feature reconstruction.
-- **Improvement:** Eye and facial distortions were partially resolved, with better preservation of fine details.
+---
 
 ### Current Limitations
 
 - **Full-body Generation:** Full-body generation remains challenging due to insufficient full-body samples in the training dataset.
 - **Observation:** The current dataset contains insufficient full-body examples to learn consistent full-body composition and anatomical details.
 - **Future Work:** Increase the proportion and diversity of full-body images in the training dataset.
-
-### Train Architecture
-- **Use Cache**
-- **Cpu Multi Threading**
- 
-![inference](assets/train_loop.png)
-
-### Inference Architecture
-
-![inference](assets/inference.png)
-
-### UI
-- **Sampling**
-
-![sampling](assets/sampling.png)
-
-- **Inpainting**
-
-![inpainting](assets/inpainting.png)
-
-- **Result**
-
-![result](assets/inpaintbf.png)
 
 - **GITHUB link** https://github.com/FREEANIMA/DiffusionSampling.git

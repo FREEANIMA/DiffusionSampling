@@ -1,3 +1,33 @@
+## Update — 2026.11.20 Sampling: ETA injection equation selection & per-step latent → frame save
+
+<img src="assets/eta_frame.png" alt="update" width="50%">
+
+### ETA mode
+
+`eta_mode = cos | ln | sin`
+
+`ln`: `eta * ln(2 / (1 + x)) / ln 2`
+
+<img src="assets/graph.png" alt="graph" width="30%">
+
+Code: `src.utilities.predict`
+
+- `Eta`: 0 is deterministic. The larger it is, the more fresh noise is injected at each step.
+- `Eta mode`: schedule of the injected noise over the steps. Selectable in all three tabs.
+
+### Frame save
+
+Collect the latent at every step, decode all of them into images, and save them as an MP4.
+
+<img src="assets/detailer_process.gif" controls width="600">
+
+Toggle with **Frame save** in the Sampling panel.
+
+### Batch
+
+Generate 1–8 images at once. When Batch is greater than 1, numbered buttons under the result switch between images. Hover over an image to see its seed.
+
+---
 
 ## Update — 2026.11.19 Sampling
 
