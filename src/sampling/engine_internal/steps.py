@@ -4,30 +4,33 @@ from tqdm.auto import tqdm
 from src.network import MMDIT
 from src.core import state
 from .types import Txt2ImgInput, InitOutput, InpaintCtx
-from .solvers import euler, heun_step, midpoint_step, dpmpp_2m
+from .solvers import euler, renoise, sigma_lo_of, heun, ab2
+
 
 @torch.inference_mode()
 @torch.amp.autocast(device_type=state.config.device, dtype=state.config.torch_dtype)
-def one_steps(model:MMDIT, x, init_out:InitOutput, sigma, cfg) -> torch.Tensor:
+def one_steps(model: MMDIT, x, init_out: InitOutput, sigma, cfg) -> torch.Tensor:
     x_in = x.to(state.config.torch_dtype)
     B, _, _, _ = x_in.shape
 
     sigma_1d = torch.full((2 * B,), sigma, device=state.config.device, dtype=torch.float32)
 
     out, _ = model.forward(
-        x= torch.cat([x_in, x_in], dim=0),
-        sigma= sigma_1d,
-        txt_emb= torch.cat([init_out.cond_emb, init_out.uncond_emb], dim=0),
-        txt_mask= torch.cat([init_out.cond_mask, init_out.uncond_mask], dim=0),
-        max_side= init_out.max_side
+        x=torch.cat([x_in, x_in], dim=0),
+        sigma=sigma_1d,
+        txt_emb=torch.cat([init_out.cond_emb, init_out.uncond_emb], dim=0),
+        txt_mask=torch.cat([init_out.cond_mask, init_out.uncond_mask], dim=0),
+        max_side=init_out.max_side,
     )
 
     c, u = out.float().chunk(2, dim=0)
     v = u + cfg * (c - u)
-
     return v
 
-def sampling(model, txt2img_input, init_out, inpaint_ctx=None, on_step=None):
+
+def sampling(model, txt2img_input: Txt2ImgInput, init_out: InitOutput,
+             inpaint_ctx: InpaintCtx = None, on_step=None):
+    model.eval()
     sigmas = init_out.sigmas
     n = len(sigmas) - 1
     calc = txt2img_input.calculate_type
@@ -35,10 +38,12 @@ def sampling(model, txt2img_input, init_out, inpaint_ctx=None, on_step=None):
     latents = []
     sigmas_steps = []
     noise = init_out.noise
+    gens = init_out.gens
 
     if inpaint_ctx is not None:
         z0 = inpaint_ctx.z0.to(device=noise.device, dtype=noise.dtype)
         mask = inpaint_ctx.mask.to(device=noise.device, dtype=noise.dtype)
+
         def clamp_known(x, s):
             return mask * x + (1 - mask) * ((1 - s) * z0 + s * noise)
     else:
@@ -46,13 +51,17 @@ def sampling(model, txt2img_input, init_out, inpaint_ctx=None, on_step=None):
 
     x = noise if clamp_known is None else clamp_known(noise, float(sigmas[0]))
 
-    # DPM++ 2M 상태
-    x0_prev = None
-    h_prev = None
+    hist_v, hist_h = None, None
 
-    for i in tqdm(range(n), desc="sampling"):
+    # tqdm: 전체 스텝 수, postfix로 현재 상태 표시
+    pbar = tqdm(range(n), desc=f"sampling[{calc}]", total=n,
+                dynamic_ncols=True, leave=True)
+
+    for i in pbar:
         sigma, sigma_next = float(sigmas[i]), float(sigmas[i + 1])
         cfg = float(init_out.cfgs[i])
+        eta = float(init_out.etas[i])
+        last = (i == n - 1)
 
         first_v = []
 
@@ -64,21 +73,61 @@ def sampling(model, txt2img_input, init_out, inpaint_ctx=None, on_step=None):
                 first_v.append((x_in, v))
             return v
 
-        if calc == "heun":
-            x = heun_step(model_fn, x, sigma, sigma_next)
-        elif calc == "dpmpp_2m":
-            v = model_fn(x, sigma)
-            x0_cur = x - sigma * v
-            x, h = dpmpp_2m(x, x0_cur, x0_prev, sigma, sigma_next, h_prev)
-            # 상태 갱신: renoise/클램프가 없을 때만 prev 유지
-            if clamp_known is None:
-                x0_prev, h_prev = x0_cur, h
-            else:
-                x0_prev, h_prev = None, None
-        else:  # euler
-            v = model_fn(x, sigma)
-            x = euler(x, v, sigma, sigma_next)
+        v = model_fn(x, sigma)
 
+        # eta/noise 준비
+        use_noise = (eta > 1e-4) and not last
+        sigma_lo = sigma_lo_of(sigma_next, eta) if use_noise else sigma_next
+
+        if use_noise:
+            z = torch.cat([
+                torch.randn((1, *x.shape[1:]), generator=g_, device=x.device, dtype=x.dtype)
+                for g_ in gens
+            ], dim=0)
+        else:
+            z = None
+
+        # 진행바 postfix 업데이트 (스텝 시작 시점 상태)
+        pbar.set_postfix({
+            "s": f"{sigma:.3f}->{sigma_next:.3f}",
+            "cfg": f"{cfg:.1f}",
+            "eta": f"{eta:.3f}",
+            "x_std": f"{x.std().item():.2f}",
+            "v_std": f"{v.std().item():.2f}",
+        }, refresh=False)
+
+        # --- 스텝 ---
+        if calc == "euler":
+            x = euler(x, v, sigma, sigma_lo)
+            if use_noise:
+                x = renoise(x, z, sigma_lo, sigma_next)
+
+        elif calc == "heun":
+            if last:
+                x = euler(x, v, sigma, sigma_next)
+            else:
+                x_e = euler(x, v, sigma, sigma_lo)
+                v2 = model_fn(x_e, sigma_lo)
+                x = heun(x, v, v2, sigma, sigma_lo)
+                del x_e, v2
+            if use_noise:
+                x = renoise(x, z, sigma_lo, sigma_next)
+
+        elif calc == "ab2":
+            h = sigma_lo - sigma
+            x = ab2(x, v, hist_v, sigma, sigma_lo, hist_h)
+            if use_noise:
+                x = renoise(x, z, sigma_lo, sigma_next)
+                hist_v, hist_h = None, None
+            else:
+                hist_v, hist_h = v.detach(), h
+
+        else:
+            raise ValueError(f"Unsupported sampling method: {calc}")
+
+        del z
+
+        # x0_hat 기록
         x_in0, v0 = first_v[0]
         x0_hat = x_in0 - sigma * v0
 
@@ -88,7 +137,19 @@ def sampling(model, txt2img_input, init_out, inpaint_ctx=None, on_step=None):
         sigmas_steps.append(sigma_next)
         latents.append(x0_hat)
 
+        # 스텝 완료 로그 (tqdm.write는 진행바를 깨지 않음)
+        tqdm.write(
+            f"[{i:02d}] s={sigma:.3f}->{sigma_next:.3f} cfg={cfg:.1f} eta={eta:.3f} "
+            f"noise={'Y' if use_noise else 'N'} | "
+            f"x_in.std={x_in0.std().item():.3f} x_in.max={x_in0.abs().max().item():.2f} | "
+            f"v.std={v0.std().item():.3f} v.max={v0.abs().max().item():.2f} | "
+            f"x0hat.std={x0_hat.std().item():.3f} | "
+            f"x_next.std={x.std().item():.3f} x_next.max={x.abs().max().item():.2f} | "
+            f"nan={bool(torch.isnan(x).any())}"
+        )
+
         if on_step:
             on_step(i + 1, n)
 
+    pbar.close()
     return x, latents, sigmas_steps
