@@ -7,11 +7,12 @@ from src.network import MMDIT, LLM
 from src.tag import TagGenration
 from src.storage import download_model, load_ema_only
 import os
+from datetime import datetime
 
 import numpy as np
 from src.sampling.engine_internal import (
     Txt2ImgInput, InitOutput, InpaintInput, InpaintCtx,
-    setup_init, sampling, arr_resize, mask_generation, save_img
+    setup_init, sampling, arr_resize, mask_generation, save_img, save_video
 )
 
 class SamplingEngine:
@@ -43,6 +44,20 @@ class SamplingEngine:
                 frames.extend(self.vae._tensor_to_pils(self.vae.decoder(latent)))
 
         return imgs, frames
+
+    def save(self, imgs, frames, txt2img_input):
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        for i, img in enumerate(imgs):
+            save_path = os.path.join(state.config.GENERATION_DIR, {ts}, f"img_{i}.png")
+            save_img(path=save_path, img=img)
+
+        if txt2img_input.frame_save:
+            for b, frames_b in enumerate(frames):
+                # frames_b: 한 배치 샘플의 프레임 리스트
+                save_path = os.path.join(state.config.GENERATION_DIR, f"frames_{ts}_{b}.mp4")
+                save_video(path=save_path, frames=frames_b, fps=16)
+
 
     def txt2img(self, txt2img_input:Txt2ImgInput, start_t=1.0, inpaint_ctx: InpaintCtx | None = None, on_step=None) -> tuple[list[Image.Image], list[Image.Image], list[float]]:
         try:
@@ -86,10 +101,6 @@ class SamplingEngine:
 
             imgs, frames = self.vae_decode(x, latents, txt2img_input.frame_save)
 
-            for i, img in enumerate(imgs):
-                save_path = os.path.join(state.config.GENERATION_DIR, f"img_{i}.png")
-                save_img(path=save_path, img=img)
-            
             return imgs, frames, sigmas_steps
         
         except Exception as e:
