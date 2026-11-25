@@ -9,7 +9,8 @@ import { initCommon, collectCommon, toSamplingRequest, postJSON } from '../commo
 
 const GRID = 32;                 // W, H 모두 32의 배수
 const COLOR = { edit: '#ff3b30', keep: '#2f6bff' };
-const API_URL = '/api/inpainting';
+import { API_BASE } from '../common/common.js';
+const API_URL = `${API_BASE}/api/inpainting`;
 const USE_MOCK = false;          // true: 전송 후 가짜 결과를 이미지판에 띄워 화면(번호 전환/Compare) 테스트
 
 // W, H가 32의 배수이고, 큰 쪽이 작은 쪽으로 나눠떨어져야 함

@@ -1,7 +1,8 @@
 /* sampling.js — txt2img 전용 */
 import { initCommon, collectCommon, toSamplingRequest, postJSON } from '../common/common.js';
 
-const API_URL = '/api/sampling';
+import { API_BASE } from '../common/common.js';
+const API_URL = `${API_BASE}/api/sampling`;
 
 export async function init() {
     await initCommon({ size: true, onGenerate });

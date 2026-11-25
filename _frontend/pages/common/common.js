@@ -1,3 +1,5 @@
+export const API_BASE = 'http://localhost:8000';
+
 /* common.js — txt2img / inpaint 공용
  * 왼쪽 트리 + 가운데 입력(common.html) + sigma/cfg/eta 곡선 + 프롬프트/결과 번호 */
 
