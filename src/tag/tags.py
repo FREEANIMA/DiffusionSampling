@@ -17,13 +17,14 @@ class TagGenration:
 
         download_model(config=state.config, filename="tags_llm.pt")
         type_path = download_model(config=state.config, filename="tags_type.parquet")
-        vocab_path = download_model(config=state.config, filename="vocab.json")        
+        vocab_path = download_model(config=state.config, filename="vocab.json")    
+        print(vocab_path)    
 
         with open(vocab_path, "r", encoding="utf-8") as f:
             self.vocab = json.load(f)
 
         vocab_size = len(self.vocab)
-        self.model = load_llm_model(config=console, network=LLM, vocab_size=vocab_size, console=console)
+        self.model = load_llm_model(config=state.config, network=LLM, vocab_size=vocab_size, console=console)
 
         tags_type_df = pd.read_parquet(type_path)
         self.type_map, self.dup_map, self.tag_tree = build_tag_maps(tags_type_df=tags_type_df)

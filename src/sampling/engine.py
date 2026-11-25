@@ -18,17 +18,18 @@ class SamplingEngine:
 
         # test
         self.model = None
-        self.llm =None
 
         self.te = TE()
         self.vae = VAE()
+        self.llm:LLM = TagGenration(console=console)
+
         # download_model(config=state.config, filename="model.pt")
         # self.model:MMDIT = load_ema_only(
         #     config=state.config,
         #     network=MMDIT,
         #     console=console
         # )
-        # self.llm:LLM = TagGenration(console=console)
+        
 
     def vae_decode(self, x: torch.Tensor, latents: list[torch.Tensor], video_save: bool) -> tuple[list[Image.Image], list[Image.Image]]:
         imgs: list[Image.Image] = self.vae._tensor_to_pils(self.vae.decoder(x))
