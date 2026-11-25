@@ -12,6 +12,7 @@ class SamplingRequest:
     steps: int = 28
     width: int = 1024
     height: int = 1024
+    prompt_static:bool = False
     frame_save: bool = False
 
 @dataclass

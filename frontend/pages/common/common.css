@@ -574,5 +574,12 @@
 /* 2층은 칸 수가 적어 너무 넓어지지 않게, 1층과 같은 칸 폭(5등분)으로 맞춤 */
 .page-txt2img .t2i-params-wrap .t2i-params {
     grid-auto-flow: row;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+/* 라벨이 길어도 줄바꿈 없이 말줄임 */
+.page-txt2img .t2i-field > span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }

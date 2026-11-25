@@ -1,6 +1,7 @@
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+from fastapi.staticfiles import StaticFiles     # 추가
 from contextlib import asynccontextmanager
 from src.sampling import Engine
 
@@ -25,3 +26,6 @@ app.add_middleware(
 app.include_router(sampling.router)
 app.include_router(inpainting.router)
 app.include_router(tag_browser.router)
+
+FRONTEND = Path(__file__).resolve().parents[2] / "frontend"
+app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="frontend")

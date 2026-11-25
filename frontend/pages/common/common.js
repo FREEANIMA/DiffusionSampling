@@ -1,4 +1,4 @@
-export const API_BASE = 'http://localhost:8000';
+export const API_BASE = '';
 
 /* common.js — txt2img / inpaint 공용
  * 왼쪽 트리 + 가운데 입력(common.html) + sigma/cfg/eta 곡선 + 프롬프트/결과 번호 */
@@ -499,6 +499,7 @@ export function collectCommon() {
         cfg,
         seed: Number(val('t2i-seed')),
         calculateType: val('t2i-calculate-type'),   // ← 추가
+        promptStatic: document.getElementById('t2i-prompt-static').checked,
         frameSave: document.getElementById('t2i-frame-save').checked,
         ...getCurveParams(cfg),
         tags: [...checkedTags],
@@ -539,6 +540,7 @@ export function toSamplingRequest(p, prompts = p.prompts, size = {}) {
         width: size.width ?? p.width,
         height: size.height ?? p.height,
         frame_save: p.frameSave,
+        prompt_static: p.promptStatic
     };
 }
 
