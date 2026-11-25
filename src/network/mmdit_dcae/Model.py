@@ -10,12 +10,10 @@ from .Block import Block
 
 class Model(nn.Module):
     def __init__(self, hidden_size, nhead, num_layers, dropout, pos_scale,
-                 sigma_emb_hz, in_channels, patch_size, rope_hz, sigma_scale, txt_hidden_size, allowable_size, compression_ratio,
-                 check=False, **kwargs):
+                 sigma_emb_hz, in_channels, patch_size, rope_hz, sigma_scale, txt_hidden_size, check=False, **kwargs):
         super().__init__()
         dim_feedforward = 3 * hidden_size
         self.patch_size = patch_size
-        self.max_side = allowable_size // (compression_ratio * patch_size)
         self.in_channels = in_channels
         self.sigma_scale = sigma_scale
 
@@ -71,11 +69,11 @@ class Model(nn.Module):
         nn.init.zeros_(self.final_mod.weight)
         nn.init.zeros_(self.final_mod.bias)
 
-    def forward(self, x, sigma, txt_emb, txt_mask=None, use_checkpoint=False, collects_stats=False, attn_collects_stats=False) -> tuple[torch.Tensor, dict]:
+    def forward(self, x, sigma, txt_emb, max_side, txt_mask=None, use_checkpoint=False, collects_stats=False, attn_collects_stats=False):
         B, C, H, W = x.shape
         p = self.patch_size
         h, w = H // p, W // p
-        MAX = self.max_side
+        MAX = max_side
         assert h <= MAX and w <= MAX, f"token grid {h}x{w} > {MAX}x{MAX}"
 
         pad_h, pad_w = (MAX - h) * p, (MAX - w) * p
@@ -100,7 +98,7 @@ class Model(nn.Module):
 
         attn_mask = torch.zeros(full_mask.shape, dtype=img_emb.dtype, device=x.device)
         attn_mask = attn_mask.masked_fill(~full_mask, torch.finfo(img_emb.dtype).min)
-        attn_mask = attn_mask[:, None, None, :]
+        attn_mask = attn_mask[:, None, None, :]                       # (B, 1, 1, N)
 
         param = {
             "vec"       : sigma_norm,

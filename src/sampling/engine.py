@@ -59,6 +59,7 @@ class SamplingEngine:
             init_out.cfgs = init_out.cfgs[start_idx:]
             init_out.etas = init_out.etas[start_idx:]
 
+            self.model.eval()
             x, latents, sigmas_steps = sampling(
                 model=self.model,
                 txt2img_input=txt2img_input,

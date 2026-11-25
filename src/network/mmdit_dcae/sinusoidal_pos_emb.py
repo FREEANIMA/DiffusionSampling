@@ -35,9 +35,18 @@ class SinusoidalPosEmb(nn.Module):
         x_min = x.float().min().item()
         x_max = x.float().max().item()
 
+        print(f"\ndim={self.dim}, sinusoid_rope_hz={self.sinusoid_rope_hz}")
+        print(f"x range: {x_min:.4f} ~ {x_max:.4f}")
+        print(f"{'Index':>5} {'Frequency':>12} {'Radians':>12} {'Cycles':>12}")
+
         indices = sorted(set([0, half_dim // 2, half_dim - 1]))
 
         for i in indices:
             f = freq[i].item()
             radians = x_max * f
             cycles = radians / (2 * math.pi)
+
+            print(
+                f"{i:5d} {f:12.6f} "
+                f"{radians:12.6f} {cycles:12.4f}"
+            )

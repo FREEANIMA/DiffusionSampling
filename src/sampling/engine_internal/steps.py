@@ -25,8 +25,6 @@ def one_steps(model:MMDIT, x, init_out:InitOutput, sigma, cfg) -> torch.Tensor:
 
     return v
 
-
-
 def sampling(model, txt2img_input: Txt2ImgInput, init_out: InitOutput, inpaint_ctx: InpaintCtx = None, on_step=None):
     sigmas = init_out.sigmas
     n = len(sigmas) - 1
@@ -57,7 +55,7 @@ def sampling(model, txt2img_input: Txt2ImgInput, init_out: InitOutput, inpaint_c
 
         cfg = float(init_out.cfgs[i])
         eta = float(init_out.etas[i])
-        
+
         first_v = [] 
 
         def model_fn(x_in, s, cfg=cfg):
