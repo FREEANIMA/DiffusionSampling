@@ -32,6 +32,8 @@ class InpaintInput():
     img: Image.Image
     start_t: float
     mask: Image.Image
+    crop_img: Image.Image
+    crop_box: list[int]
 
 @dataclass(kw_only=True)
 class Txt2ImgInput(InitInput):

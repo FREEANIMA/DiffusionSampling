@@ -17,10 +17,11 @@ class SamplingRequest:
 
 @dataclass
 class InPaintingRequest:
-    image_b64: str | None = None       # 원본 전체 (PNG, 접두사 없는 base64)
-    mask_b64: str | None = None        # 원본과 같은 크기, 수정 = 흰색(255) / 그 외 = 검정(0)
-    crop_b64: str | None = None        # 크롭 영역 이미지 (크롭 없으면 None)
-    crop_box: list[int] | None = None  # [x, y, w, h] 원본 좌표 (크롭 없으면 None)
+    start_t : float = 0.0
+    image_b64: str | None = None
+    mask_b64: str | None = None
+    crop_b64: str | None = None
+    crop_box: list[int] | None = None
 
 
 @dataclass

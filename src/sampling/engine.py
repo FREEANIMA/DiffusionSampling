@@ -1,7 +1,7 @@
 import torch
 from PIL import Image
 import numpy as np
-from src.core import log, state, error_report
+from src.core import log, state, error_report, dbg
 from src.external import TE, VAE
 from src.network import MMDIT, LLM
 from src.tag import TagGenration
@@ -44,12 +44,18 @@ class SamplingEngine:
 
     def txt2img(self, txt2img_input, start_t=0, inpaint_ctx: InpaintCtx | None = None) -> tuple[list[Image.Image], list[Image.Image], list[float]]:
         try:
-            print(f"txt2img_input : {txt2img_input}")
             init_out:InitOutput = setup_init(model=self.te, config=state.config, txt2img_input=txt2img_input)
-            print(f"init_out : {init_out}")
 
             start_idx = int(np.argmin(np.abs(init_out.sigmas - start_t)))
             init_out.sigmas = init_out.sigmas[start_idx:]
+
+            print("========== debugging result =============")
+            dbg(txt2img_input)
+            print("==========================================")
+            dbg(init_out)
+            print("==========================================")
+            dbg(inpaint_ctx)
+
 
             # x, latents, sigmas_steps = sampling(
             #     model=self.model,
@@ -68,7 +74,14 @@ class SamplingEngine:
             raise
 
     def inpaint(self, txt2img_input:Txt2ImgInput, inpaint_input:InpaintInput, upscale=False) -> tuple[list[Image.Image], list[Image.Image], list[float]]:
-        img = inpaint_input.img
+        print(txt2img_input.H)
+        print(txt2img_input.W)
+        if inpaint_input.crop_img is not None:
+            img = inpaint_input.crop_img
+        else:
+            img = inpaint_input.img
+
+        origin_img = inpaint_input.img
 
         try:
             arr, H, W = arr_resize(
@@ -81,24 +94,26 @@ class SamplingEngine:
 
             txt2img_input.H = H
             txt2img_input.W = W
-            
-            # mask = inpaint_input.mask.convert("L").resize((W, H), Image.Resampling.NEAREST)
-            # mask_arr = np.array(mask, dtype=np.uint8)
+            print(txt2img_input.H)
+            print(txt2img_input.W)
+     
+            mask = inpaint_input.mask.convert("L").resize((W, H), Image.Resampling.NEAREST)
+            mask_arr = np.array(mask, dtype=np.uint8)
 
-            # np_tensor = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
-            # np_tensor = np_tensor.to(device=state.config.device, dtype=state.config.dtype)
+            np_tensor = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
+            np_tensor = np_tensor.to(device=state.config.device, dtype=state.config.dtype)
 
-            # latent = self.vae.encoder(np_tensor)
-            # mask_lat = mask_generation(mask_arr, latent)
+            latent = self.vae.encoder(np_tensor)
+            mask_lat = mask_generation(mask_arr, latent)
 
-            # B = len(txt2img_input.prompts)
+            B = len(txt2img_input.prompts)
 
-            # ctx = InpaintCtx(
-            #     z0=latent.expand(B, -1, -1, -1),
-            #     mask=mask_lat.expand(B, -1, -1, -1)
-            # )
+            ctx = InpaintCtx(
+                z0=latent.expand(B, -1, -1, -1),
+                mask=mask_lat.expand(B, -1, -1, -1)
+            )
 
-            # return self.txt2img(txt2img_input, start_t=inpaint_input.start_t, inpaint_ctx=ctx)
+            return self.txt2img(txt2img_input, start_t=inpaint_input.start_t, inpaint_ctx=ctx)
         
         except Exception as e:
             error_report(e, "inpaint")

@@ -12,5 +12,5 @@ __all__ = [
     "InpaintCtx",
     "InitOutput",
     "arr_resize", 
-    "mask_generation", 
+    "mask_generation",
 ]

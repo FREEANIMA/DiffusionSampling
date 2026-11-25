@@ -1,6 +1,6 @@
 from .config import Config, DTYPES, ModelSettings
 from .runtime import config_settings, prepared_dir
-from .utils import log, error_report
+from .utils import log, error_report, summ, dbg
 from . import state, shared
 
 __all__ = [
@@ -13,4 +13,6 @@ __all__ = [
     "ModelSettings",
     "state",
     "shared",
+    "dbg",
+    "summ"
 ]

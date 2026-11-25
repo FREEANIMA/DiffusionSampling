@@ -1,7 +1,7 @@
-from .sampling import Engine, Txt2ImgInput, InpaintCtx
+from .sampling import Engine, Txt2ImgInput, InpaintInput
 
 __all__ = [
-    "Engine"
+    "Engine",
     "Txt2ImgInput",
-    "InpaintCtx"
+    "InpaintInput"
 ]
