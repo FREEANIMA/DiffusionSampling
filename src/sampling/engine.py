@@ -62,7 +62,7 @@ class SamplingEngine:
             print("========init_out=============")
             dbg(init_out)
             print("========txt2img_input=============")
-            dbg(self.txt2img_input)
+            dbg(txt2img_input)
 
             self.model.eval()
             x, latents, sigmas_steps = sampling(
