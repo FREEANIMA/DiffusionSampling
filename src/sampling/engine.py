@@ -59,8 +59,6 @@ class SamplingEngine:
             init_out.cfgs = init_out.cfgs[start_idx:]
             init_out.etas = init_out.etas[start_idx:]
 
-            dbg(txt2img_input)   # 아래 줄에 이걸 넣으려던 거라면
-            dbg(txt2img_input)
             x, latents, sigmas_steps = sampling(
                 model=self.model,
                 txt2img_input=txt2img_input,
@@ -79,8 +77,6 @@ class SamplingEngine:
             raise
 
     def inpaint(self, txt2img_input:Txt2ImgInput, inpaint_input:InpaintInput) -> tuple[list[Image.Image], list[Image.Image], list[float]]:
-        print(txt2img_input.H)
-        print(txt2img_input.W)
         if inpaint_input.crop_img is not None:
             img = inpaint_input.crop_img
         else:
@@ -97,12 +93,8 @@ class SamplingEngine:
                 upscale=inpaint_input.upscale
             )
 
-            print(f"H : {H}")
-            print(f"W : {W}")
             txt2img_input.H = H
             txt2img_input.W = W
-            print(txt2img_input.H)
-            print(txt2img_input.W)
      
             mask = inpaint_input.mask.convert("L")
             if inpaint_input.crop_img is not None:

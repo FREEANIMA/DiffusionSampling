@@ -41,7 +41,6 @@ def sampling(model, txt2img_input: Txt2ImgInput, init_out: InitOutput, inpaint_c
         mask = inpaint_ctx.mask.to(device=noise.device, dtype=noise.dtype)   # 1 = 수정, 0 = 보존
 
         def clamp_known(x, s):
-            # 보존 칸 = 원본 + 처음 노이즈 (노이즈는 매번 같은 걸 써야 이음매가 안 생김)
             return mask * x + (1 - mask) * ((1 - s) * z0 + s * noise)
     else:
         clamp_known = None
