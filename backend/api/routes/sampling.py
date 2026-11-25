@@ -25,6 +25,6 @@ def run_sampling(sampling: SamplingRequest, engine: Engine = Depends(get_engine)
         nsfw=sampling.nsfw
     )
 
-    engine.txt2img(txt2img_input=txt2img_input, start_t=0, inpaint_ctx=None)
+    imgs, frames, sigmas_steps = engine.txt2img(txt2img_input=txt2img_input, start_t=0, inpaint_ctx=None)
 
     return Response(status_code=204)

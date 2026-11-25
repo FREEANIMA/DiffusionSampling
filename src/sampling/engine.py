@@ -24,12 +24,12 @@ class SamplingEngine:
 
         self.llm:TagGenration = TagGenration(console=console)
 
-        # download_model(config=state.config, filename="model.pt")
-        # self.model:MMDIT = load_ema_only(
-        #     config=state.config,
-        #     network=MMDIT,
-        #     console=console
-        # )
+        download_model(config=state.config, filename="model.pt")
+        self.model:MMDIT = load_ema_only(
+            config=state.config,
+            network=MMDIT,
+            console=console
+        )
         
 
     def vae_decode(self, x: torch.Tensor, latents: list[torch.Tensor], frame_save: bool) -> tuple[list[Image.Image], list[Image.Image]]:
@@ -59,16 +59,16 @@ class SamplingEngine:
             init_out.cfgs = init_out.cfgs[start_idx:]
             init_out.etas = init_out.etas[start_idx:]
 
-            # x, latents, sigmas_steps = sampling(
-            #     model=self.model,
-            #     txt2img_input=txt2img_input,
-            #     init_out=init_out,
-            #     inpaint_ctx=inpaint_ctx
-            # )
+            x, latents, sigmas_steps = sampling(
+                model=self.model,
+                txt2img_input=txt2img_input,
+                init_out=init_out,
+                inpaint_ctx=inpaint_ctx
+            )
 
-            # imgs, frames = self.vae_decode(x, latents, txt2img_input.frame_save)
+            imgs, frames = self.vae_decode(x, latents, txt2img_input.frame_save)
 
-            # return imgs, frames, sigmas_steps
+            return imgs, frames, sigmas_steps
         
         except Exception as e:
             error_report(e, "txt2img")
