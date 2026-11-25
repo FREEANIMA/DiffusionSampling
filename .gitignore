@@ -12,5 +12,4 @@ venv/
 .idea/
 
 *.tmp
-tree.txt
 test
