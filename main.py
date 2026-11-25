@@ -1,4 +1,3 @@
-# main.py (프로젝트 루트)
 import uvicorn
 
 if __name__ == "__main__":
