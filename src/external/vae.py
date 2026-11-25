@@ -78,7 +78,7 @@ class VAE():
 
     @torch.inference_mode()
     def decoder(self, latent, chunk_size=8) -> torch.Tensor:
-        latent = latent.to(device=state.config.device, dtype=state.config.torch_dtype, non_blocking=True)
+        latent = latent.to(device=state.config.device, dtype=torch.float32, non_blocking=True)
         
         images = []
         for i in range(0, latent.shape[0], chunk_size):
