@@ -38,7 +38,7 @@ class SamplingEngine:
     @torch.inference_mode()
     def vae_decode(self, x: torch.Tensor, latents: list[torch.Tensor], frame_save: bool):
         imgs = self.vae._tensor_to_pils(self.vae.decoder(x))
-        
+
         frames: list[list[Image.Image]] = [[] for _ in range(x.shape[0])]
         if frame_save and latents:
             for latent in latents:
@@ -102,6 +102,8 @@ class SamplingEngine:
             )
 
             imgs, frames = self.vae_decode(x, latents, txt2img_input.frame_save)
+
+            self.save(imgs=imgs, frames=frames, txt2img_input=txt2img_input)
 
             return imgs, frames, sigmas_steps
         
