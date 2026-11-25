@@ -10,14 +10,8 @@ from .solvers import euler, heun_step, midpoint_step
 @torch.amp.autocast(device_type=state.config.device, dtype=state.config.torch_dtype)
 def one_steps(model:MMDIT, x, init_out:InitOutput, sigma, cfg) -> torch.Tensor:
     x_in = x.to(state.config.torch_dtype)
-    B, _, H, W = x_in.shape
-    max_side = max(H, W)
+    B, _, _, _ = x_in.shape
 
-    if max_side <= 32:
-        max_side = 32
-    elif max_side > 64:
-        max_side = 64
-        
     sigma_1d = torch.full((2 * B,), sigma, device=state.config.device, dtype=torch.float32)
 
     out, _ = model.forward(
@@ -25,19 +19,11 @@ def one_steps(model:MMDIT, x, init_out:InitOutput, sigma, cfg) -> torch.Tensor:
         sigma= sigma_1d,
         txt_emb= torch.cat([init_out.cond_emb, init_out.uncond_emb], dim=0),
         txt_mask= torch.cat([init_out.cond_mask, init_out.uncond_mask], dim=0),
-        max_side= max_side
+        max_side= init_out.max_side
     )
 
     c, u = out.float().chunk(2, dim=0)
     v = u + cfg * (c - u)
-    tqdm.write(
-        f"sigma={sigma:.4f} | "
-        f"c: min={c.min().item():.4f} max={c.max().item():.4f} mean={c.mean().item():.4f} "
-        f"std={c.std().item():.4f} | "
-        f"u: min={u.min().item():.4f} max={u.max().item():.4f} mean={u.mean().item():.4f} "
-        f"std={u.std().item():.4f} | "
-        f"v: min={v.min().item():.4f} max={v.max().item():.4f} mean={v.mean().item():.4f}"
-    )
 
     return v
 
@@ -60,11 +46,6 @@ def sampling(model, txt2img_input: Txt2ImgInput, init_out: InitOutput, inpaint_c
         clamp_known = None
 
     x = noise if clamp_known is None else clamp_known(noise, float(sigmas[0]))
-
-    tqdm.write(f"sigmas={[round(float(s),3) for s in sigmas]}")
-    tqdm.write(f"cfgs={[round(float(c),2) for c in init_out.cfgs]}")
-    tqdm.write(f"etas={[round(float(e),3) for e in init_out.etas]}")
-    tqdm.write(f"x0 std={x.std().item():.3f} dtype={x.dtype} sigma dtype={sigmas.dtype}")
     
     for i in tqdm(range(n), desc="sampling"):
         sigma, sigma_next = float(sigmas[i]), float(sigmas[i + 1])

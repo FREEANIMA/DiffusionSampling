@@ -26,6 +26,7 @@ class InitOutput:
     sigmas: np.ndarray
     cfgs: np.ndarray
     etas: np.ndarray
+    max_side: int
 
 @dataclass
 class InpaintInput:

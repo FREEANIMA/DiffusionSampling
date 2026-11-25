@@ -9,6 +9,16 @@ from .types import Txt2ImgInput, InitOutput
 
 @torch.inference_mode()
 def setup_init(model:TE, config:Config, txt2img_input:Txt2ImgInput) -> InitOutput:
+    H = txt2img_input.H
+    W = txt2img_input.W 
+
+    if max(H, W) > 1024:
+        allowable_size = 2048
+    else:
+        allowable_size = 1024
+        
+    max_side = allowable_size // (config.patch_size * config.compression_ratio)
+
     B = len(txt2img_input.prompts)
     prompts_batch = txt2img_input.prompts
     init_prompt_batch = [config.init_prompt] * len(txt2img_input.prompts)
@@ -47,4 +57,5 @@ def setup_init(model:TE, config:Config, txt2img_input:Txt2ImgInput) -> InitOutpu
         sigmas=txt2img_input.sigma_curve,
         cfgs=txt2img_input.cfg_curve,
         etas=txt2img_input.eta_curve,
+        max_side=max_side,
     )
