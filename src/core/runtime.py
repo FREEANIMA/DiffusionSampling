@@ -36,7 +36,7 @@ def print_config(config, title="Config", max_val_len=60):
     w_type = max(len("Type"),  max(len(r[2]) for r in rows))
 
     # 내부 폭 (좌우 공백 1칸씩 포함)
-    inner = w_name + w_val + w_type + 10   # " │ " * 2 + " │ " = 10
+    inner = w_name + w_val + w_type + 8
 
     # 타이틀 라인
     title_str = f" {title} "
