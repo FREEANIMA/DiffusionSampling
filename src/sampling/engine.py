@@ -34,29 +34,30 @@ class SamplingEngine:
             console=console
         )
         
+    @torch.inference_mode()
+    def vae_decode(self, x: torch.Tensor, latents: list[torch.Tensor], frame_save: bool):
+        imgs = self.vae._tensor_to_pils(self.vae.decoder(x))
 
-    def vae_decode(self, x: torch.Tensor, latents: list[torch.Tensor], frame_save: bool) -> tuple[list[Image.Image], list[Image.Image]]:
-        imgs: list[Image.Image] = self.vae._tensor_to_pils(self.vae.decoder(x))
-
-        frames: list[Image.Image] = []
+        frames: list[list[Image.Image]] = [[] for _ in range(x.shape[0])]
         if frame_save and latents:
             for latent in latents:
-                frames.extend(self.vae._tensor_to_pils(self.vae.decoder(latent)))
+                pils = self.vae._tensor_to_pils(self.vae.decoder(latent))
+                for b, im in enumerate(pils):
+                    frames[b].append(im)
 
         return imgs, frames
 
     def save(self, imgs, frames, txt2img_input):
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        out_dir = os.path.join(state.config.GENERATION_DIR, ts)
+        os.makedirs(out_dir, exist_ok=True)
 
         for i, img in enumerate(imgs):
-            save_path = os.path.join(state.config.GENERATION_DIR, {ts}, f"img_{i}.png")
-            save_img(path=save_path, img=img)
+            save_img(os.path.join(out_dir, f"img_{i}.png"), img)
 
         if txt2img_input.frame_save:
             for b, frames_b in enumerate(frames):
-                # frames_b: 한 배치 샘플의 프레임 리스트
-                save_path = os.path.join(state.config.GENERATION_DIR, f"frames_{ts}_{b}.mp4")
-                save_video(path=save_path, frames=frames_b, fps=16)
+                save_video(os.path.join(out_dir, f"frames_{b}.mp4"), frames_b, fps=16)
 
 
     def txt2img(self, txt2img_input:Txt2ImgInput, start_t=1.0, inpaint_ctx: InpaintCtx | None = None, on_step=None) -> tuple[list[Image.Image], list[Image.Image], list[float]]:

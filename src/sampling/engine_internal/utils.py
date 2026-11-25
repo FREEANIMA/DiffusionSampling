@@ -98,15 +98,17 @@ def save_video(path, frames, fps=16):
     try:
         with imageio.get_writer(tmp, fps=fps, codec="libx264", quality=8) as w:
             for f in frames:
-                w.append_data(f)
+                w.append_data(np.asarray(f.convert("RGB")))
         os.replace(tmp, path)
     except Exception:
         if os.path.exists(tmp):
             os.remove(tmp)
         raise
 
+
 def save_img(path, img, format="PNG"):
-    tmp = path + ".tmp"
+    root, ext = os.path.splitext(path)
+    tmp = f"{root}.tmp{ext}" 
     try:
         img.save(tmp, format=format)
         os.replace(tmp, path)
