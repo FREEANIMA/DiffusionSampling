@@ -4,9 +4,9 @@ export const API_BASE = 'http://localhost:8000';
  * 왼쪽 트리 + 가운데 입력(common.html) + sigma/cfg/eta 곡선 + 프롬프트/결과 번호 */
 
 // ===================== 곡선 (sigma / cfg / eta) =====================
-// x = linspace(0, 1, steps), 점 개수 = steps. 유저는 함수식으로만 입력 (점 직접 편집 없음)
+// x = linspace(0, 1, steps + 1), 점 개수 = steps. 유저는 함수식으로만 입력 (점 직접 편집 없음)
 const MATH = {
-    sin: Math.sin, cos: Math.cos, tan: Math.tan, exp: Math.exp, log: Math.log,
+    sin: Math.sin, cos: Math.cos, tan: Math.tan, acos: Math.acos, exp: Math.exp, log: Math.log,
     sqrt: Math.sqrt, abs: Math.abs, pow: Math.pow, min: Math.min, max: Math.max,
     floor: Math.floor, pi: Math.PI, e: Math.E,
 };
@@ -16,15 +16,15 @@ const ALLOWED = new Set(['t', ...MATH_NAMES]);
 // isPdf : 입력식을 밀도함수로 보고 출력은 CDF 기반 (sigma)
 const curves = {
     sigma: {
-        expr: '1', isPdf: true, ymin: 0, ymax: 1, values: [], pdf: [],
+        expr: 'sin(pi*(0.7 + t*3)/5)', isPdf: true, ymin: 0, ymax: 1, values: [], pdf: [],
         hint: 'Enter a density (pdf). Output is its CDF: σ = 1 − CDF. Var: t',
     },
     cfg: {
-        expr: '1', ymin: 0, ymax: 1, values: [],
+        expr: 'max(0, sin(pi*(0.5 + 2*t)/3))', ymin: 0, ymax: 1, values: [],
         hint: 'Plot range is 0–1. Final CFG = cfg × plot. Var: t',
     },
     eta: {
-        expr: '0', ymin: 0, ymax: 1, values: [],
+        expr: 'max(0, sin(pi*(0.5 + 2*t)/3))', ymin: 0, ymax: 1, values: [],
         hint: 'Used as-is per step (0–1). Var: t',
     },
 };
@@ -59,16 +59,30 @@ function evalRaw(c, steps) {
     });
 }
 
-// 밀도함수(pdf) → CDF (사다리꼴 적분, 0~1) → sigma = 1 − CDF  (1에서 시작해 0으로 끝남)
-function pdfToSigma(pdf) {
-    const n = pdf.length;
-    if (n < 2) return [1];
-    const dx = 1 / (n - 1);
-    const cum = [0];
-    for (let k = 1; k < n; k++) cum.push(cum[k - 1] + 0.5 * (pdf[k] + pdf[k - 1]) * dx);
-    const total = cum[n - 1];
+// 역CDF: F는 0→1로 증가하는 배열, F(s)=q 인 s(0~1)를 선형보간으로 찾음
+function invertCdf(F, q) {
+    let lo = 0, hi = F.length - 1;
+    while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1;
+        if (F[mid] < q) lo = mid; else hi = mid;
+    }
+    const d = F[hi] - F[lo];
+    const f = d > 0 ? (q - F[lo]) / d : 0;
+    return (lo + f) / (F.length - 1);
+}
+
+// 밀도함수(pdf) → CDF F → f(x) = F⁻¹(x). 서버 sigma_cdf(u)와 같은 결과 (0 → 1). 전송할 때 뒤집음
+// 서버 sigma_cdf(u)[::-1] 와 같은 결과 (첫 값 1, 마지막 값 0)
+function pdfToSigma(pdf, n) {
+    const m = pdf.length;
+    if (m < 2 || n < 2) return [1];
+    const dx = 1 / (m - 1);
+    const F = [0];
+    for (let k = 1; k < m; k++) F.push(F[k - 1] + 0.5 * (pdf[k] + pdf[k - 1]) * dx);
+    const total = F[m - 1];
     if (!(total > 0)) throw new Error('밀도함수의 적분이 0입니다 (0보다 큰 구간이 필요합니다)');
-    return cum.map(v => 1 - v / total);
+    for (let k = 0; k < m; k++) F[k] /= total;
+    return Array.from({ length: n }, (_, i) => invertCdf(F, i / (n - 1)));
 }
 
 function setMsg(text, isError = false) {
@@ -79,11 +93,11 @@ function setMsg(text, isError = false) {
 function applyExpr(name) {
     const c = curves[name];
     try {
-        const raw = evalRaw(c, currentSteps());
+        const raw = evalRaw(c, currentSteps() + 1);
         if (c.isPdf) {
-            const pdf = raw.map(v => Math.max(0, v));
-            c.values = pdfToSigma(pdf);
-            c.pdf = pdf;
+            const fine = evalRaw(c, 1001).map(v => Math.max(0, v));    // σ축을 촘촘하게 계산한 밀도
+            c.values = pdfToSigma(fine, raw.length);
+            c.dens = fine;                                             // 차트에서 볼록하게 그릴 밀도
         } else {
             c.values = raw.map(v => clamp(v, c.ymin, c.ymax));
         }
@@ -92,6 +106,12 @@ function applyExpr(name) {
         setMsg(err.message, true);      // 실패하면 기존 곡선 유지
     }
     redraw(name);
+}
+
+function viewOf(c) {
+    if (!c.isPdf) return c.values;
+    const m = Math.max(...c.pdf) || 1;
+    return c.pdf.map(v => v / m).reverse();      // step 0 = σ 1 쪽부터
 }
 
 function applyAll() {
@@ -105,6 +125,105 @@ function ghostOf(c) {
     if (!c.isPdf || !c.pdf.length) return null;
     const m = Math.max(...c.pdf) || 1;
     return c.pdf.map(v => v / m);
+}
+
+// sigma 전용: σ축(0.001~0.999) 한 줄 위에 스텝별 σ를 점으로 찍고,
+// 확률적으로 스텝이 쏠리는 구간(입력한 밀도)은 그 위로 볼록하게 올림
+const S_LO = 0.001, S_HI = 0.999;
+
+function drawDensity(cv, dens, values, o) {
+    const dpr = window.devicePixelRatio || 1;
+    const r = cv.getBoundingClientRect();
+    if (!r.width || !r.height || !values.length || !dens || !dens.length) return;   // 닫힌 dialog 등
+    cv.width = r.width * dpr;
+    cv.height = r.height * dpr;
+    const g = cv.getContext('2d');
+    g.scale(dpr, dpr);
+
+    const W = r.width, H = r.height;
+    const css = getComputedStyle(cv);
+    const muted = css.getPropertyValue('--muted').trim() || '#888';
+    const accent = css.getPropertyValue('--accent').trim() || '#4a7';
+    const fs = o.compact ? 9 : 11;
+
+    // 축 라벨 / 범례 자리를 위해 여백 확대
+    const p = o.compact
+        ? { l: 24, r: 12, t: 16, b: 32 }
+        : { l: 46, r: 30, t: 28, b: 48 };
+    const X = v => p.l + (W - p.l - p.r) * (clamp(v, S_LO, S_HI) - S_LO) / (S_HI - S_LO);
+    const y0 = H - p.b;                                   // σ축(기준선) 위치
+    const hmax = H - p.t - p.b;                           // 볼록 부분의 최대 높이
+    const m = Math.max(...dens) || 1;
+    const D = v => dens[Math.round(clamp(v, 0, 1) * (dens.length - 1))] / m;   // σ에서의 밀도 (0~1)
+
+    // 밀도 곡선
+    const N = o.compact ? 60 : 200;
+    g.beginPath();
+    for (let k = 0; k <= N; k++) {
+        const v = S_LO + (S_HI - S_LO) * k / N;
+        const x = X(v), y = y0 - hmax * D(v);
+        if (k) g.lineTo(x, y); else g.moveTo(x, y);
+    }
+    g.strokeStyle = accent;
+    g.lineWidth = 2;
+    g.stroke();
+    g.lineTo(X(S_HI), y0);
+    g.lineTo(X(S_LO), y0);
+    g.closePath();
+    g.globalAlpha = 0.18;
+    g.fillStyle = accent;
+    g.fill();
+    g.globalAlpha = 1;
+
+    // x축(σ) 한 줄 + 눈금
+    g.strokeStyle = muted;
+    g.fillStyle = muted;
+    g.lineWidth = 1.5;
+    g.font = `${fs}px sans-serif`;
+    g.textAlign = 'center';
+    g.beginPath(); g.moveTo(X(S_LO), y0); g.lineTo(X(S_HI), y0); g.stroke();
+    const ticks = o.compact ? [S_LO, 0.5, S_HI] : [S_LO, 0.25, 0.5, 0.75, S_HI];
+    const tl = o.compact ? 3 : 5;
+    g.lineWidth = 1;
+    for (const v of ticks) {
+        g.beginPath(); g.moveTo(X(v), y0 - tl); g.lineTo(X(v), y0 + tl); g.stroke();
+        g.fillText(String(v), X(v), y0 + tl + (o.compact ? 11 : 15));
+    }
+    // x축 라벨
+    g.fillText('sigma', (X(S_LO) + X(S_HI)) / 2, H - (o.compact ? 3 : 6));
+
+    // y축(확률) 선 + 눈금 (피크 기준 0~1로 정규화된 값)
+    const xl = X(S_LO) - (o.compact ? 4 : 8);
+    g.beginPath(); g.moveTo(xl, y0); g.lineTo(xl, y0 - hmax); g.stroke();
+    g.textAlign = 'right';
+    g.fillText('0', xl - 3, y0 + 3);
+    g.fillText('1', xl - 3, y0 - hmax + 3);
+    // y축 라벨 (세로)
+    g.save();
+    g.translate(o.compact ? 8 : 12, y0 - hmax / 2);
+    g.rotate(-Math.PI / 2);
+    g.textAlign = 'center';
+    g.fillText('probability', 0, 0);
+    g.restore();
+
+    // 스텝별 σ 점
+    g.fillStyle = accent;
+    const rad = o.compact ? 1.8 : 3.5;
+    for (const v of values) {
+        g.beginPath(); g.arc(X(v), y0, rad, 0, Math.PI * 2); g.fill();
+    }
+
+    // 범례: ● = steps 수
+    const label = `steps: ${values.length - 1}`;
+    g.font = `${fs}px sans-serif`;
+    g.textAlign = 'right';
+    g.fillStyle = muted;
+    const lx = W - p.r;
+    const ly = o.compact ? 9 : 14;
+    g.fillText(label, lx, ly + 3);
+    const tw = g.measureText(label).width;
+    g.fillStyle = accent;
+    g.beginPath(); g.arc(lx - tw - 8, ly, rad + 1, 0, Math.PI * 2); g.fill();
 }
 
 // o: { ymin, ymax, compact, ghost }
@@ -178,14 +297,16 @@ function drawCurve(cv, values, o) {
 
 function drawMini(name) {
     const c = curves[name];
+    if (c.isPdf) return drawDensity(ui.mini[name], c.dens, c.values, { compact: true });   // drawMini
     const [ymin, ymax] = yRange(c);
     drawCurve(ui.mini[name], c.values, { ymin, ymax, compact: true });
 }
 
 function drawEditor() {
     const c = curves[active];
+    if (c.isPdf) return drawDensity(ui.canvas, c.dens, c.values, {});     
     const [ymin, ymax] = yRange(c);
-    drawCurve(ui.canvas, c.values, { ymin, ymax, ghost: ghostOf(c) });
+    drawCurve(ui.canvas, c.values, { ymin, ymax });
 }
 
 function redraw(name) {
@@ -249,12 +370,11 @@ function initCurves() {
 
 function getCurveParams(cfg) {
     return {
-        sigmas: curves.sigma.values.slice(),         // steps 개, 첫 값 1 → 마지막 0
-        cfgs: curves.cfg.values.map(v => v * cfg),   // 플롯(0~1) × CFG 입력값
-        etas: curves.eta.values.slice(),             // steps 개, 식 값 그대로
+        sigmas: curves.sigma.values.slice().reverse(),   // step 0 = σ 1 → 마지막 = σ 0
+        cfgs: curves.cfg.values.map(v => v * cfg),       // step 0 → step N (차트 순서 그대로)
+        etas: curves.eta.values.slice(),                 // step 0 → step N (차트 순서 그대로)
     };
 }
-
 // ===================== 프롬프트 / 결과 번호 =====================
 const images = [];      // images[i] = i번째 prompt의 결과 이미지 URL (없으면 undefined)
 let current = 0;        // 현재 선택된 번호 (0부터)
@@ -392,8 +512,8 @@ export function collectCommon() {
 export function toSamplingRequest(p, prompt, size = {}) {
     const steps = Math.max(1, Math.round(p.steps) || 1);
     for (const [name, arr] of [['Sigma', p.sigmas], ['CFG', p.cfgs], ['Eta', p.etas]]) {
-        if (arr.length !== steps) {     // 식 오류로 이전 곡선이 남아 있으면 길이가 안 맞을 수 있음
-            throw new Error(`${name} 곡선 길이(${arr.length})가 steps(${steps})와 다릅니다. Revision에서 식을 확인하세요`);
+        if (arr.length !== steps + 1) {     // 식 오류로 이전 곡선이 남아 있으면 길이가 안 맞을 수 있음
+            throw new Error(`${name} 곡선 길이(${arr.length})가 steps+1(${steps + 1})과 다릅니다. Revision에서 식을 확인하세요`);
         }
     }
     return {

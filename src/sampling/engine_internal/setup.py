@@ -5,7 +5,7 @@ import numpy as np
 from src.external import TE
 from src.core import Config
 from .types import Txt2ImgInput, InitOutput
-from .trajectory import sigma_cdf, cfg_schedular, eta_schedular
+# from .trajectory import sigma_cdf, cfg_schedular, eta_schedular
 
 @torch.inference_mode()
 def setup_init(model:TE, config:Config, txt2img_input:Txt2ImgInput) -> InitOutput:
@@ -36,13 +36,28 @@ def setup_init(model:TE, config:Config, txt2img_input:Txt2ImgInput) -> InitOutpu
         for g_ in gens
     ], dim=0)
 
-    u = np.linspace(0.0, 1.0, txt2img_input.steps + 1)
-    sigmas = sigma_cdf(u, config)[::-1].copy()
+    # u = np.linspace(0.0, 1.0, txt2img_input.steps + 1)
+    # sigmas = sigma_cdf(u, config)[::-1].copy()
 
-    c = np.linspace(0.0, 1.0, txt2img_input.steps + 1)
-    cfgs = cfg_schedular(c, txt2img_input.cfg_scale, config)[::-1].copy()
+    # c = np.linspace(0.0, 1.0, txt2img_input.steps + 1)
+    # cfgs = cfg_schedular(c, txt2img_input.cfg_scale, config)[::-1].copy()
 
-    d = np.linspace(0.0, 1.0, txt2img_input.steps + 1)
-    etas = eta_schedular(d, txt2img_input.eta, config)[::-1].copy()
+    # d = np.linspace(0.0, 1.0, txt2img_input.steps + 1)
+    # etas = eta_schedular(d, txt2img_input.eta, config)[::-1].copy()
 
-    return InitOutput(cond_emb, uncond_emb, cond_mask, uncond_mask, noise, gens, sigmas, seeds, cfgs, etas)
+    sigmas = txt2img_input.sigma_scheduler
+    cfgs = txt2img_input.cfg_scheduler
+    etas = txt2img_input.eta_scheduler
+
+    return InitOutput(
+        cond_emb=cond_emb,
+        uncond_emb=uncond_emb,
+        cond_mask=cond_mask,
+        uncond_mask=uncond_mask,
+        noise=noise,
+        gens=gens,
+        seeds=seeds,
+        sigmas=txt2img_input.sigma_scheduler,
+        cfgs=txt2img_input.cfg_scheduler,
+        etas=txt2img_input.eta_scheduler,
+    )

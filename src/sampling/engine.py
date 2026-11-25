@@ -13,17 +13,24 @@ from src.sampling.engine_internal import (
 )
 
 class SamplingEngine:
-    def __init__(self, te:TE, vae:VAE, console=None):
+    def __init__(self, console=None):
         self.console = console
-        self.te = te
-        self.vae = vae
-        download_model(config=state.config, filename="model.pt")
-        self.model:MMDIT = load_ema_only(
-            config=state.config,
-            network=MMDIT,
-            console=console
-        )
-        self.llm:LLM = TagGenration(console=console)
+
+        # test
+        self.te =None
+        self.vae = None
+        self.model = None
+        self.llm =None
+
+        # self.te = TE()
+        # self.vae = VAE()
+        # download_model(config=state.config, filename="model.pt")
+        # self.model:MMDIT = load_ema_only(
+        #     config=state.config,
+        #     network=MMDIT,
+        #     console=console
+        # )
+        # self.llm:LLM = TagGenration(console=console)
 
     def vae_decode(self, x: torch.Tensor, latents: list[torch.Tensor], video_save: bool) -> tuple[list[Image.Image], list[Image.Image]]:
         imgs: list[Image.Image] = self.vae._tensor_to_pils(self.vae.decoder(x))

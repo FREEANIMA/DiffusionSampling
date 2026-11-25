@@ -7,7 +7,6 @@ from .patch_embedding import PatchEmbedding
 from .sinusoidal_pos_emb import SinusoidalPosEmb
 from .Rope2D import Rope2D
 from .Block import Block
-import common.globals as g
 
 class Model(nn.Module):
     def __init__(self, hidden_size, nhead, num_layers, dropout, pos_scale,
