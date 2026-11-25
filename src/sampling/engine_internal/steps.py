@@ -46,17 +46,14 @@ def sampling(model, txt2img_input:Txt2ImgInput, init_out:InitOutput, inpaint_ctx
         eta = init_out.etas[i]
 
         sigmas_steps.append(float(sigma_next))
-        v = one_steps(model=model, x=x, init_out=init_out, sigma=sigma, cfg=cfg)
 
-        x0_hat = (x - float(sigma) * v).detach().float().cpu()
-
-        if txt2img_input.calculate_type == "euler":
-            x = x + (sigma_next - sigma) * v
-        elif txt2img_input.calculate_type == "heun":
-            ...
-        elif txt2img_input.calculate_type == "ddpm_plus":
-            ...
-
+        velocitys = []
+        for _ in range(n):
+            v = one_steps(model=model, x=x, init_out=init_out, sigma=sigma, cfg=cfg)
+            velocitys.append(v)
+        
+        v_mean = torch.stack(velocitys).mean(dim=0)
+        
         if inpaint_ctx is not None:
             s_next = float(sigma_next)
             z_known = (1 - s_next) * z0 + s_next * noise

@@ -1,5 +1,4 @@
-# Diffusion MMDiT Text2img with DC-AE f32c32
-
+# Diffusion Text To Img
 
 [Update](CHANGELOG.md) · [Train State](docs/training.md) · [Architecture](docs/architecture.md) · [UI](docs/ui.md)
 
