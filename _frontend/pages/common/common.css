@@ -124,8 +124,22 @@
 
 .page-txt2img .t2i-params {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 0.6rem;
+    grid-auto-flow: column;            /* 칸이 몇 개든 한 행에 나열 */
+    grid-auto-columns: minmax(0, 1fr); /* 내용 때문에 안 늘어나고 균등 분할 */
+    gap: 0.4rem;
+}
+
+.page-txt2img .t2i-field {
+    min-width: 0;
+    font-size: 0.8rem;
+}
+
+.page-txt2img .t2i-field input,
+.page-txt2img .t2i-field select {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 0.3rem 0.4rem;
 }
 
 /* ===== 곡선: 차트 3열 + Revision 오버레이 ===== */
@@ -311,4 +325,254 @@
     background: var(--accent);
     color: var(--accent-fg);
     font-weight: 600;
+}
+
+/* ===== Tag Browser ===== */
+.page-txt2img .t2i-tag-search {
+    width: 100%;
+    margin-bottom: 0.6rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    box-sizing: border-box;
+}
+
+.page-txt2img .t2i-tag-more {
+    padding: 0.2rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    font-size: 0.8rem;
+}
+
+/* ===== 자동완성 (body에 붙으므로 .page-txt2img 밖) ===== */
+.t2i-ac {
+    position: fixed;
+    z-index: 1000;
+    max-height: 260px;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+
+.t2i-ac[hidden] { display: none; }
+
+.t2i-ac-item {
+    padding: 0.35rem 0.6rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.t2i-ac-item:hover { background: var(--hover-bg); }
+
+.t2i-ac-item.active {
+    background: var(--accent);
+    color: var(--accent-fg);
+}
+
+/* ===== 버튼 공통 ===== */
+.page-txt2img .t2i-add,
+.page-txt2img .t2i-remove,
+.page-txt2img .t2i-revision,
+.page-txt2img .t2i-curve-apply,
+.page-txt2img .t2i-rev-tab,
+.page-txt2img .t2i-num,
+.page-txt2img .t2i-tag-more,
+.page-txt2img .t2i-generate {
+    cursor: pointer;
+    font: inherit;
+    font-weight: 600;
+    color: inherit;
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s,
+                transform 0.1s, filter 0.15s;
+}
+
+/* 보조 버튼 (Revision / Apply / Done / 탭 / more) */
+.page-txt2img .t2i-revision,
+.page-txt2img .t2i-curve-apply,
+.page-txt2img .t2i-rev-tab,
+.page-txt2img .t2i-tag-more {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.page-txt2img .t2i-revision:hover,
+.page-txt2img .t2i-curve-apply:hover,
+.page-txt2img .t2i-rev-tab:hover,
+.page-txt2img .t2i-tag-more:hover {
+    background: var(--hover-bg);
+    border-color: var(--accent);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+/* 동그란 버튼 (+ / ×) */
+.page-txt2img .t2i-add,
+.page-txt2img .t2i-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.page-txt2img .t2i-add:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-fg);
+    transform: rotate(90deg);
+}
+
+.page-txt2img .t2i-remove:hover {
+    background: #d33;
+    border-color: #d33;
+    color: #fff;
+}
+
+/* 번호 버튼 */
+.page-txt2img .t2i-num {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.page-txt2img .t2i-num.active {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* Generate: 메인 버튼 */
+.page-txt2img .t2i-generate {
+    letter-spacing: 0.02em;
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.page-txt2img .t2i-generate:hover:not(:disabled) {
+    filter: brightness(1.1);
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+/* 눌림 / 비활성 / 키보드 포커스 */
+.page-txt2img button:active:not(:disabled) {
+    transform: translateY(1px) scale(0.97);
+}
+
+.page-txt2img button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.page-txt2img button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* ===== 콤보박스 (select) ===== */
+.page-txt2img select {
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    font: inherit;
+    padding: 0.35rem 1.8rem 0.35rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background-color: var(--bg);
+    color: inherit;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+    /* 오른쪽 ▾ 화살표 */
+    background-image:
+        linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+        linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position:
+        calc(100% - 15px) 55%,
+        calc(100% - 10px) 55%;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+
+.page-txt2img select:hover {
+    background-color: var(--hover-bg);
+    border-color: var(--accent);
+}
+
+.page-txt2img select:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.page-txt2img select option {
+    background: var(--bg);
+    color: inherit;
+}
+
+.page-txt2img .t2i-check input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    position: relative;
+    width: 2.4rem;
+    height: 1.3rem;
+    margin: 0;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.page-txt2img .t2i-check input[type="checkbox"]::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 2px;
+    width: 0.95rem;
+    height: 0.95rem;
+    border-radius: 50%;
+    background: var(--muted);
+    transform: translateY(-50%);
+    transition: left 0.15s, background 0.15s;
+}
+
+.page-txt2img .t2i-check input[type="checkbox"]:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.page-txt2img .t2i-check input[type="checkbox"]:checked::after {
+    left: calc(100% - 0.95rem - 2px);
+    background: var(--accent-fg);
+}
+
+.page-txt2img .t2i-check input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* Frame save 토글: 다른 입력칸과 같은 높이 영역 안에서 세로 가운데 정렬 */
+.page-txt2img .t2i-check {
+    justify-content: flex-start;
+}
+
+.page-txt2img .t2i-check input[type="checkbox"] {
+    flex: none;
+    width: 2.4rem;           /* .t2i-field input의 width:100%를 덮어씀 */
+    height: 1.4rem;
+    margin-top: 0.3rem;      /* 입력창(약 1.9rem) 높이 안에서 가운데 */
+    margin-bottom: 0.3rem;
+}
+
+.page-txt2img .t2i-params-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+/* 2층은 칸 수가 적어 너무 넓어지지 않게, 1층과 같은 칸 폭(5등분)으로 맞춤 */
+.page-txt2img .t2i-params-wrap .t2i-params {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
 }

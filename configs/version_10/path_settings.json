@@ -4,5 +4,6 @@
     "INPAINTING_DIR": "inpaint",
     "DETAIL_DIR": "detail",
     "ERROR_REPORT": "error_report",
-    "CKPT_LOCAL_DIR": "ckpt"
+    "CKPT_LOCAL_DIR": "ckpt",
+    "TAG_TYPE_FILENAME" : "tags_type.parquet"
 }

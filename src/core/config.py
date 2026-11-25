@@ -47,6 +47,8 @@ class PathSettins:
     ERROR_REPORT: str
     CKPT_LOCAL_DIR: str
     CKPT_REPO_ID: str
+    INPAINTING_DIR:str
+    TAG_TYPE_FILENAME:str
 
 @dataclass(kw_only=True)
 class SamplingSettings:

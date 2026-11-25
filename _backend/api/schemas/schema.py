@@ -7,11 +7,12 @@ class SamplingRequest:
     sigma_curve: list[float]
     cfg_curve: list[float]
     eta_curve: list[float]
+    calculate_type:str
     seed: int | None = -1
     steps: int = 28
     width: int = 1024
     height: int = 1024
-
+    frame_save: bool = False
 
 @dataclass
 class InPaintingRequest:

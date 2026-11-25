@@ -2,23 +2,9 @@
 
 <!-- 왼쪽: 스타일 타입 트리 -->
 <aside class="t2i-tree">
-    <h3 class="t2i-title">Style Type</h3>
-
-    <details open>
-        <summary>Category A</summary>
-        <ul>
-            <li><label><input type="checkbox" value="a1"> item A1</label></li>
-            <li><label><input type="checkbox" value="a2"> item A2</label></li>
-        </ul>
-    </details>
-
-    <details>
-        <summary>Category B</summary>
-        <ul>
-            <li><label><input type="checkbox" value="b1"> item B1</label></li>
-            <li><label><input type="checkbox" value="b2"> item B2</label></li>
-        </ul>
-    </details>
+    <h3 class="t2i-title">Tag Browser</h3>
+    <input id="t2i-tag-search" class="t2i-tag-search" type="text" placeholder="search tag" spellcheck="false">
+    <div id="t2i-tag-tree" class="t2i-tag-tree">Loading...</div>
 </aside>
 
 <!-- 가운데: 위 = 프롬프트 / 아래 = 조건 -->
@@ -37,7 +23,8 @@
         </div>
     </div>
 
-    <div class="t2i-pane t2i-pane-params">
+    <div class="t2i-params-wrap">
+        <!-- 1층 -->
         <div class="t2i-params">
             <label class="t2i-field">
                 <span>Steps</span>
@@ -51,7 +38,21 @@
                 <span>Seed</span>
                 <input id="t2i-seed" type="number" value="-1">
             </label>
-            <!-- data-size: initCommon({ size: false }) 이면 제거됨 (inpaint는 crop이 크기를 정함) -->
+            <label class="t2i-field">
+                <span>Calculate type</span>
+                <select id="t2i-calculate-type">
+                    <option value="heun" selected>heun</option>
+                    <option value="euler">euler</option>
+                </select>
+            </label>
+            <label class="t2i-field t2i-check">
+                <span>Frame save</span>
+                <input id="t2i-frame-save" type="checkbox">
+            </label>
+        </div>
+
+        <!-- 2층 -->
+        <div class="t2i-params">
             <label class="t2i-field" data-size>
                 <span>Width</span>
                 <input id="t2i-width" type="number" value="1024" step="64">
@@ -65,6 +66,7 @@
                 <input id="t2i-start-t" type="number" value="1" min="0" max="1" step="0.05">
             </label>
         </div>
+    </div>
 
         <div class="t2i-charts">
             <figure class="t2i-chart" data-name="sigma">

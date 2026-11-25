@@ -1,16 +1,18 @@
 import torch
 import numpy as np
 from PIL import Image
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from src.core import state
 
 @dataclass
 class InitInput:
-    prompts: list[str]
     steps: int
     seed: int
     H: int
     W: int
-    B: int
+    prompts: list[str] | None = field(
+        default_factory=lambda: [state.config.init_prompt]
+    )
 
 @dataclass
 class InitOutput:
@@ -31,20 +33,18 @@ class InpaintInput():
     start_t: float
     mask: Image.Image
 
-@dataclass
+@dataclass(kw_only=True)
 class Txt2ImgInput(InitInput):
-    cfg_scale: float
     calculate_type: str
-    eta: float
-    sigma_scheduler: np.ndarray
-    cfg_scheduler: np.ndarray
-    eta_scheduler: np.ndarray
-    video_save: bool
+    sigma_curve: np.ndarray
+    cfg_curve: np.ndarray
+    eta_curve: np.ndarray
+    frame_save: bool
 
     def __post_init__(self):
-        self.sigma_scheduler = np.asarray(self.sigma_scheduler, dtype=np.float32)
-        self.cfg_scheduler = np.asarray(self.cfg_scheduler, dtype=np.float32)
-        self.eta_scheduler = np.asarray(self.eta_scheduler, dtype=np.float32)
+        self.sigma_curve = np.clip(np.asarray(self.sigma_curve, dtype=np.float32), 0.001, 0.999)
+        self.cfg_curve = np.asarray(self.cfg_curve, dtype=np.float32)
+        self.eta_curve = np.asarray(self.eta_curve, dtype=np.float32)
     
 @dataclass
 class InpaintCtx:

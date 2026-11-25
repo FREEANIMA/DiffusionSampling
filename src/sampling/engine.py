@@ -45,10 +45,10 @@ class SamplingEngine:
     def txt2img(self, txt2img_input, start_t=0, inpaint_ctx: InpaintCtx | None = None) -> tuple[list[Image.Image], list[Image.Image], list[float]]:
         try:
             print(txt2img_input)
-            init_out:InitOutput = setup_init(model=self.te, config=state.config, txt2img_input=txt2img_input)
+            # init_out:InitOutput = setup_init(model=self.te, config=state.config, txt2img_input=txt2img_input)
 
-            start_idx = int(np.argmin(np.abs(init_out.sigmas - start_t)))
-            init_out.sigmas = init_out.sigmas[start_idx:]
+            # start_idx = int(np.argmin(np.abs(init_out.sigmas - start_t)))
+            # init_out.sigmas = init_out.sigmas[start_idx:]
 
             # x, latents, sigmas_steps = sampling(
             #     model=self.model,
@@ -81,23 +81,23 @@ class SamplingEngine:
             txt2img_input.H = H
             txt2img_input.W = W
             
-            mask = inpaint_input.mask.convert("L").resize((W, H), Image.Resampling.NEAREST)
-            mask_arr = np.array(mask, dtype=np.uint8)
+            # mask = inpaint_input.mask.convert("L").resize((W, H), Image.Resampling.NEAREST)
+            # mask_arr = np.array(mask, dtype=np.uint8)
 
-            np_tensor = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
-            np_tensor = np_tensor.to(device=state.config.device, dtype=state.config.dtype)
+            # np_tensor = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
+            # np_tensor = np_tensor.to(device=state.config.device, dtype=state.config.dtype)
 
-            latent = self.vae.encoder(np_tensor)
-            mask_lat = mask_generation(mask_arr, latent)
+            # latent = self.vae.encoder(np_tensor)
+            # mask_lat = mask_generation(mask_arr, latent)
 
-            B = len(txt2img_input.prompt)
+            # B = len(txt2img_input.prompts)
 
-            ctx = InpaintCtx(
-                z0=latent.expand(B, -1, -1, -1),
-                mask=mask_lat.expand(B, -1, -1, -1)
-            )
+            # ctx = InpaintCtx(
+            #     z0=latent.expand(B, -1, -1, -1),
+            #     mask=mask_lat.expand(B, -1, -1, -1)
+            # )
 
-            return self.txt2img(txt2img_input, start_t=inpaint_input.start_t, inpaint_ctx=ctx)
+            # return self.txt2img(txt2img_input, start_t=inpaint_input.start_t, inpaint_ctx=ctx)
         
         except Exception as e:
             error_report(e, "inpaint")

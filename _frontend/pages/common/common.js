@@ -440,9 +440,10 @@ export async function initCommon({ size = true, inpaint = false, onGenerate } = 
     current = 0;
 
     if (!htmlCache) {
-        const res = await fetch(new URL('./common.html', import.meta.url));
+        const res = await fetch(new URL('./common.html', import.meta.url), { cache: 'no-store' });
         if (!res.ok) throw new Error(`common.html 로드 실패 (${res.status})`);
         htmlCache = await res.text();
+        console.log('common.html loaded:', res.url, 'has tag-tree =', htmlCache.includes('t2i-tag-tree'));
     }
     const root = document.querySelector('.page-txt2img');
     root.insertAdjacentHTML('afterbegin', htmlCache);      // 왼쪽/가운데를 루트의 직계 자식으로
@@ -475,6 +476,9 @@ export async function initCommon({ size = true, inpaint = false, onGenerate } = 
         syncViewer();
     });
 
+    initTagBrowser();
+    initAutocomplete();
+
     initCurves();
     syncViewer();
 }
@@ -494,10 +498,12 @@ export function collectCommon() {
         steps: Number(val('t2i-steps')),
         cfg,
         seed: Number(val('t2i-seed')),
+        calculateType: val('t2i-calculate-type'),   // ← 추가
+        frameSave: document.getElementById('t2i-frame-save').checked,
         ...getCurveParams(cfg),
-        styles: [...document.querySelectorAll('.t2i-tree input:checked')].map(i => i.value),
+        tags: [...checkedTags],
     };
-    if (document.getElementById('t2i-width')) {
+    if (document.getElementById('t2i-wiidth')) {
         params.width = Number(val('t2i-width'));
         params.height = Number(val('t2i-height'));
     }
@@ -523,14 +529,16 @@ export function toSamplingRequest(p, prompts = p.prompts, size = {}) {
         }
     }
     return {
-        prompts: Array.isArray(prompts) ? prompts : [prompts],   // 1개여도 항상 배열
+        prompts: Array.isArray(prompts) ? prompts : [prompts],
         sigma_curve: p.sigmas,
         cfg_curve: p.cfgs,
         eta_curve: p.etas,
+        calculate_type: p.calculateType,            // ← 추가
         seed: p.seed,
         steps,
         width: size.width ?? p.width,
         height: size.height ?? p.height,
+        frame_save: p.frameSave,
     };
 }
 
@@ -565,5 +573,205 @@ function restorePrompts() {
             (i > 0 ? `<button type="button" class="t2i-remove" aria-label="칸 삭제">×</button>` : '');
         item.querySelector('textarea').value = text;
         box.appendChild(item);
+    });
+}
+
+// ===================== Tag Browser + 자동완성 =====================
+let tagCache = null;                 // [{tag, type, dup, count}, ...] (서버에서 count 내림차순)
+const checkedTags = new Set();       // 페이지를 옮겨도 체크 상태 유지
+let lastPrompt = null;               // 마지막으로 포커스한 프롬프트 칸
+
+async function loadTags() {
+    if (tagCache) return tagCache;
+    const res = await fetch(`${API_BASE}/api/tags`);
+    if (!res.ok) throw new Error(`tags 로드 실패 (${res.status})`);
+    tagCache = await res.json();
+    return tagCache;
+}
+
+// ---- 프롬프트에 태그 넣기/빼기 ----
+function targetPrompt() {
+    if (lastPrompt && document.body.contains(lastPrompt)) return lastPrompt;
+    return document.querySelector('#t2i-prompts .t2i-prompt');
+}
+
+function toggleTagInPrompt(tag, on) {
+    const ta = targetPrompt();
+    if (!ta) return;
+    const parts = ta.value.split(',').map(s => s.trim()).filter(Boolean);
+    const next = on ? (parts.includes(tag) ? parts : [...parts, tag]) : parts.filter(p => p !== tag);
+    ta.value = next.join(', ');
+    ta.dispatchEvent(new Event('input', { bubbles: true }));   // savePrompts 연동
+}
+
+// ---- 목록 그리기 (많으면 100개씩) ----
+function fillList(ul, list, limit = 100) {
+    ul.innerHTML = '';
+    for (const tag of list.slice(0, limit)) {
+        const li = document.createElement('li');
+        const label = document.createElement('label');
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = tag;
+        input.checked = checkedTags.has(tag);
+        label.append(input, ' ', tag);
+        li.appendChild(label);
+        ul.appendChild(li);
+    }
+    if (list.length > limit) {
+        const li = document.createElement('li');
+        const more = document.createElement('button');
+        more.type = 'button';
+        more.className = 't2i-tag-more';
+        more.textContent = `more (${list.length - limit})`;
+        more.addEventListener('click', () => fillList(ul, list, limit + 200));
+        li.appendChild(more);
+        ul.appendChild(li);
+    }
+}
+
+function renderTagBrowser(tags, query = '') {
+    const box = document.getElementById('t2i-tag-tree');
+    const q = query.trim().toLowerCase().replace(/\s+/g, '_');
+    const groups = new Map();                          // type → [tag, ...]
+    for (const t of tags) {
+        if (q && !t.tag.toLowerCase().includes(q)) continue;
+        if (!groups.has(t.type)) groups.set(t.type, []);
+        groups.get(t.type).push(t.tag);
+    }
+    box.innerHTML = '';
+    if (!groups.size) { box.textContent = 'No tags'; return; }
+
+    for (const [type, list] of groups) {
+        const d = document.createElement('details');
+        const s = document.createElement('summary');
+        s.textContent = `${type} (${list.length})`;
+        const ul = document.createElement('ul');
+        d.append(s, ul);
+        const open = () => { if (!ul.childElementCount) fillList(ul, list); };   // 펼칠 때만 그림
+        d.addEventListener('toggle', () => { if (d.open) open(); });
+        if (q) { d.open = true; open(); }              // 검색 중엔 자동으로 펼침
+        box.appendChild(d);
+    }
+}
+
+function initTagBrowser() {
+    const box = document.getElementById('t2i-tag-tree');
+    const search = document.getElementById('t2i-tag-search');
+
+    box.addEventListener('change', e => {
+        const cb = e.target.closest('input[type="checkbox"]');
+        if (!cb) return;
+        if (cb.checked) checkedTags.add(cb.value); else checkedTags.delete(cb.value);
+        toggleTagInPrompt(cb.value, cb.checked);
+    });
+
+    let timer;
+    search.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => tagCache && renderTagBrowser(tagCache, search.value), 150);
+    });
+
+    loadTags()
+        .then(tags => renderTagBrowser(tags))
+        .catch(err => { box.textContent = err.message; });
+}
+
+// ---- 프롬프트 자동완성 ----
+const ac = { box: null, items: [], idx: -1, ta: null };
+
+function suggest(q) {
+    const key = q.toLowerCase().replace(/\s+/g, '_');
+    const starts = [], inc = [];
+    for (const { tag } of tagCache) {
+        const t = tag.toLowerCase();
+        if (t.startsWith(key)) { starts.push(tag); if (starts.length >= 8) break; }
+        else if (inc.length < 8 && t.includes(key)) inc.push(tag);
+    }
+    return starts.concat(inc).slice(0, 8);
+}
+
+function hideAc() {
+    ac.items = []; ac.idx = -1;
+    if (ac.box) ac.box.hidden = true;
+}
+
+function showAc(ta, items) {
+    ac.ta = ta; ac.items = items; ac.idx = 0;
+    if (!ac.box) {
+        ac.box = document.createElement('div');
+        ac.box.className = 't2i-ac';
+        ac.box.addEventListener('mousedown', e => {          // 포커스 유지
+            e.preventDefault();
+            const li = e.target.closest('[data-i]');
+            if (li) acceptAc(Number(li.dataset.i));
+        });
+        document.body.appendChild(ac.box);
+    }
+    const r = ta.getBoundingClientRect();
+    ac.box.style.left = `${r.left}px`;
+    ac.box.style.top = `${r.bottom + 2}px`;
+    ac.box.style.width = `${r.width}px`;
+    renderAc();
+    ac.box.hidden = false;
+}
+
+function renderAc() {
+    ac.box.innerHTML = '';
+    ac.items.forEach((tag, i) => {
+        const div = document.createElement('div');
+        div.dataset.i = i;
+        div.className = 't2i-ac-item' + (i === ac.idx ? ' active' : '');
+        div.textContent = tag;
+        ac.box.appendChild(div);
+    });
+}
+
+function acceptAc(i) {
+    const ta = ac.ta, tag = ac.items[i];
+    if (!ta || !tag) return;
+    const pos = ta.selectionStart;
+    const before = ta.value.slice(0, pos);
+    const start = before.lastIndexOf(',') + 1;
+    const head = ta.value.slice(0, start).replace(/\s*$/, '');
+    const left = (head ? head + ' ' : '') + tag + ', ';
+    ta.value = left + ta.value.slice(pos).replace(/^\s+/, '');
+    ta.selectionStart = ta.selectionEnd = left.length;
+    hideAc();
+    ta.dispatchEvent(new Event('input', { bubbles: true }));   // 저장 (자동완성은 아래에서 다시 뜰 수 있음)
+    hideAc();
+}
+
+function initAutocomplete() {
+    const prompts = document.getElementById('t2i-prompts');
+
+    prompts.addEventListener('focusin', e => {
+        if (e.target.classList.contains('t2i-prompt')) lastPrompt = e.target;
+    });
+    prompts.addEventListener('focusout', hideAc);
+
+    prompts.addEventListener('input', e => {
+        const ta = e.target;
+        if (!ta.classList.contains('t2i-prompt') || !tagCache) return;
+        const before = ta.value.slice(0, ta.selectionStart);
+        const token = before.slice(before.lastIndexOf(',') + 1).trim();
+        if (token.length < 2) return hideAc();
+        const items = suggest(token);
+        items.length ? showAc(ta, items) : hideAc();
+    });
+
+    prompts.addEventListener('keydown', e => {
+        if (!ac.items.length || ac.box.hidden) return;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            const n = ac.items.length;
+            ac.idx = (ac.idx + (e.key === 'ArrowDown' ? 1 : n - 1)) % n;
+            renderAc();
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault();
+            acceptAc(ac.idx);
+        } else if (e.key === 'Escape') {
+            hideAc();
+        }
     });
 }
