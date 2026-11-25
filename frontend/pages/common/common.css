@@ -517,7 +517,6 @@
     background: var(--accent);
     border-color: var(--accent);
     color: var(--accent-fg);
-    transform: rotate(90deg);
 }
 
 .page-txt2img .t2i-remove:hover {

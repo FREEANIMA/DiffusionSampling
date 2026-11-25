@@ -4,7 +4,7 @@ from tqdm.auto import tqdm
 from src.network import MMDIT
 from src.core import state
 from .types import Txt2ImgInput, InitOutput, InpaintCtx
-from .solvers import euler, heun_step, midpoint_step
+from .solvers import euler, heun_step, midpoint_step, dpmpp_2m
 
 @torch.inference_mode()
 @torch.amp.autocast(device_type=state.config.device, dtype=state.config.torch_dtype)
@@ -27,7 +27,7 @@ def one_steps(model:MMDIT, x, init_out:InitOutput, sigma, cfg) -> torch.Tensor:
 
     return v
 
-def sampling(model, txt2img_input: Txt2ImgInput, init_out: InitOutput, inpaint_ctx: InpaintCtx = None, on_step=None):
+def sampling(model, txt2img_input, init_out, inpaint_ctx=None, on_step=None):
     sigmas = init_out.sigmas
     n = len(sigmas) - 1
     calc = txt2img_input.calculate_type
@@ -39,21 +39,22 @@ def sampling(model, txt2img_input: Txt2ImgInput, init_out: InitOutput, inpaint_c
     if inpaint_ctx is not None:
         z0 = inpaint_ctx.z0.to(device=noise.device, dtype=noise.dtype)
         mask = inpaint_ctx.mask.to(device=noise.device, dtype=noise.dtype)
-
         def clamp_known(x, s):
             return mask * x + (1 - mask) * ((1 - s) * z0 + s * noise)
     else:
         clamp_known = None
 
     x = noise if clamp_known is None else clamp_known(noise, float(sigmas[0]))
-    
+
+    # DPM++ 2M 상태
+    x0_prev = None
+    h_prev = None
+
     for i in tqdm(range(n), desc="sampling"):
         sigma, sigma_next = float(sigmas[i]), float(sigmas[i + 1])
-
         cfg = float(init_out.cfgs[i])
-        eta = float(init_out.etas[i])
 
-        first_v = [] 
+        first_v = []
 
         def model_fn(x_in, s, cfg=cfg):
             if clamp_known is not None:
@@ -65,7 +66,16 @@ def sampling(model, txt2img_input: Txt2ImgInput, init_out: InitOutput, inpaint_c
 
         if calc == "heun":
             x = heun_step(model_fn, x, sigma, sigma_next)
-        else:
+        elif calc == "dpmpp_2m":
+            v = model_fn(x, sigma)
+            x0_cur = x - sigma * v
+            x, h = dpmpp_2m(x, x0_cur, x0_prev, sigma, sigma_next, h_prev)
+            # 상태 갱신: renoise/클램프가 없을 때만 prev 유지
+            if clamp_known is None:
+                x0_prev, h_prev = x0_cur, h
+            else:
+                x0_prev, h_prev = None, None
+        else:  # euler
             v = model_fn(x, sigma)
             x = euler(x, v, sigma, sigma_next)
 
@@ -73,12 +83,12 @@ def sampling(model, txt2img_input: Txt2ImgInput, init_out: InitOutput, inpaint_c
         x0_hat = x_in0 - sigma * v0
 
         if clamp_known is not None:
-            x = clamp_known(x, sigma_next) 
+            x = clamp_known(x, sigma_next)
 
         sigmas_steps.append(sigma_next)
         latents.append(x0_hat)
-        
+
         if on_step:
             on_step(i + 1, n)
-            
+
     return x, latents, sigmas_steps

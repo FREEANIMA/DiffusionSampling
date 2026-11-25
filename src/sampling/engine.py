@@ -107,8 +107,8 @@ class SamplingEngine:
 
         try:
             arr, H, W = arr_resize(
-                np.asarray(img.convert('RGB')),   # PIL → (H, W, 3) uint8 ndarray
-                1024, # 현재 한계치
+                np.asarray(img.convert('RGB')),
+                1024,
                 state.config.patch_size,
                 state.config.compression_ratio,
                 upscale=inpaint_input.upscale
