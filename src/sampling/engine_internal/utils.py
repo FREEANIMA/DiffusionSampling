@@ -5,7 +5,7 @@
 import torch
 import torch.nn.functional as F
 
-def mask_generation(self, mask_arr, latent):
+def mask_generation(mask_arr, latent):
     if isinstance(mask_arr, np.ndarray):
         m = torch.from_numpy(mask_arr).float()
     else:

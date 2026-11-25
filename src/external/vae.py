@@ -23,10 +23,9 @@ class VAE():
             self.model_name,
             torch_dtype=state.config.torch_dtype
         )
-
+        vae.to(state.config.device)
         vae.eval()
         vae.requires_grad_(False)
-        
         return vae
 
     @torch.inference_mode()

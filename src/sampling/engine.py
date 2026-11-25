@@ -17,8 +17,6 @@ class SamplingEngine:
         self.console = console
 
         # test
-        self.te =None
-        self.vae = None
         self.model = None
         self.llm =None
 

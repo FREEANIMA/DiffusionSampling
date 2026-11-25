@@ -16,7 +16,7 @@ class TE():
             device_map=self.device,
             use_safetensors=True,  
         )
-
+        
         tokenizer = T5Tokenizer.from_pretrained(self.model_name)
 
         text_encoder.requires_grad_(False)
