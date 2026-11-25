@@ -44,7 +44,7 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
 export async function init() {
     // 크기는 crop이 정하므로 Width/Height 칸은 뺌
-    await initCommon({ size: false, onGenerate });
+    await initCommon({ size: false, inpaint: true, onGenerate });
     bind();
 }
 
@@ -582,7 +582,8 @@ const b64 = url => url.split(',')[1];     // "data:image/png;base64," 접두사 
 //   mask_b64  : 원본과 같은 크기. 수정 = 흰색(255), 그 외 = 검정(0)  (빨강이 없으면 크롭 전체가 수정, 파랑만 제외)
 //   crop_b64  : 크롭 영역만 잘라낸 이미지 (크롭 없으면 null)
 //   crop_box  : [x, y, w, h] 원본 좌표 (크롭 없으면 null)
-function buildInpainting() {
+//   start_t   : Start-t 입력값 (inpainting 전용 칸)
+function buildInpainting(params) {
     const full = fullRect();
     const mask = maskDataURL(full, S.crop || full);
     return {
@@ -592,6 +593,7 @@ function buildInpainting() {
             mask_b64: b64(mask.url),
             crop_b64: S.crop ? b64(cropDataURL(S.crop)) : null,
             crop_box: S.crop ? [S.crop.x, S.crop.y, S.crop.w, S.crop.h] : null,
+            start_t: params.startT,
         },
     };
 }
@@ -631,7 +633,7 @@ async function onGenerate() {
     btn.disabled = true;                // 보내는 동안 중복 클릭 방지
     setStatus('Sending...');
     try {
-        const { inpainting, hasRed } = buildInpainting();
+        const { inpainting, hasRed } = buildInpainting(params);
         await sendInpaint(params, r, inpainting);
         setStatus(`${params.prompts.length}개 요청 전송됨` +
             (hasRed ? '' : ` — 빨강 마스크 없음: ${S.crop ? '크롭' : '이미지'} 전체 수정, 파랑 영역만 보존`) +

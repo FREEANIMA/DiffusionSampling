@@ -313,7 +313,7 @@ let htmlCache = null;
 // 페이지 init()에서 한 번 호출.
 // 페이지 HTML에 #t2i-nums, #t2i-image, #t2i-generate 가 있어야 함.
 // size: false 면 Width/Height 칸을 뺌 (inpaint는 crop이 크기를 정함)
-export async function initCommon({ size = true, onGenerate } = {}) {
+export async function initCommon({ size = true, inpaint = false, onGenerate } = {}) {
     images.length = 0;
     current = 0;
 
@@ -325,6 +325,7 @@ export async function initCommon({ size = true, onGenerate } = {}) {
     const root = document.querySelector('.page-txt2img');
     root.insertAdjacentHTML('afterbegin', htmlCache);      // 왼쪽/가운데를 루트의 직계 자식으로
     if (!size) root.querySelectorAll('[data-size]').forEach(el => el.remove());
+    if (!inpaint) root.querySelectorAll('[data-inpaint]').forEach(el => el.remove());
 
     document.getElementById('t2i-add-prompt').addEventListener('click', addPrompt);
     document.getElementById('t2i-generate').addEventListener('click', onGenerate);
@@ -373,6 +374,11 @@ export function collectCommon() {
     if (document.getElementById('t2i-width')) {
         params.width = Number(val('t2i-width'));
         params.height = Number(val('t2i-height'));
+    }
+    const st = document.getElementById('t2i-start-t');
+    if (st) {
+        const v = Number(st.value);
+        params.startT = Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1;   // 0~1, 비었거나 잘못된 값이면 1
     }
     return params;
 }

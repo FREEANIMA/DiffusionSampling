@@ -33,7 +33,6 @@ class InpaintInput():
 
 @dataclass
 class Txt2ImgInput(InitInput):
-    final_tags: list[str]
     cfg_scale: float
     calculate_type: str
     eta: float
