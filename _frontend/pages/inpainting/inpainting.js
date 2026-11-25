@@ -1,7 +1,7 @@
 /* inpainting.js — inpainting 전용
  * Mask: 좌클릭 = 수정(빨강), 우클릭 = 보존(파랑)   Eraser: 좌/우클릭 드래그로 지움 (Mask 상태에서 Alt+드래그도 지우개)
- * 서버로 보내는 마스크: 빨강(수정)이 있으면 빨강만 수정 / 빨강이 없으면 크롭 전체를 수정하되 파랑(보존)만 제외
- * Crop: W, H는 32의 배수 + 큰 쪽이 작은 쪽으로 나눠떨어짐. 크롭하면 그 영역으로 확대됨
+ * 서버로 보내는 마스크: 빨강(수정)이 있으면 빨강만 수정 / 빨강이 없으면 (크롭 있으면 크롭, 없으면 이미지) 전체를 수정하되 파랑(보존)만 제외
+ * Crop(선택): W, H는 32의 배수. 크롭하면 그 영역으로 확대됨. 안 해도 전송 가능
  * Generate 후: 이미지판이 수정된 이미지로 바뀜. 위쪽 번호(prompt)로 결과 전환, Compare로 원본과 비교
  * 확대/이동: 휠 = 확대/축소, 가운데 버튼(또는 Space + 드래그) = 이동
  */
@@ -13,11 +13,10 @@ import { API_BASE } from '../common/common.js';
 const API_URL = `${API_BASE}/api/inpainting`;
 const USE_MOCK = false;          // true: 전송 후 가짜 결과를 이미지판에 띄워 화면(번호 전환/Compare) 테스트
 
-// W, H가 32의 배수이고, 큰 쪽이 작은 쪽으로 나눠떨어져야 함
-// 예) 32×64, 64×64, 64×192 ✔ / 64×96 ✘
+// W, H가 모두 32의 배수여야 함
+// 예) 32×64, 64×96, 64×192 ✔ / 50×64 ✘
 const validSize = (w, h) =>
-    w > 0 && h > 0 && w % GRID === 0 && h % GRID === 0 &&
-    Math.max(w, h) % Math.min(w, h) === 0;
+    w > 0 && h > 0 && w % GRID === 0 && h % GRID === 0;
 
 // 상태는 window에 보관: 탭을 옮겨 다니며 페이지 DOM이 새로 만들어져도(모듈이 다시 로드돼도) 유지됨
 const S = (window.__inpaintState ??= {
@@ -250,7 +249,7 @@ function cropDataURL(r) {
     return c.toDataURL('image/png');
 }
 
-// ===================== 크롭 (W, H: 32 배수 + 서로 나눠떨어짐) =====================
+// ===================== 크롭 (W, H: 32 배수) =====================
 let sizeCache = { key: '', list: [] };
 
 // 이미지 안에 들어가는 유효한 (w, h) 조합 전체 (이미지마다 한 번만 계산)
@@ -316,7 +315,7 @@ async function loadFile(file) {
     refreshUI();
     resize();
     const ok = validSize(img.naturalWidth, img.naturalHeight);
-    setStatus(`${img.naturalWidth} × ${img.naturalHeight}` + (ok ? '' : ' — Crop으로 유효한 영역을 지정하세요'));
+    setStatus(`${img.naturalWidth} × ${img.naturalHeight}` + (ok ? '' : ' — 크기가 32의 배수가 아님. 필요하면 Crop 사용'));
 }
 
 // ===================== UI 상태 =====================
@@ -556,10 +555,9 @@ function bind() {
 }
 
 // ===================== 생성 / 업스케일 =====================
+// 크롭이 있으면 크롭 영역, 없으면 원본 전체 (크기 검증은 크롭 도구가 이미 보장하므로 여기선 막지 않음)
 function currentRect() {
-    const r = S.crop || fullRect();
-    if (!validSize(r.w, r.h)) return null;
-    return r;
+    return S.crop || fullRect();
 }
 
 // 개발용: 백엔드 없이 화면 확인 (prompt마다 색조만 다르게)
@@ -626,7 +624,7 @@ async function showResults(urls, r) {
 async function onGenerate() {
     if (!S.img) return setStatus('먼저 이미지를 여세요', true);
     const r = currentRect();
-    if (!r) return setStatus('Crop으로 W, H가 32 배수이고 서로 나눠떨어지는 영역을 지정하세요', true);
+    const sizeWarn = validSize(r.w, r.h) ? '' : ` — ${r.w}×${r.h}는 32의 배수가 아님 (서버에서 처리 필요)`;
 
     const params = collectCommon();     // prompts, steps, cfg, seed, sigmas, cfgs, etas, styles
     const btn = $('t2i-generate');
@@ -636,7 +634,8 @@ async function onGenerate() {
         const { inpainting, hasRed } = buildInpainting();
         await sendInpaint(params, r, inpainting);
         setStatus(`${params.prompts.length}개 요청 전송됨` +
-            (hasRed ? '' : ' — 빨강 마스크 없음: 크롭 전체 수정, 파랑 영역만 보존'));
+            (hasRed ? '' : ` — 빨강 마스크 없음: ${S.crop ? '크롭' : '이미지'} 전체 수정, 파랑 영역만 보존`) +
+            sizeWarn);
         // TODO: 응답 이미지가 오면 showResults(urls, r) 호출
         if (USE_MOCK) await showResults(await mockInpaint({ prompts: params.prompts, crop: r }), r);
     } catch (err) {
