@@ -37,7 +37,6 @@ class Txt2ImgInput(InitInput):
     cfg_scale: float
     calculate_type: str
     eta: float
-    eta_mode: str
     video_save: bool
 
 @dataclass

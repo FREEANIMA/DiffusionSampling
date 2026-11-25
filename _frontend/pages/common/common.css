@@ -1,0 +1,314 @@
+/* common.css — txt2img / inpaint 공용 */
+
+/* ===== 전체 틀: 트리 / 입력 / 이미지판 ===== */
+.page-txt2img {
+    height: 100%;
+    display: grid;
+    grid-template-columns: 240px 1fr 1fr;
+    gap: 1rem;
+}
+
+/* 각 열이 자기 안에서 스크롤되도록 */
+.page-txt2img > * {
+    min-height: 0;
+    overflow: auto;
+    padding: 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.page-txt2img .t2i-title {
+    margin: 0 0 0.6rem;
+}
+
+/* ===== 왼쪽: 트리 ===== */
+.page-txt2img .t2i-tree summary {
+    cursor: pointer;
+    font-weight: 600;
+    padding: 0.3rem 0;
+}
+
+.page-txt2img .t2i-tree ul {
+    margin: 0 0 0.5rem;
+    padding-left: 1.2rem;
+    list-style: none;
+}
+
+/* ===== 가운데: 입력 (위 프롬프트 / 아래 조건, 자동 분할) ===== */
+.page-txt2img .t2i-controls {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) fit-content(60%);   /* 프롬프트: 남는 공간 / 조건: 내용만큼 */
+    gap: 1rem;
+    padding: 0;                    /* 바깥 박스 스타일은 각 pane이 대신 가짐 */
+    border: none;
+    overflow: hidden;
+}
+
+.page-txt2img .t2i-pane {
+    min-height: 0;
+    overflow: auto;                /* 각자 따로 스크롤 */
+    padding: 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+/* --- 위: 프롬프트 --- */
+.page-txt2img .t2i-prompts-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    position: sticky;              /* 프롬프트가 늘어나도 헤더(+)는 위에 고정 */
+    top: -0.8rem;                  /* pane padding만큼 보정 */
+    padding: 0.2rem 0;
+    background: var(--bg);
+    z-index: 1;
+}
+
+.page-txt2img .t2i-add,
+.page-txt2img .t2i-remove {
+    width: 1.8rem;
+    height: 1.8rem;
+    padding: 0;
+    line-height: 1;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg);
+}
+
+.page-txt2img .t2i-add:hover,
+.page-txt2img .t2i-remove:hover {
+    background: var(--hover-bg);
+    border-color: var(--accent);
+}
+
+.page-txt2img .t2i-prompts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.page-txt2img .t2i-prompt-item {
+    position: relative;
+}
+
+.page-txt2img .t2i-prompt-item textarea {
+    width: 100%;
+}
+
+.page-txt2img .t2i-remove {
+    position: absolute;
+    top: 0.3rem;
+    right: 0.3rem;
+}
+
+/* --- 아래: 조건 --- */
+.page-txt2img .t2i-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.9rem;
+}
+
+.page-txt2img textarea,
+.page-txt2img input[type="number"] {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    resize: vertical;
+}
+
+.page-txt2img .t2i-params {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 0.6rem;
+}
+
+/* ===== 곡선: 차트 3열 + Revision 오버레이 ===== */
+.page-txt2img .t2i-charts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
+}
+
+.page-txt2img .t2i-chart {
+    margin: 0;
+    min-width: 0;
+}
+
+.page-txt2img .t2i-chart figcaption {
+    margin-bottom: 0.2rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.page-txt2img .t2i-chart canvas {
+    display: block;
+    width: 100%;
+    height: 120px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+}
+
+.page-txt2img .t2i-revision,
+.page-txt2img .t2i-curve-apply,
+.page-txt2img .t2i-rev-tab {
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+}
+
+.page-txt2img .t2i-revision:hover,
+.page-txt2img .t2i-curve-apply:hover,
+.page-txt2img .t2i-rev-tab:hover {
+    background: var(--hover-bg);
+    border-color: var(--accent);
+}
+
+/* --- 오버레이 --- */
+.page-txt2img .t2i-rev {
+    width: min(760px, 92vw);
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--bg);
+    color: inherit;
+}
+
+.page-txt2img .t2i-rev::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.page-txt2img .t2i-rev-box {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    padding: 1rem;
+}
+
+.page-txt2img .t2i-rev-tabs {
+    display: flex;
+    gap: 0.4rem;
+}
+
+/* hover보다 아래에 둬야 active가 이김 */
+.page-txt2img .t2i-rev-tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-fg);
+}
+
+.page-txt2img .t2i-rev-hint {
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.page-txt2img .t2i-rev-head {
+    display: grid;
+    grid-template-columns: auto 1fr auto;   /* f(t) = / 입력칸 / Apply */
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.page-txt2img .t2i-rev-fx {
+    font-family: monospace;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.page-txt2img .t2i-curve-expr {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    font-family: monospace;
+}
+
+.page-txt2img .t2i-rev-canvas {
+    display: block;
+    width: 100%;
+    height: min(55vh, 360px);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+}
+
+.page-txt2img .t2i-curve-msg {
+    min-height: 1.1em;
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.page-txt2img .t2i-curve-msg.error {
+    color: #d33;
+}
+
+.page-txt2img .t2i-rev-foot {
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* ===== 오른쪽 공용: 번호 / 결과 이미지 / Generate ===== */
+.page-txt2img .t2i-nums {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.page-txt2img .t2i-num {
+    min-width: 2rem;
+    padding: 0.3rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg);
+    font-weight: 600;
+}
+
+.page-txt2img .t2i-num:hover {
+    background: var(--hover-bg);
+    border-color: var(--accent);
+}
+
+/* hover보다 아래에 둬야 active가 이김 */
+.page-txt2img .t2i-num.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-fg);
+}
+
+.page-txt2img .t2i-image {
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+}
+
+.page-txt2img .t2i-image img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;            /* 비율 유지, 잘리지 않음 */
+}
+
+.page-txt2img .t2i-generate {
+    padding: 0.7rem;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-weight: 600;
+}
