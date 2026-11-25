@@ -42,7 +42,7 @@ class SamplingEngine:
 
         return imgs, frames
 
-    def txt2img(self, txt2img_input:Txt2ImgInput, start_t=0, inpaint_ctx: InpaintCtx | None = None) -> tuple[list[Image.Image], list[Image.Image], list[float]]:
+    def txt2img(self, txt2img_input:Txt2ImgInput, start_t=1.0, inpaint_ctx: InpaintCtx | None = None, on_step=None) -> tuple[list[Image.Image], list[Image.Image], list[float]]:
         try:
             if not txt2img_input.prompt_static:
                 self.llm.generation(
@@ -59,11 +59,14 @@ class SamplingEngine:
             init_out.cfgs = init_out.cfgs[start_idx:]
             init_out.etas = init_out.etas[start_idx:]
 
+            dbg(txt2img_input)   # 아래 줄에 이걸 넣으려던 거라면
+            dbg(txt2img_input)
             x, latents, sigmas_steps = sampling(
                 model=self.model,
                 txt2img_input=txt2img_input,
                 init_out=init_out,
-                inpaint_ctx=inpaint_ctx
+                inpaint_ctx=inpaint_ctx,
+                on_step=on_step,
             )
 
             imgs, frames = self.vae_decode(x, latents, txt2img_input.frame_save)

@@ -27,7 +27,7 @@ def one_steps(model:MMDIT, x, init_out:InitOutput, sigma, cfg) -> torch.Tensor:
 
 
 
-def sampling(model, txt2img_input: Txt2ImgInput, init_out: InitOutput, inpaint_ctx: InpaintCtx = None):
+def sampling(model, txt2img_input: Txt2ImgInput, init_out: InitOutput, inpaint_ctx: InpaintCtx = None, on_step=None):
     sigmas = init_out.sigmas
     n = len(sigmas) - 1
     calc = txt2img_input.calculate_type
@@ -70,12 +70,15 @@ def sampling(model, txt2img_input: Txt2ImgInput, init_out: InitOutput, inpaint_c
             x = euler(x, v, sigma, sigma_next)
 
         x_in0, v0 = first_v[0]
-        x0_hat = x_in0 - sigma * v0              # 이 스텝의 x0 예측
+        x0_hat = x_in0 - sigma * v0
 
         if clamp_known is not None:
-            x = clamp_known(x, sigma_next)       # σ_next = 0이면 보존 칸은 정확히 z0
+            x = clamp_known(x, sigma_next) 
 
         sigmas_steps.append(sigma_next)
         latents.append(x0_hat)
-
+        
+        if on_step:
+            on_step(i + 1, n)
+            
     return x, latents, sigmas_steps

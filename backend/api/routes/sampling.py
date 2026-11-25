@@ -1,15 +1,24 @@
-from fastapi import APIRouter, Depends, Request, Response
+import threading
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from api.schemas import SamplingRequest
 from src.sampling import Engine, Txt2ImgInput
+from services import pil_to_b64
 
 router = APIRouter(prefix="/api", tags=["sampling"])
+
+jobs: dict[str, dict] = {}
+gpu_lock = threading.Lock()   # GPU를 한 번에 한 작업만 쓰게
+
 
 def get_engine(request: Request) -> Engine:
     return request.app.state.engine
 
-@router.post("/sampling", status_code=204)
-def run_sampling(sampling: SamplingRequest, engine: Engine = Depends(get_engine)) -> Response:
+
+@router.post("/sampling")
+def start_sampling(sampling: SamplingRequest, engine: Engine = Depends(get_engine)) -> dict:
     txt2img_input = Txt2ImgInput(
         prompts=sampling.prompts,
         steps=sampling.steps,
@@ -22,9 +31,33 @@ def run_sampling(sampling: SamplingRequest, engine: Engine = Depends(get_engine)
         eta_curve=sampling.eta_curve,
         frame_save=sampling.frame_save,
         prompt_static=sampling.prompt_static,
-        nsfw=sampling.nsfw
+        nsfw=sampling.nsfw,
     )
 
-    imgs, frames, sigmas_steps = engine.txt2img(txt2img_input=txt2img_input, start_t=0, inpaint_ctx=None)
+    job_id = uuid.uuid4().hex
+    jobs[job_id] = {"status": "running", "step": 0, "total": sampling.steps,
+                    "images": None, "error": None}
 
-    return Response(status_code=204)
+    def work():
+        def on_step(i, n):
+            jobs[job_id].update(step=i, total=n)
+        try:
+            with gpu_lock:
+                imgs, _, _ = engine.txt2img(txt2img_input=txt2img_input,
+                                            inpaint_ctx=None, on_step=on_step)
+            jobs[job_id].update(status="done", images=[pil_to_b64(im) for im in imgs])
+        except Exception as e:
+            jobs[job_id].update(status="error", error=str(e))
+
+    threading.Thread(target=work, daemon=True).start()
+    return {"job_id": job_id}
+
+
+@router.get("/sampling/{job_id}")
+def get_sampling(job_id: str) -> dict:
+    job = jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="job not found")
+    if job["status"] != "running":
+        jobs.pop(job_id, None)   # 결과를 한 번 가져가면 정리
+    return job

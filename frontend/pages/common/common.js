@@ -562,8 +562,8 @@ export async function postJSON(url, body) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
-    console.log(`POST ${url} →`, res.status);
-    return res;
+    if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+    return res.json();   // 204일 땐 없었던 부분
 }
 
 // ===================== 프롬프트 보존 (페이지 이동 시) =====================
