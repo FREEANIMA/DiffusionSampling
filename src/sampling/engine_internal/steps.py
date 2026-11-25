@@ -48,14 +48,16 @@ def sampling(model, txt2img_input: Txt2ImgInput, init_out: InitOutput, inpaint_c
     x = noise if clamp_known is None else clamp_known(noise, float(sigmas[0]))
 
     tqdm.write(f"sigmas={[round(float(s),3) for s in sigmas]}")
+    tqdm.write(f"cfgs={[round(float(c),2) for c in init_out.cfgs]}")
+    tqdm.write(f"etas={[round(float(e),3) for e in init_out.etas]}")
     tqdm.write(f"x0 std={x.std().item():.3f} dtype={x.dtype} sigma dtype={sigmas.dtype}")
-
+    
     for i in tqdm(range(n), desc="sampling"):
         sigma, sigma_next = float(sigmas[i]), float(sigmas[i + 1])
 
-        cfg = init_out.cfgs[i]
-        eta = init_out.etas[i]
-
+        cfg = float(init_out.cfgs[i])
+        eta = float(init_out.etas[i])
+        
         first_v = [] 
 
         def model_fn(x_in, s, cfg=cfg):
