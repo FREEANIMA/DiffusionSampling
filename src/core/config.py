@@ -50,6 +50,7 @@ class PathSettins:
     INPAINTING_DIR:str
     TAG_TYPE_FILENAME:str
     LLM_FILENAME:str
+    EMA_FILENAME:str
 
 @dataclass(kw_only=True)
 class SamplingSettings:
