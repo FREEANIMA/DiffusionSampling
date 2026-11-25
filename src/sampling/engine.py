@@ -77,8 +77,6 @@ class SamplingEngine:
 
             imgs, frames = self.vae_decode(x, latents, txt2img_input.frame_save)
 
-            path = os.path.join()
-
             for i, img in enumerate(imgs):
                 save_img(path=os.path.join(state.config.GENERATION_DIR, f"img_{i}.png", img))
             
