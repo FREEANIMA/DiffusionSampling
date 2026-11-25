@@ -32,11 +32,11 @@ class SamplingEngine:
         # )
         
 
-    def vae_decode(self, x: torch.Tensor, latents: list[torch.Tensor], video_save: bool) -> tuple[list[Image.Image], list[Image.Image]]:
+    def vae_decode(self, x: torch.Tensor, latents: list[torch.Tensor], frame_save: bool) -> tuple[list[Image.Image], list[Image.Image]]:
         imgs: list[Image.Image] = self.vae._tensor_to_pils(self.vae.decoder(x))
 
         frames: list[Image.Image] = []
-        if video_save and latents:
+        if frame_save and latents:
             for latent in latents:
                 frames.extend(self.vae._tensor_to_pils(self.vae.decoder(latent)))
 
@@ -52,18 +52,12 @@ class SamplingEngine:
                     W=txt2img_input.W
                 )
   
-
             init_out:InitOutput = setup_init(model=self.te, config=state.config, txt2img_input=txt2img_input)
 
             start_idx = int(np.argmin(np.abs(init_out.sigmas - start_t)))
             init_out.sigmas = init_out.sigmas[start_idx:]
-
-            print("========== debugging result =============")
-            dbg(txt2img_input)
-            print("==========================================")
-            dbg(init_out)
-            print("==========================================")
-            dbg(inpaint_ctx)
+            init_out.cfgs = init_out.cfgs[start_idx:]
+            init_out.etas = init_out.etas[start_idx:]
 
             # x, latents, sigmas_steps = sampling(
             #     model=self.model,
@@ -72,7 +66,7 @@ class SamplingEngine:
             #     inpaint_ctx=inpaint_ctx
             # )
 
-            # imgs, frames = self.vae_decode(x, latents, txt2img_input.video_save)
+            # imgs, frames = self.vae_decode(x, latents, txt2img_input.frame_save)
 
             # return imgs, frames, sigmas_steps
         
@@ -111,6 +105,7 @@ class SamplingEngine:
             if inpaint_input.crop_img is not None:
                 x, y, w, h = inpaint_input.crop_box
                 mask = mask.crop((x, y, x + w, y + h))
+                
             mask = mask.resize((W, H), Image.Resampling.NEAREST)
             mask_arr = np.array(mask, dtype=np.uint8)
 

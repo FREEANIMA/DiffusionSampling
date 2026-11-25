@@ -5,7 +5,7 @@
 import torch
 import torch.nn.functional as F
 
-def mask_generation(mask_arr, latent):
+def mask_generation(mask_arr, latent, thr=0.5):
     if isinstance(mask_arr, np.ndarray):
         m = torch.from_numpy(mask_arr).float()
     else:
@@ -21,8 +21,8 @@ def mask_generation(mask_arr, latent):
 
     m = m.to(latent.device, latent.dtype)
 
-    m_lat = F.adaptive_max_pool2d(m, output_size=latent.shape[-2:])
-    return (m_lat > 0.5).float()
+    m_lat = F.adaptive_avg_pool2d(m, output_size=latent.shape[-2:])
+    return (m_lat > thr).float()
 
 # ============================================================================= #
 # img resize

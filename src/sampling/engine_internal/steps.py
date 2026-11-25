@@ -4,6 +4,7 @@ from tqdm.auto import tqdm
 from src.network import MMDIT
 from src.core import state
 from .types import Txt2ImgInput, InitOutput, InpaintCtx
+from .solvers import euler, heun_step, midpoint_step
 
 @torch.inference_mode()
 @torch.amp.autocast(device_type=state.config.device, dtype=state.config.torch_dtype)
@@ -24,9 +25,12 @@ def one_steps(model:MMDIT, x, init_out:InitOutput, sigma, cfg) -> torch.Tensor:
 
     return v
 
-def sampling(model, txt2img_input:Txt2ImgInput, init_out:InitOutput, inpaint_ctx:InpaintCtx = None):
+
+
+def sampling(model, txt2img_input: Txt2ImgInput, init_out: InitOutput, inpaint_ctx: InpaintCtx = None):
     sigmas = init_out.sigmas
     n = len(sigmas) - 1
+    calc = txt2img_input.calculate_type
 
     latents = []
     sigmas_steps = []
@@ -34,31 +38,44 @@ def sampling(model, txt2img_input:Txt2ImgInput, init_out:InitOutput, inpaint_ctx
 
     if inpaint_ctx is not None:
         z0 = inpaint_ctx.z0.to(device=noise.device, dtype=noise.dtype)
-        mask = inpaint_ctx.mask.to(device=noise.device, dtype=noise.dtype)
-        s0 = float(sigmas[0])
-        x = (1 - s0) * z0 + s0 * noise
+        mask = inpaint_ctx.mask.to(device=noise.device, dtype=noise.dtype)   # 1 = 수정, 0 = 보존
+
+        def clamp_known(x, s):
+            # 보존 칸 = 원본 + 처음 노이즈 (노이즈는 매번 같은 걸 써야 이음매가 안 생김)
+            return mask * x + (1 - mask) * ((1 - s) * z0 + s * noise)
     else:
-        x = noise
+        clamp_known = None
+
+    x = noise if clamp_known is None else clamp_known(noise, float(sigmas[0]))
 
     for i in tqdm(range(n), desc="sampling"):
-        sigma, sigma_next = sigmas[i], sigmas[i + 1]
+        sigma, sigma_next = float(sigmas[i]), float(sigmas[i + 1])
         cfg = init_out.cfgs[i]
         eta = init_out.etas[i]
 
-        sigmas_steps.append(float(sigma_next))
+        first_v = [] 
 
-        velocitys = []
-        for _ in range(n):
-            v = one_steps(model=model, x=x, init_out=init_out, sigma=sigma, cfg=cfg)
-            velocitys.append(v)
-        
-        v_mean = torch.stack(velocitys).mean(dim=0)
-        
-        if inpaint_ctx is not None:
-            s_next = float(sigma_next)
-            z_known = (1 - s_next) * z0 + s_next * noise
-            x = mask * x + (1 - mask) * z_known
+        def model_fn(x_in, s, cfg=cfg):
+            if clamp_known is not None:
+                x_in = clamp_known(x_in, s)
+            v = one_steps(model, x_in, init_out, s, cfg)
+            if not first_v:
+                first_v.append((x_in, v))
+            return v
 
+        if calc == "heun":
+            x = heun_step(model_fn, x, sigma, sigma_next)
+        else:
+            v = model_fn(x, sigma)
+            x = euler(x, v, sigma, sigma_next)
+
+        x_in0, v0 = first_v[0]
+        x0_hat = x_in0 - sigma * v0              # 이 스텝의 x0 예측
+
+        if clamp_known is not None:
+            x = clamp_known(x, sigma_next)       # σ_next = 0이면 보존 칸은 정확히 z0
+
+        sigmas_steps.append(sigma_next)
         latents.append(x0_hat)
 
     return x, latents, sigmas_steps
