@@ -44,11 +44,12 @@ class SamplingEngine:
 
     def txt2img(self, txt2img_input, start_t=0, inpaint_ctx: InpaintCtx | None = None) -> tuple[list[Image.Image], list[Image.Image], list[float]]:
         try:
-            print(txt2img_input)
+            print(f"txt2img_input : {txt2img_input}")
             init_out:InitOutput = setup_init(model=self.te, config=state.config, txt2img_input=txt2img_input)
+            print(f"init_out : {init_out}")
 
-            # start_idx = int(np.argmin(np.abs(init_out.sigmas - start_t)))
-            # init_out.sigmas = init_out.sigmas[start_idx:]
+            start_idx = int(np.argmin(np.abs(init_out.sigmas - start_t)))
+            init_out.sigmas = init_out.sigmas[start_idx:]
 
             # x, latents, sigmas_steps = sampling(
             #     model=self.model,
