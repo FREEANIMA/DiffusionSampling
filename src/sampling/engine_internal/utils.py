@@ -101,6 +101,8 @@ def save_video(path, frames, fps=16):
             for f in frames:
                 w.append_data(np.asarray(f.convert("RGB")))
         os.replace(tmp, path)
+
+        print(f"video : {path}")
     except Exception as e:
         error_report(e, "save_video")
         if os.path.exists(tmp):
@@ -110,10 +112,12 @@ def save_video(path, frames, fps=16):
 
 def save_img(path, img, format="PNG"):
     root, ext = os.path.splitext(path)
-    tmp = f"{root}.tmp{ext}" 
+    tmp = f"{root}.tmp{ext}"
     try:
         img.save(tmp, format=format)
         os.replace(tmp, path)
+
+        print(f"img : {path}")
     except Exception as e:
         error_report(e, "save_img")
         if os.path.exists(tmp):
