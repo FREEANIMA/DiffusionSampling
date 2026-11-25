@@ -3,7 +3,7 @@ from PIL import Image
 import numpy as np
 from src.core import log, state, error_report, dbg
 from src.external import TE, VAE
-from src.network import MMDIT, LLM
+from src.network import MMDIT
 from src.tag import TagGenration
 from src.storage import download_model, load_ema_only
 import os
@@ -34,10 +34,11 @@ class SamplingEngine:
             console=console
         )
         
+
     @torch.inference_mode()
     def vae_decode(self, x: torch.Tensor, latents: list[torch.Tensor], frame_save: bool):
         imgs = self.vae._tensor_to_pils(self.vae.decoder(x))
-
+        
         frames: list[list[Image.Image]] = [[] for _ in range(x.shape[0])]
         if frame_save and latents:
             for latent in latents:

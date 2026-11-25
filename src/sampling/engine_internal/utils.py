@@ -1,3 +1,4 @@
+from src.core import error_report
 
 # ============================================================================= #
 # mask
@@ -100,7 +101,8 @@ def save_video(path, frames, fps=16):
             for f in frames:
                 w.append_data(np.asarray(f.convert("RGB")))
         os.replace(tmp, path)
-    except Exception:
+    except Exception as e:
+        error_report(e, "save_video")
         if os.path.exists(tmp):
             os.remove(tmp)
         raise
@@ -112,7 +114,8 @@ def save_img(path, img, format="PNG"):
     try:
         img.save(tmp, format=format)
         os.replace(tmp, path)
-    except Exception:
+    except Exception as e:
+        error_report(e, "save_img")
         if os.path.exists(tmp):
             os.remove(tmp)
         raise
