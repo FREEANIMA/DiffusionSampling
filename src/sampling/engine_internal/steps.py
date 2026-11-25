@@ -10,7 +10,8 @@ from .solvers import euler, heun_step, midpoint_step
 @torch.amp.autocast(device_type=state.config.device, dtype=state.config.torch_dtype)
 def one_steps(model:MMDIT, x, init_out:InitOutput, sigma, cfg) -> torch.Tensor:
     x_in = x.to(state.config.torch_dtype)
-    B, _, _, _ = x_in.shape
+    B, _, H, W = x_in.shape
+    max_side = max(H, W)
     sigma_1d = torch.full((2 * B,), sigma, device=state.config.device, dtype=torch.float32)
 
     out, _ = model.forward(
@@ -18,6 +19,7 @@ def one_steps(model:MMDIT, x, init_out:InitOutput, sigma, cfg) -> torch.Tensor:
         sigma= sigma_1d,
         txt_emb= torch.cat([init_out.cond_emb, init_out.uncond_emb], dim=0),
         txt_mask= torch.cat([init_out.cond_mask, init_out.uncond_mask], dim=0),
+        max_side= max_side
     )
 
     c, u = out.float().chunk(2, dim=0)
@@ -36,7 +38,7 @@ def sampling(model, txt2img_input: Txt2ImgInput, init_out: InitOutput, inpaint_c
 
     if inpaint_ctx is not None:
         z0 = inpaint_ctx.z0.to(device=noise.device, dtype=noise.dtype)
-        mask = inpaint_ctx.mask.to(device=noise.device, dtype=noise.dtype)   # 1 = 수정, 0 = 보존
+        mask = inpaint_ctx.mask.to(device=noise.device, dtype=noise.dtype)
 
         def clamp_known(x, s):
             return mask * x + (1 - mask) * ((1 - s) * z0 + s * noise)
