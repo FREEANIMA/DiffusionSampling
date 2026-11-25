@@ -71,14 +71,6 @@ def sampling(model, txt2img_input: Txt2ImgInput, init_out: InitOutput, inpaint_c
 
         x_in0, v0 = first_v[0]
         x0_hat = x_in0 - sigma * v0
-        tqdm.write(
-            f"[{i:02d}] s={sigma:.3f}->{sigma_next:.3f} cfg={float(cfg):.1f} eta={float(eta):.3f} | "
-            f"x_in.std={x_in0.std().item():.3f} x_in.max={x_in0.abs().max().item():.2f} | "
-            f"v.std={v0.std().item():.3f} v.max={v0.abs().max().item():.2f} | "
-            f"x0hat.std={x0_hat.std().item():.3f} | "
-            f"x_next.std={x.std().item():.3f} x_next.max={x.abs().max().item():.2f} | "
-            f"nan={bool(torch.isnan(x).any())}"
-        )
 
         if clamp_known is not None:
             x = clamp_known(x, sigma_next) 

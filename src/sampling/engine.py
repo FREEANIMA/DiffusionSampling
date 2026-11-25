@@ -53,7 +53,14 @@ class SamplingEngine:
                     H=txt2img_input.H,
                     W=txt2img_input.W
                 )
-  
+            else:
+                txt2img_input.prompts = self.llm.generation(
+                    tags=txt2img_input.prompts, 
+                    nsfw=txt2img_input.nsfw,
+                    H=txt2img_input.H,
+                    W=txt2img_input.W
+                )
+                                
             init_out:InitOutput = setup_init(model=self.te, config=state.config, txt2img_input=txt2img_input)
 
             start_idx = int(np.argmin(np.abs(init_out.sigmas - start_t)))

@@ -91,7 +91,7 @@ class TagGenration:
 
         return [self.id_to_tag[i] for i in generated if i in self.id_to_tag]
     
-    def generation(self, tags, nsfw, H, W):
+    def generation(self, tags, nsfw, H, W, inferenc_mode=False):
         if isinstance(nsfw, bool):
             nsfw = [nsfw] * len(tags)
 
@@ -100,9 +100,12 @@ class TagGenration:
 
         generation_list = []
         for dups in dups_list:
-            ids = torch.tensor([self.to_ids(dups)], dtype=torch.long, device=state.config.device)
-            gen = self.inference(ids=ids)
-            generation_list.append(list(dict.fromkeys(dups + gen)))
+            if inferenc_mode:
+                ids = torch.tensor([self.to_ids(dups)], dtype=torch.long, device=state.config.device)
+                gen = self.inference(ids=ids)
+                generation_list.append(list(dict.fromkeys(dups + gen)))
+            else:
+                generation_list.append(dups)
 
         nsfw_text_list = [f"nsfw: {str(n).lower()}; " for n in nsfw]
         size_text_list = [f"size: {H}x{W}; " for _ in nsfw]
