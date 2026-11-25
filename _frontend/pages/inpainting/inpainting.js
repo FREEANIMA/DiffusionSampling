@@ -1,15 +1,16 @@
 /* inpainting.js — inpainting 전용
  * Mask: 좌클릭 = 수정(빨강), 우클릭 = 보존(파랑)   Eraser: 좌/우클릭 드래그로 지움 (Mask 상태에서 Alt+드래그도 지우개)
+ * 서버로 보내는 마스크: 빨강(수정)이 있으면 빨강만 수정 / 빨강이 없으면 크롭 전체를 수정하되 파랑(보존)만 제외
  * Crop: W, H는 32의 배수 + 큰 쪽이 작은 쪽으로 나눠떨어짐. 크롭하면 그 영역으로 확대됨
  * Generate 후: 이미지판이 수정된 이미지로 바뀜. 위쪽 번호(prompt)로 결과 전환, Compare로 원본과 비교
  * 확대/이동: 휠 = 확대/축소, 가운데 버튼(또는 Space + 드래그) = 이동
  */
-import { initCommon, collectCommon } from '../common/common.js';
+import { initCommon, collectCommon, toSamplingRequest, postJSON } from '../common/common.js';
 
 const GRID = 32;                 // W, H 모두 32의 배수
 const COLOR = { edit: '#ff3b30', keep: '#2f6bff' };
-const API_URL = '/api/inpaint';  // TODO: 실제 엔드포인트로 교체
-const USE_MOCK = false;          // true: 백엔드 없이 색만 바꾼 가짜 결과로 화면 테스트
+const API_URL = '/api/inpainting';
+const USE_MOCK = false;          // true: 전송 후 가짜 결과를 이미지판에 띄워 화면(번호 전환/Compare) 테스트
 
 // W, H가 32의 배수이고, 큰 쪽이 작은 쪽으로 나눠떨어져야 함
 // 예) 32×64, 64×64, 64×192 ✔ / 64×96 ✘
@@ -203,21 +204,41 @@ function paintLine(a, b, kind, erase) {
     c.restore();
 }
 
-// 수정(빨강) 영역 = 흰색, 나머지(유지 포함) = 검정. r 영역만 잘라서 PNG로
-function maskDataURL(r) {
-    const src = S.mctx.getImageData(r.x, r.y, r.w, r.h);
-    const out = new ImageData(r.w, r.h);
-    for (let i = 0; i < src.data.length; i += 4) {
-        const edit = src.data[i + 3] > 127 && src.data[i] > src.data[i + 2];
-        const v = edit ? 255 : 0;
-        out.data[i] = out.data[i + 1] = out.data[i + 2] = v;
-        out.data[i + 3] = 255;
+// 마스크 픽셀 계산 (수정 = 255, 그 외 = 0). data: RGBA, r: data가 담고 있는 영역, area: 수정 대상 영역
+//  · area 안에 빨강(수정)이 있으면 → 빨강만 흰색
+//  · 빨강이 하나도 없으면 → area 전체를 흰색으로 하고 파랑(보존)만 검정으로 뺌
+//    (크롭 일부만 수정하면 주변과 안 맞는 문제를 피하려고, 크롭 전체를 새로 생성하되 보존 영역만 유지)
+//  · area 밖은 항상 검정
+function buildMaskPixels(data, r, area) {
+    const n = r.w * r.h;
+    const isRed = k => data[k * 4 + 3] > 127 && data[k * 4] > data[k * 4 + 2];
+    const isBlue = k => data[k * 4 + 3] > 127 && data[k * 4 + 2] > data[k * 4];
+    const inArea = k => {
+        const x = r.x + (k % r.w), y = r.y + ((k / r.w) | 0);
+        return x >= area.x && x < area.x + area.w && y >= area.y && y < area.y + area.h;
+    };
+
+    let hasRed = false;
+    for (let k = 0; k < n && !hasRed; k++) if (inArea(k) && isRed(k)) hasRed = true;
+
+    const out = new Uint8ClampedArray(n * 4);
+    for (let k = 0; k < n; k++) {
+        const white = inArea(k) && (hasRed ? isRed(k) : !isBlue(k));
+        out[k * 4] = out[k * 4 + 1] = out[k * 4 + 2] = white ? 255 : 0;
+        out[k * 4 + 3] = 255;
     }
+    return { out, hasRed };
+}
+
+// r 영역의 마스크를 PNG로. area = 수정 대상 영역 (크롭, 없으면 전체)
+function maskDataURL(r, area) {
+    const src = S.mctx.getImageData(r.x, r.y, r.w, r.h);
+    const { out, hasRed } = buildMaskPixels(src.data, r, area);
     const c = document.createElement('canvas');
     c.width = r.w;
     c.height = r.h;
-    c.getContext('2d').putImageData(out, 0, 0);
-    return c.toDataURL('image/png');
+    c.getContext('2d').putImageData(new ImageData(out, r.w, r.h), 0, 0);
+    return { url: c.toDataURL('image/png'), hasRed };
 }
 
 function cropDataURL(r) {
@@ -555,18 +576,50 @@ async function mockInpaint(params) {
     });
 }
 
-// POST → { images: [url 또는 data URL, ...] }  (prompt 순서대로, prompt 수만큼)
-async function requestInpaint(params) {
-    if (USE_MOCK) return mockInpaint(params);
-    const res = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
-    });
-    if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
-    const data = await res.json();
-    if (!Array.isArray(data.images) || !data.images.length) throw new Error('서버 응답에 images가 없습니다');
-    return data.images;
+const b64 = url => url.split(',')[1];     // "data:image/png;base64," 접두사 제거
+
+// InPaintingRequest (prompt와 무관하므로 한 번만 만들어 재사용)
+//   image_b64 : 원본 전체
+//   mask_b64  : 원본과 같은 크기. 수정 = 흰색(255), 그 외 = 검정(0)  (빨강이 없으면 크롭 전체가 수정, 파랑만 제외)
+//   crop_b64  : 크롭 영역만 잘라낸 이미지 (크롭 없으면 null)
+//   crop_box  : [x, y, w, h] 원본 좌표 (크롭 없으면 null)
+function buildInpainting() {
+    const full = fullRect();
+    const mask = maskDataURL(full, S.crop || full);
+    return {
+        hasRed: mask.hasRed,
+        inpainting: {
+            image_b64: b64(cropDataURL(full)),
+            mask_b64: b64(mask.url),
+            crop_b64: S.crop ? b64(cropDataURL(S.crop)) : null,
+            crop_box: S.crop ? [S.crop.x, S.crop.y, S.crop.w, S.crop.h] : null,
+        },
+    };
+}
+
+// 요청만 보냄 (응답 처리는 아직 안 함). prompt 하나당 요청 하나, 순서대로
+// body = { sampling: SamplingRequest, inpainting: InPaintingRequest }  — 파라미터와 이미지/마스크를 분리
+// sampling.width/height = 생성 크기 (크롭이 있으면 크롭 크기, 없으면 원본 크기)
+async function sendInpaint(params, r, inpainting) {
+    for (const prompt of params.prompts) {
+        const body = {
+            sampling: toSamplingRequest(params, prompt, { width: r.w, height: r.h }),
+            inpainting,
+        };
+        console.log('send', body.sampling, { crop_box: inpainting.crop_box });   // base64는 너무 길어서 생략
+        await postJSON(API_URL, body);
+    }
+}
+
+// 서버 응답 이미지(URL/data URL 배열, prompt 순서)를 이미지판에 반영. 응답 처리를 붙일 때 호출
+async function showResults(urls, r) {
+    const imgs = await Promise.all(urls.map(loadImage));
+    S.results = imgs.map(img => ({ img, rect: { ...r } }));   // 결과마다 어느 영역의 결과인지 같이 저장
+    S.compare = false;
+    if (!cv || !cv.isConnected) return;       // 다른 탭으로 갔다면 상태만 저장
+    syncCur();
+    setResultView(true);                      // 이미지판을 수정된 이미지로 교체
+    setStatus(`${imgs.length}개 생성됨`);
 }
 
 async function onGenerate() {
@@ -575,24 +628,16 @@ async function onGenerate() {
     if (!r) return setStatus('Crop으로 W, H가 32 배수이고 서로 나눠떨어지는 영역을 지정하세요', true);
 
     const params = collectCommon();     // prompts, steps, cfg, seed, sigmas, cfgs, etas, styles
-    params.crop = r;                    // 원본 좌표 { x, y, w, h }
-    params.width = r.w;
-    params.height = r.h;
-    params.image = cropDataURL(r);      // 크롭된 원본 (PNG)
-    params.mask = maskDataURL(r);       // 수정 = 흰색, 유지/나머지 = 검정 (PNG)
-
     const btn = $('t2i-generate');
-    btn.disabled = true;                // 생성 중 중복 클릭 방지
-    setStatus('Generating...');
+    btn.disabled = true;                // 보내는 동안 중복 클릭 방지
+    setStatus('Sending...');
     try {
-        const urls = await requestInpaint(params);
-        const imgs = await Promise.all(urls.map(loadImage));
-        S.results = imgs.map(img => ({ img, rect: { ...r } }));   // 결과마다 어느 영역의 결과인지 같이 저장
-        S.compare = false;
-        if (!cv || !cv.isConnected) return;       // 생성 중 다른 탭으로 갔다면 상태만 저장
-        syncCur();
-        setResultView(true);                      // 이미지판을 수정된 이미지로 교체
-        setStatus(`${imgs.length}개 생성됨`);
+        const { inpainting, hasRed } = buildInpainting();
+        await sendInpaint(params, r, inpainting);
+        setStatus(`${params.prompts.length}개 요청 전송됨` +
+            (hasRed ? '' : ' — 빨강 마스크 없음: 크롭 전체 수정, 파랑 영역만 보존'));
+        // TODO: 응답 이미지가 오면 showResults(urls, r) 호출
+        if (USE_MOCK) await showResults(await mockInpaint({ prompts: params.prompts, crop: r }), r);
     } catch (err) {
         setStatus(err.message, true);
     } finally {

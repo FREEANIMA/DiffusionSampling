@@ -374,3 +374,39 @@ export function collectCommon() {
     }
     return params;
 }
+
+// ===================== 서버 전송용 =====================
+// collectCommon() 결과 + prompt 하나 → 백엔드 SamplingRequest 모양
+//   sigmas/cfgs/etas → sigma_curve/cfg_curve/eta_curve  (cfgs는 이미 cfg 입력값이 곱해진 최종값)
+//   prompts(여러 개) → prompt(하나): prompt마다 요청을 따로 보냄
+//   size: { width, height } 를 주면 그 값을 씀 (inpainting은 crop 크기)
+//   cfg, styles 는 SamplingRequest에 없어서 보내지 않음
+export function toSamplingRequest(p, prompt, size = {}) {
+    const steps = Math.max(1, Math.round(p.steps) || 1);
+    for (const [name, arr] of [['Sigma', p.sigmas], ['CFG', p.cfgs], ['Eta', p.etas]]) {
+        if (arr.length !== steps) {     // 식 오류로 이전 곡선이 남아 있으면 길이가 안 맞을 수 있음
+            throw new Error(`${name} 곡선 길이(${arr.length})가 steps(${steps})와 다릅니다. Revision에서 식을 확인하세요`);
+        }
+    }
+    return {
+        prompt,
+        sigma_curve: p.sigmas,
+        cfg_curve: p.cfgs,
+        eta_curve: p.etas,
+        seed: p.seed,
+        steps,
+        width: size.width ?? p.width,
+        height: size.height ?? p.height,
+    };
+}
+
+// JSON POST. 응답은 아직 처리하지 않음 (상태 코드만 콘솔에 찍고 Response를 그대로 돌려줌)
+export async function postJSON(url, body) {
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    console.log(`POST ${url} →`, res.status);
+    return res;
+}

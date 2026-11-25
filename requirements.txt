@@ -11,7 +11,9 @@ tiktoken
 protobuf
 opencv-python
 matplotlib
-flask
 python-dotenv
 imageio 
 imageio-ffmpeg
+fastapi
+uvicorn[standard]
+python-multipart
