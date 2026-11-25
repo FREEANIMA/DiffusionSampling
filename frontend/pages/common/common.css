@@ -179,12 +179,13 @@
     resize: vertical;
 }
 
-/* 한 행 = .t2i-params. 칸이 몇 개든 한 행에 균등 분할 */
+/* 한 행 = .t2i-params */
+/* 칸 폭을 고정해 좌측 정렬. 행이 달라도 열이 맞고, 폭이 좁으면 다음 줄로 넘어감 */
 .page-txt2img .t2i-params {
     display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(0, 1fr);
-    gap: 0.5rem 0.8rem;
+    grid-template-columns: repeat(auto-fill, 9rem);
+    justify-content: start;
+    gap: 0.5rem 1rem;
 }
 
 .page-txt2img .t2i-params-wrap {
@@ -214,14 +215,24 @@
 
 .page-txt2img .t2i-field input:not([type="checkbox"]),
 .page-txt2img .t2i-field select {
-    flex: 1;                          /* 입력칸이 남는 폭을 채움 */
-    width: auto;
+    flex: none;                       /* 남는 폭을 채우지 않고 고정 폭 */
+    width: 5rem;
     min-width: 0;
     box-sizing: border-box;
     padding: 0.3rem 0.4rem;
 }
 
+.page-txt2img .t2i-field select {
+    width: 5.5rem;
+    padding-right: 1.8rem;            /* ▾ 화살표 자리 */
+}
+
 /* ===== 곡선: 차트 3열 + Revision 오버레이 ===== */
+/* pane이 세로 flex라 버튼이 가로로 꽉 차 가운데 정렬돼 보임 → 내용 폭 + 좌측 정렬 */
+.page-txt2img .t2i-pane > .t2i-revision {
+    align-self: flex-start;
+}
+
 .page-txt2img .t2i-charts {
     display: grid;
     grid-template-columns: repeat(3, 1fr);

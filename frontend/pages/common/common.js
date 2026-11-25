@@ -445,6 +445,14 @@ export async function initCommon({ size = true, inpaint = false, onGenerate } = 
         htmlCache = await res.text();
         console.log('common.html loaded:', res.url, 'has tag-tree =', htmlCache.includes('t2i-tag-tree'));
     }
+    // common.css를 매번 새로 받음: 캐시된 옛 CSS가 적용되는 것을 막고, common.html과 같은 폴더의 파일을 확실히 씀
+    if (!document.getElementById('t2i-common-css')) {
+        const link = document.createElement('link');
+        link.id = 't2i-common-css';
+        link.rel = 'stylesheet';
+        link.href = new URL(`./common.css?v=${Date.now()}`, import.meta.url).href;
+        await new Promise(res => { link.onload = link.onerror = res; document.head.appendChild(link); });
+    }
     const root = document.querySelector('.page-txt2img');
     root.insertAdjacentHTML('afterbegin', htmlCache);      // 왼쪽/가운데를 루트의 직계 자식으로
     if (!size) root.querySelectorAll('[data-size]').forEach(el => el.remove());
@@ -853,7 +861,7 @@ function initLayout(root) {
         };
         bar.addEventListener('pointerup', end);
         bar.addEventListener('pointercancel', end);
-        bar.addEventListener('dblclick', onReset);        // 더블클릭 = 기본 크기로
+        bar.addEventListener('dblclick', onReset); 
     };
 
     // 입력 열 폭: 이미지판은 남는 폭을 차지함
