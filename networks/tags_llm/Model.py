@@ -6,7 +6,7 @@ from .Block import Block
 from .Rope1D import Rope1D
 
 class Model(nn.Module):
-    def __init__(self, hidden_size, vocab_size, nhead, num_layers, rope_hz, dropout, max_len, **kwargs):
+    def __init__(self, hidden_size, vocab_size, nhead, num_layers, rope_hz, max_len, dropout=0.0, **kwargs):
         super().__init__()
         dim_forward = 4 * hidden_size
 
