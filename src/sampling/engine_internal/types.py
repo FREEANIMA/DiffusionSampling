@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 @dataclass
 class InitInput:
-    tags: list[str]
+    prompts: list[str]
     steps: int
     seed: int
     H: int

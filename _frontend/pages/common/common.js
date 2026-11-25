@@ -393,6 +393,7 @@ function addPrompt() {
     document.getElementById('t2i-prompts').appendChild(item);
     syncViewer();
     item.querySelector('textarea').focus();
+    savePrompts();
 }
 
 // prompt 개수에 맞춰 placeholder, 번호 버튼, 이미지 표시를 한 번에 갱신
@@ -434,6 +435,7 @@ let htmlCache = null;
 // 페이지 HTML에 #t2i-nums, #t2i-image, #t2i-generate 가 있어야 함.
 // size: false 면 Width/Height 칸을 뺌 (inpaint는 crop이 크기를 정함)
 export async function initCommon({ size = true, inpaint = false, onGenerate } = {}) {
+    pageKey = inpaint ? 'inpaint' : 'sampling';
     images.length = 0;
     current = 0;
 
@@ -447,8 +449,11 @@ export async function initCommon({ size = true, inpaint = false, onGenerate } = 
     if (!size) root.querySelectorAll('[data-size]').forEach(el => el.remove());
     if (!inpaint) root.querySelectorAll('[data-inpaint]').forEach(el => el.remove());
 
+    restorePrompts();   
+
     document.getElementById('t2i-add-prompt').addEventListener('click', addPrompt);
     document.getElementById('t2i-generate').addEventListener('click', onGenerate);
+    document.getElementById('t2i-prompts').addEventListener('input', savePrompts);
 
     // 삭제 버튼은 동적으로 생기므로 부모에서 이벤트 위임
     document.getElementById('t2i-prompts').addEventListener('click', e => {
@@ -458,6 +463,7 @@ export async function initCommon({ size = true, inpaint = false, onGenerate } = 
         const items = [...document.querySelectorAll('#t2i-prompts .t2i-prompt-item')];
         images.splice(items.indexOf(item), 1);   // 해당 번호의 이미지도 같이 제거
         item.remove();
+        savePrompts();
         syncViewer();
     });
 
@@ -509,15 +515,15 @@ export function collectCommon() {
 //   prompts(여러 개) → prompt(하나): prompt마다 요청을 따로 보냄
 //   size: { width, height } 를 주면 그 값을 씀 (inpainting은 crop 크기)
 //   cfg, styles 는 SamplingRequest에 없어서 보내지 않음
-export function toSamplingRequest(p, prompt, size = {}) {
+export function toSamplingRequest(p, prompts = p.prompts, size = {}) {
     const steps = Math.max(1, Math.round(p.steps) || 1);
     for (const [name, arr] of [['Sigma', p.sigmas], ['CFG', p.cfgs], ['Eta', p.etas]]) {
-        if (arr.length !== steps + 1) {     // 식 오류로 이전 곡선이 남아 있으면 길이가 안 맞을 수 있음
+        if (arr.length !== steps + 1) {
             throw new Error(`${name} 곡선 길이(${arr.length})가 steps+1(${steps + 1})과 다릅니다. Revision에서 식을 확인하세요`);
         }
     }
     return {
-        prompt,
+        prompts: Array.isArray(prompts) ? prompts : [prompts],   // 1개여도 항상 배열
         sigma_curve: p.sigmas,
         cfg_curve: p.cfgs,
         eta_curve: p.etas,
@@ -537,4 +543,27 @@ export async function postJSON(url, body) {
     });
     console.log(`POST ${url} →`, res.status);
     return res;
+}
+
+// ===================== 프롬프트 보존 (페이지 이동 시) =====================
+const savedPrompts = {};      // { sampling: [...], inpaint: [...] }
+let pageKey = 'default';
+
+function savePrompts() {
+    const list = [...document.querySelectorAll('#t2i-prompts .t2i-prompt')].map(t => t.value);
+    if (list.length) savedPrompts[pageKey] = list;
+}
+
+function restorePrompts() {
+    const list = savedPrompts[pageKey] ?? [''];
+    const box = document.getElementById('t2i-prompts');
+    box.innerHTML = '';
+    list.forEach((text, i) => {
+        const item = document.createElement('div');
+        item.className = 't2i-prompt-item';
+        item.innerHTML = `<textarea class="t2i-prompt" rows="4"></textarea>` +
+            (i > 0 ? `<button type="button" class="t2i-remove" aria-label="칸 삭제">×</button>` : '');
+        item.querySelector('textarea').value = text;
+        box.appendChild(item);
+    });
 }

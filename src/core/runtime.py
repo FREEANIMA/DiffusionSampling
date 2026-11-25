@@ -1,14 +1,8 @@
-import argparse
 from dataclasses import fields
-import json, os, glob, sys
+import json, os, glob
 from .config import Config
 from .shared import BASE_ROOT
-
-def _parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--ver", type=int, default=None)
-    args, _ = parser.parse_known_args(sys.argv[1:])
-    return args
+from version import VERSION
 
 def prepared_dir(config:Config):
     os.makedirs(config.GENERATION_DIR, exist_ok=True)
@@ -17,15 +11,13 @@ def prepared_dir(config:Config):
     os.makedirs(config.ERROR_REPORT, exist_ok=True)
     os.makedirs(config.CKPT_LOCAL_DIR, exist_ok=True)
 
-def config_settings(ver_number: int | None = None):
-    args = _parse_args()
+def version_to_number(version: str) -> int:
+    _, minor, patch = map(int, version.split("."))
+    return minor * 10 + patch
 
-    if ver_number is None:
-        ver_number = args.ver
-
-    if ver_number is None:
-        ver_number = int(input("ver number : "))
-
+def config_settings():
+    print(f"Version : {VERSION}")
+    ver_number = version_to_number(VERSION)
     pattern = os.path.join(BASE_ROOT, "configs", f"version_{ver_number}", "*.json")
     paths = sorted(glob.glob(pattern))
     if not paths:

@@ -602,14 +602,11 @@ function buildInpainting(params) {
 // body = { sampling: SamplingRequest, inpainting: InPaintingRequest }  — 파라미터와 이미지/마스크를 분리
 // sampling.width/height = 생성 크기 (크롭이 있으면 크롭 크기, 없으면 원본 크기)
 async function sendInpaint(params, r, inpainting) {
-    for (const prompt of params.prompts) {
-        const body = {
-            sampling: toSamplingRequest(params, prompt, { width: r.w, height: r.h }),
-            inpainting,
-        };
-        console.log('send', body.sampling, { crop_box: inpainting.crop_box });   // base64는 너무 길어서 생략
-        await postJSON(API_URL, body);
-    }
+    const body = {
+        sampling: toSamplingRequest(params, params.prompts, { width: r.w, height: r.h }),
+        inpainting,
+    };
+    await postJSON(API_URL, body);
 }
 
 // 서버 응답 이미지(URL/data URL 배열, prompt 순서)를 이미지판에 반영. 응답 처리를 붙일 때 호출

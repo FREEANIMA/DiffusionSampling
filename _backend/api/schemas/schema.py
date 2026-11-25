@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 @dataclass
 class SamplingRequest:
-    prompt: str
+    prompts: list[str]
     sigma_curve: list[float]
     cfg_curve: list[float]
     eta_curve: list[float]

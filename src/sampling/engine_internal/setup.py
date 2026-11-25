@@ -9,10 +9,10 @@ from .types import Txt2ImgInput, InitOutput
 
 @torch.inference_mode()
 def setup_init(model:TE, config:Config, txt2img_input:Txt2ImgInput) -> InitOutput:
-    B = len(txt2img_input.tags)
-    tags_batch = txt2img_input.tags
-    init_prompt_batch = [config.init_prompt] * len(txt2img_input.tags)
-    text_batch = tags_batch + init_prompt_batch
+    B = len(txt2img_input.prompts)
+    prompts_batch = txt2img_input.prompts
+    init_prompt_batch = [config.init_prompt] * len(txt2img_input.prompts)
+    text_batch = prompts_batch + init_prompt_batch
 
     emb, mask = model.encoder(captions=text_batch)
     cond_emb, uncond_emb = emb[:B], emb[B:]

@@ -9,7 +9,5 @@ router = APIRouter(prefix="/api", tags=["inpainting"])
 # 지금은 요청을 받아서 출력만 함 (반환 없음 → 204 No Content)
 @router.post("/inpainting", status_code=204)
 def run_inpainting(sampling: SamplingRequest, inpainting: InPaintingRequest) -> Response:
-    print(sampling)
-    print(inpainting)
-
+    print(sampling.prompts)
     return Response(status_code=204)
