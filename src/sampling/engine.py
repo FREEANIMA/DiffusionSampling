@@ -47,7 +47,7 @@ class SamplingEngine:
     def txt2img(self, txt2img_input:Txt2ImgInput, start_t=1.0, inpaint_ctx: InpaintCtx | None = None, on_step=None) -> tuple[list[Image.Image], list[Image.Image], list[float]]:
         try:
             if not txt2img_input.prompt_static:
-                self.llm.generation(
+                txt2img_input.prompts = self.llm.generation(
                     tags=txt2img_input.prompts, 
                     nsfw=txt2img_input.nsfw,
                     H=txt2img_input.H,
@@ -65,6 +65,8 @@ class SamplingEngine:
             dbg(init_out)
             print("========txt2img_input=============")
             dbg(txt2img_input)
+            print("========prompt=============")
+            print(txt2img_input.prompts)
 
             self.model.eval()
             x, latents, sigmas_steps = sampling(
