@@ -1,40 +1,43 @@
-import torch
-
-def ab2(x, v, v_prev, sigma, sigma_next, h_prev, r_max=2.0):
-    h = sigma_next - sigma
-    if v_prev is None or h_prev is None or h_prev == 0:
-        return x + h * v
-    r = min(max(h / h_prev, 0.0), r_max)
-    return x + h * ((1.0 + 0.5 * r) * v - 0.5 * r * v_prev)
-
-def v_to_x0_eps(x, v, sigma):
-    x0 = x - sigma * v
-    eps = x + (1.0 - sigma) * v
-    return x0, eps
-
-def sigma_lo_of(sigma_next, eta):
-    return sigma_next * (1.0 - eta)
-
-def renoise(x_lo, z, sigma_lo, sigma_next):
-    a = (1.0 - sigma_next) / (1.0 - sigma_lo)
-    var = sigma_next ** 2 - (a * sigma_lo) ** 2
-    if torch.is_tensor(var):
-        noise_scale = var.clamp(min=0).sqrt()
-    else:
-        noise_scale = max(var, 0.0) ** 0.5
-    return a * x_lo + noise_scale * z
+import math
 
 def euler(x, v, sigma, sigma_next):
     return x + (sigma_next - sigma) * v
 
-def euler_ancestral(x, v, z, sigma, sigma_next, eta=0.3):
-    if z is None or eta <= 0.0:
-        return euler(x, v, sigma, sigma_next)
-
-    sigma_lo = sigma_lo_of(sigma_next, eta)
-    x_lo = euler(x, v, sigma, sigma_lo)
-
-    return renoise(x_lo, z, sigma_lo, sigma_next)
-
-def heun(x, v1, v2, sigma, sigma_next):
+def heun_step(model_fn, x, sigma, sigma_next):
+    v1 = model_fn(x, sigma)
+    x_euler = x + (sigma_next - sigma) * v1
+    if sigma_next == 0:
+        return x_euler
+    v2 = model_fn(x_euler, sigma_next)
     return x + (sigma_next - sigma) * 0.5 * (v1 + v2)
+
+def midpoint_step(model_fn, x, sigma, sigma_next):
+    sigma_mid = 0.5 * (sigma + sigma_next)
+    v1 = model_fn(x, sigma)
+    x_mid = x + (sigma_mid - sigma) * v1
+    v2 = model_fn(x_mid, sigma_mid)
+    return x + (sigma_next - sigma) * v2
+
+# === DPM++ 2M (x0 기반) ===
+def dpmpp_2m(x, x0, x0_prev, sigma, sigma_next, h_prev):
+    """
+    DPM++ 2M 한 스텝.
+    x0     : 현재 스텝의 x0 예측 (x - σ·v)
+    x0_prev: 이전 스텝의 x0 예측
+    h_prev : 이전 스텝의 h (None이면 1차 Euler와 동일)
+    반환   : (x_next, h)
+    """
+    alpha     = 1.0 - sigma
+    alpha_n   = 1.0 - sigma_next
+    ratio     = sigma_next / sigma
+
+    D = x0
+    h = None
+    if 0.0 < sigma < 1.0 and sigma_next > 0.0:
+        h = math.log(alpha_n / sigma_next) - math.log(alpha / sigma)
+        if x0_prev is not None and h_prev is not None and h_prev > 0 and h != 0:
+            r = h_prev / h
+            D = (1.0 + 1.0 / (2.0 * r)) * x0 - (1.0 / (2.0 * r)) * x0_prev
+
+    x_next = ratio * x + (alpha_n - alpha * ratio) * D
+    return x_next, h
