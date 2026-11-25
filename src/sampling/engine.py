@@ -6,7 +6,7 @@ from src.external import TE, VAE
 from src.network import MMDIT, LLM
 from src.tag import TagGenration
 from src.storage import download_model, load_ema_only
-
+import numpy as np
 from src.sampling.engine_internal import (
     Txt2ImgInput, InitOutput, InpaintInput, InpaintCtx,
     setup_init, sampling, arr_resize, mask_generation
@@ -85,7 +85,7 @@ class SamplingEngine:
 
         try:
             arr, H, W = arr_resize(
-                img,
+                np.asarray(img.convert('RGB')),   # PIL → (H, W, 3) uint8 ndarray
                 state.config.allowable_size,
                 state.config.patch_size,
                 state.config.compression_ratio,
@@ -97,11 +97,15 @@ class SamplingEngine:
             print(txt2img_input.H)
             print(txt2img_input.W)
      
-            mask = inpaint_input.mask.convert("L").resize((W, H), Image.Resampling.NEAREST)
+            mask = inpaint_input.mask.convert("L")
+            if inpaint_input.crop_img is not None:
+                x, y, w, h = inpaint_input.crop_box
+                mask = mask.crop((x, y, x + w, y + h))
+            mask = mask.resize((W, H), Image.Resampling.NEAREST)
             mask_arr = np.array(mask, dtype=np.uint8)
 
             np_tensor = torch.from_numpy(arr).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
-            np_tensor = np_tensor.to(device=state.config.device, dtype=state.config.dtype)
+            np_tensor = np_tensor.to(device=state.config.device, dtype=state.config.torch_dtype)
 
             latent = self.vae.encoder(np_tensor)
             mask_lat = mask_generation(mask_arr, latent)

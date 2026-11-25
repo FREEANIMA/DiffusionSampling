@@ -21,7 +21,7 @@ class VAE():
     def download_flux_vae(self):
         vae = AutoencoderDC.from_pretrained(
             self.model_name,
-            torch_dtype=state.config.dtype
+            torch_dtype=state.config.torch_dtype
         )
 
         vae.eval()
@@ -31,7 +31,7 @@ class VAE():
 
     @torch.inference_mode()
     def encoder(self, img, chunk_size=8):
-        img = img.to(device=state.config.device, dtype=state.config.dtype, non_blocking=True)
+        img = img.to(device=state.config.device, dtype=state.config.torch_dtype, non_blocking=True)
 
         if img.min() >= 0.0 and img.max() <= 1.0:
             img = img * 2.0 - 1.0
@@ -79,7 +79,7 @@ class VAE():
 
     @torch.inference_mode()
     def decoder(self, latent, chunk_size=8) -> torch.Tensor:
-        latent = latent.to(device=state.config.device, dtype=state.config.dtype, non_blocking=True)
+        latent = latent.to(device=state.config.device, dtype=state.config.torch_dtype, non_blocking=True)
         
         images = []
         for i in range(0, latent.shape[0], chunk_size):

@@ -25,14 +25,15 @@ def run_inpainting(sampling: SamplingRequest, inpainting: InPaintingRequest, eng
         prompt_static=sampling.prompt_static,
     )
 
-    inpaint_input = InpaintInput(
-        img = b64_to_image(inpainting.image_b64),
-        start_t = inpainting.start_t,
-        mask = b64_to_image(inpainting.mask_b64),
-        crop_img = b64_to_image(inpainting.image_b64),
-        crop_box = inpainting.crop_box
-    )
+    use_crop = inpainting.crop_b64 is not None and inpainting.crop_box is not None
 
+    inpaint_input = InpaintInput(
+        img=b64_to_image(inpainting.image_b64, "RGB"),
+        start_t=inpainting.start_t,
+        mask=b64_to_image(inpainting.mask_b64, "L"),
+        crop_img=b64_to_image(inpainting.crop_b64, "RGB") if use_crop else None,
+        crop_box=inpainting.crop_box if use_crop else None,
+    )
     engine.inpaint(txt2img_input=txt2img_input, inpaint_input=inpaint_input)
     
     return Response(status_code=204)

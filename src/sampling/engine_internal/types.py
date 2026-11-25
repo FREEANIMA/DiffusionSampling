@@ -28,12 +28,12 @@ class InitOutput:
     etas: np.ndarray
 
 @dataclass
-class InpaintInput():
+class InpaintInput:
     img: Image.Image
     start_t: float
     mask: Image.Image
-    crop_img: Image.Image
-    crop_box: list[int]
+    crop_img: Image.Image | None = None
+    crop_box: list[int] | None = None
 
 @dataclass(kw_only=True)
 class Txt2ImgInput(InitInput):

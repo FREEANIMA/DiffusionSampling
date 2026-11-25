@@ -50,7 +50,7 @@ class TagGenration:
         return [self.CLS_ID] + body
 
     @torch.inference_mode()
-    @torch.amp.autocast(device_type=state.config.device, dtype=state.config.dtype)
+    @torch.amp.autocast(device_type=state.config.device, dtype=state.config.torch_dtype)
     def one_step(self, idx, past=None, step=0, temperature=0.4, top_k=20, top_p=0.8):
         logits, past = self.model(x=idx, attn_mask=None, past_kv=past, use_cache=True)
         next_logits = logits[:, -1, :].float() / max(temperature, 1e-5)
