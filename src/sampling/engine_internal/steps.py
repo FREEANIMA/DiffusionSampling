@@ -12,6 +12,12 @@ def one_steps(model:MMDIT, x, init_out:InitOutput, sigma, cfg) -> torch.Tensor:
     x_in = x.to(state.config.torch_dtype)
     B, _, H, W = x_in.shape
     max_side = max(H, W)
+
+    if max_side <= 32:
+        max_side = 32
+    elif max_side > 64:
+        max_side = 64
+        
     sigma_1d = torch.full((2 * B,), sigma, device=state.config.device, dtype=torch.float32)
 
     out, _ = model.forward(
