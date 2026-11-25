@@ -1,7 +1,9 @@
 import math
 
+
 def euler(x, v, sigma, sigma_next):
     return x + (sigma_next - sigma) * v
+
 
 def heun_step(model_fn, x, sigma, sigma_next):
     v1 = model_fn(x, sigma)
@@ -11,6 +13,7 @@ def heun_step(model_fn, x, sigma, sigma_next):
     v2 = model_fn(x_euler, sigma_next)
     return x + (sigma_next - sigma) * 0.5 * (v1 + v2)
 
+
 def midpoint_step(model_fn, x, sigma, sigma_next):
     sigma_mid = 0.5 * (sigma + sigma_next)
     v1 = model_fn(x, sigma)
@@ -18,18 +21,30 @@ def midpoint_step(model_fn, x, sigma, sigma_next):
     v2 = model_fn(x_mid, sigma_mid)
     return x + (sigma_next - sigma) * v2
 
-# === DPM++ 2M (x0 기반) ===
+
+def sigma_lo_of(sigma_next, eta):
+    """eta=0이면 sigma_next, eta=1이면 0."""
+    return float(sigma_next * (1.0 - eta))
+
+
+def renoise(x_lo, z, sigma_lo, sigma_next):
+    """
+    x_lo: sigma_lo 상태의 샘플 (반드시 (1-sigma_lo)*x0 + sigma_lo*eps 형태)
+    z: 새 노이즈 (N(0,I))
+    """
+    sigma_lo = float(sigma_lo)
+    sigma_next = float(sigma_next)
+    a = (1.0 - sigma_next) / (1.0 - sigma_lo)
+    var = sigma_next ** 2 - (a * sigma_lo) ** 2
+    noise_scale = max(var, 0.0) ** 0.5
+    return a * x_lo + noise_scale * z
+
+
 def dpmpp_2m(x, x0, x0_prev, sigma, sigma_next, h_prev):
-    """
-    DPM++ 2M 한 스텝.
-    x0     : 현재 스텝의 x0 예측 (x - σ·v)
-    x0_prev: 이전 스텝의 x0 예측
-    h_prev : 이전 스텝의 h (None이면 1차 Euler와 동일)
-    반환   : (x_next, h)
-    """
-    alpha     = 1.0 - sigma
-    alpha_n   = 1.0 - sigma_next
-    ratio     = sigma_next / sigma
+    """DPM++ 2M (x0 기반)."""
+    alpha = 1.0 - sigma
+    alpha_n = 1.0 - sigma_next
+    ratio = sigma_next / sigma
 
     D = x0
     h = None
