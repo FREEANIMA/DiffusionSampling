@@ -34,6 +34,7 @@ class InpaintInput:
     mask: Image.Image
     crop_img: Image.Image | None = None
     crop_box: list[int] | None = None
+    upscale: bool = False
 
 @dataclass(kw_only=True)
 class Txt2ImgInput(InitInput):

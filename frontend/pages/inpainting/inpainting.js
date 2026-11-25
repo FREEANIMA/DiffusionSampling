@@ -8,6 +8,7 @@
 import { initCommon, collectCommon, toSamplingRequest, postJSON } from '../common/common.js';
 
 const GRID = 32;                 // W, H 모두 32의 배수
+const MAX_CROP = 1024;           // 크롭 최대 크기 (W, H 각각)
 const COLOR = { edit: '#ff3b30', keep: '#2f6bff' };
 import { API_BASE } from '../common/common.js';
 const API_URL = `${API_BASE}/api/inpainting`;
@@ -252,13 +253,15 @@ function cropDataURL(r) {
 // ===================== 크롭 (W, H: 32 배수) =====================
 let sizeCache = { key: '', list: [] };
 
+
 // 이미지 안에 들어가는 유효한 (w, h) 조합 전체 (이미지마다 한 번만 계산)
 function sizeOptions(W, H) {
     const key = `${W}x${H}`;
     if (sizeCache.key === key) return sizeCache.list;
+    const maxW = Math.min(W, MAX_CROP), maxH = Math.min(H, MAX_CROP);
     const list = [];
-    for (let w = GRID; w <= W; w += GRID) {
-        for (let h = GRID; h <= H; h += GRID) {
+    for (let w = GRID; w <= maxW; w += GRID) {
+        for (let h = GRID; h <= maxH; h += GRID) {
             if (validSize(w, h)) list.push([w, h]);
         }
     }

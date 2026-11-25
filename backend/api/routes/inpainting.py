@@ -34,6 +34,7 @@ def run_inpainting(sampling: SamplingRequest, inpainting: InPaintingRequest, eng
         mask=b64_to_image(inpainting.mask_b64, "L"),
         crop_img=b64_to_image(inpainting.crop_b64, "RGB") if use_crop else None,
         crop_box=inpainting.crop_box if use_crop else None,
+        upscale=use_crop,
     )
     engine.inpaint(txt2img_input=txt2img_input, inpaint_input=inpaint_input)
     

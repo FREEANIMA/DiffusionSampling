@@ -92,6 +92,9 @@ class TagGenration:
         return [self.id_to_tag[i] for i in generated if i in self.id_to_tag]
     
     def generation(self, tags, nsfw, H, W):
+        if isinstance(nsfw, bool):
+            nsfw = [nsfw] * len(tags)
+
         tags_list = [tag.split(", ") for tag in tags]
         unks_list, dups_list = unk_separation(self.dup_map, tags_list)
 

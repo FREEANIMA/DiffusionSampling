@@ -45,7 +45,13 @@ class SamplingEngine:
     def txt2img(self, txt2img_input:Txt2ImgInput, start_t=0, inpaint_ctx: InpaintCtx | None = None) -> tuple[list[Image.Image], list[Image.Image], list[float]]:
         try:
             if not txt2img_input.prompt_static:
-                print(self.llm.generation(txt2img_input.prompts), txt2img_input.nsfw)
+                self.llm.generation(
+                    tags=txt2img_input.prompts, 
+                    nsfw=txt2img_input.nsfw,
+                    H=txt2img_input.H,
+                    W=txt2img_input.W
+                )
+  
 
             init_out:InitOutput = setup_init(model=self.te, config=state.config, txt2img_input=txt2img_input)
 
@@ -58,7 +64,6 @@ class SamplingEngine:
             dbg(init_out)
             print("==========================================")
             dbg(inpaint_ctx)
-
 
             # x, latents, sigmas_steps = sampling(
             #     model=self.model,
@@ -76,7 +81,7 @@ class SamplingEngine:
             log(self.console, e)
             raise
 
-    def inpaint(self, txt2img_input:Txt2ImgInput, inpaint_input:InpaintInput, upscale=False) -> tuple[list[Image.Image], list[Image.Image], list[float]]:
+    def inpaint(self, txt2img_input:Txt2ImgInput, inpaint_input:InpaintInput) -> tuple[list[Image.Image], list[Image.Image], list[float]]:
         print(txt2img_input.H)
         print(txt2img_input.W)
         if inpaint_input.crop_img is not None:
@@ -89,12 +94,14 @@ class SamplingEngine:
         try:
             arr, H, W = arr_resize(
                 np.asarray(img.convert('RGB')),   # PIL → (H, W, 3) uint8 ndarray
-                state.config.allowable_size,
+                1024, # 현재 한계치
                 state.config.patch_size,
                 state.config.compression_ratio,
-                upscale=upscale
+                upscale=inpaint_input.upscale
             )
 
+            print(f"H : {H}")
+            print(f"W : {W}")
             txt2img_input.H = H
             txt2img_input.W = W
             print(txt2img_input.H)
