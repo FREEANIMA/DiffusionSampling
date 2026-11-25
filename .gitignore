@@ -24,3 +24,7 @@ scripts/
 *.tmp
 tree.txt
 EOF
+
+backend
+frontend
+ckpt

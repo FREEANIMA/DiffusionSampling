@@ -10,7 +10,7 @@ from .Block import Block
 import common.globals as g
 
 class Model(nn.Module):
-    def __init__(self, hidden_size, nhead, num_layers, dropout, pos_scale,
+    def __init__(self, hidden_size, nhead, num_layers, pos_scale,
                  sigma_emb_hz, in_channels, patch_size, rope_hz, sigma_scale, txt_hidden_size,
                  check=False, **kwargs):
         super().__init__()
@@ -53,7 +53,7 @@ class Model(nn.Module):
                 hidden_size=hidden_size,
                 nhead=nhead,
                 dim_feedforward=dim_feedforward,
-                dropout=dropout,
+                dropout=0.0,
                 rope=self.rope2d,
             )
             for _ in range(num_layers)
