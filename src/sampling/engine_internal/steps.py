@@ -49,6 +49,7 @@ def sampling(model, txt2img_input: Txt2ImgInput, init_out: InitOutput, inpaint_c
 
     for i in tqdm(range(n), desc="sampling"):
         sigma, sigma_next = float(sigmas[i]), float(sigmas[i + 1])
+        print(sigma)
         cfg = init_out.cfgs[i]
         eta = init_out.etas[i]
 
