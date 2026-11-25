@@ -88,6 +88,15 @@ def sampling(model, txt2img_input, init_out, inpaint_ctx=None, on_step=None):
         sigmas_steps.append(sigma_next)
         latents.append(x0_hat)
 
+        tqdm.write(
+            f"[{i:02d}] s={sigma:.3f}->{sigma_next:.3f} cfg={cfg:.1f} "
+            f"x_in.std={x_in0.std().item():.3f} x_in.max={x_in0.abs().max().item():.2f} | "
+            f"v.std={v0.std().item():.3f} v.max={v0.abs().max().item():.2f} | "
+            f"x0hat.std={x0_hat.std().item():.3f} | "
+            f"x_next.std={x.std().item():.3f} x_next.max={x.abs().max().item():.2f} | "
+            f"nan={bool(torch.isnan(x).any())}"
+        )
+
         if on_step:
             on_step(i + 1, n)
 
