@@ -7,7 +7,6 @@ from .types import Txt2ImgInput, InitOutput, InpaintCtx
 from .solvers import euler, heun_step, midpoint_step
 
 @torch.inference_mode()
-@torch.amp.autocast(device_type=state.config.device, dtype=state.config.torch_dtype)
 def one_steps(model:MMDIT, x, init_out:InitOutput, sigma, cfg) -> torch.Tensor:
     x_in = x.to(state.config.torch_dtype)
     B, _, H, W = x_in.shape
@@ -15,20 +14,21 @@ def one_steps(model:MMDIT, x, init_out:InitOutput, sigma, cfg) -> torch.Tensor:
 
     if max_side <= 32:
         max_side = 32
-    elif max_side > 64:
+    elif max_side <= 64:
         max_side = 64
 
     tqdm.write(f"latent={H}x{W} patch={model.patch_size} tokens={H//model.patch_size} max_side={max_side}")
         
     sigma_1d = torch.full((2 * B,), sigma, device=state.config.device, dtype=torch.float32)
 
-    out, _ = model.forward(
-        x= torch.cat([x_in, x_in], dim=0),
-        sigma= sigma_1d,
-        txt_emb= torch.cat([init_out.cond_emb, init_out.uncond_emb], dim=0),
-        txt_mask= torch.cat([init_out.cond_mask, init_out.uncond_mask], dim=0),
-        max_side= max_side
-    )
+    with torch.inference_mode(), torch.amp.autocast(device_type=state.config.device, dtype=state.config.torch_dtype):
+        out, _ = model.forward(
+            x= torch.cat([x_in, x_in], dim=0),
+            sigma= sigma_1d,
+            txt_emb= torch.cat([init_out.cond_emb, init_out.uncond_emb], dim=0),
+            txt_mask= torch.cat([init_out.cond_mask, init_out.uncond_mask], dim=0),
+            max_side= max_side
+        )
 
     c, u = out.float().chunk(2, dim=0)
     v = u + cfg * (c - u)
