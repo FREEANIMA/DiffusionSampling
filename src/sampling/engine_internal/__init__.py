@@ -1,7 +1,7 @@
 from .setup import setup_init
 from .steps import sampling
 from .types import InitInput, InpaintInput, Txt2ImgInput, InpaintCtx, InitOutput
-from .utils import arr_resize, mask_generation
+from .utils import arr_resize, mask_generation, save_img
 
 __all__ = [
     "setup_init",
@@ -13,4 +13,5 @@ __all__ = [
     "InitOutput",
     "arr_resize", 
     "mask_generation",
+    "save_img"
 ]

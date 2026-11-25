@@ -6,10 +6,12 @@ from src.external import TE, VAE
 from src.network import MMDIT, LLM
 from src.tag import TagGenration
 from src.storage import download_model, load_ema_only
+import os
+
 import numpy as np
 from src.sampling.engine_internal import (
     Txt2ImgInput, InitOutput, InpaintInput, InpaintCtx,
-    setup_init, sampling, arr_resize, mask_generation
+    setup_init, sampling, arr_resize, mask_generation, save_img
 )
 
 class SamplingEngine:
@@ -75,6 +77,11 @@ class SamplingEngine:
 
             imgs, frames = self.vae_decode(x, latents, txt2img_input.frame_save)
 
+            path = os.path.join()
+
+            for i, img in enumerate(imgs):
+                save_img(path=os.path.join(state.config.GENERATION_DIR, f"img_{i}.png", img))
+            
             return imgs, frames, sigmas_steps
         
         except Exception as e:
