@@ -26,8 +26,7 @@ class VAE():
 
         vae.eval()
         vae.requires_grad_(False)
-        vae.to(self.init_device)
-
+        
         return vae
 
     @torch.inference_mode()

@@ -36,19 +36,6 @@ def setup_init(model:TE, config:Config, txt2img_input:Txt2ImgInput) -> InitOutpu
         for g_ in gens
     ], dim=0)
 
-    # u = np.linspace(0.0, 1.0, txt2img_input.steps + 1)
-    # sigmas = sigma_cdf(u, config)[::-1].copy()
-
-    # c = np.linspace(0.0, 1.0, txt2img_input.steps + 1)
-    # cfgs = cfg_schedular(c, txt2img_input.cfg_scale, config)[::-1].copy()
-
-    # d = np.linspace(0.0, 1.0, txt2img_input.steps + 1)
-    # etas = eta_schedular(d, txt2img_input.eta, config)[::-1].copy()
-
-    sigmas = txt2img_input.sigma_scheduler
-    cfgs = txt2img_input.cfg_scheduler
-    etas = txt2img_input.eta_scheduler
-
     return InitOutput(
         cond_emb=cond_emb,
         uncond_emb=uncond_emb,
@@ -57,7 +44,7 @@ def setup_init(model:TE, config:Config, txt2img_input:Txt2ImgInput) -> InitOutpu
         noise=noise,
         gens=gens,
         seeds=seeds,
-        sigmas=txt2img_input.sigma_scheduler,
-        cfgs=txt2img_input.cfg_scheduler,
-        etas=txt2img_input.eta_scheduler,
+        sigmas=txt2img_input.sigma_curve,
+        cfgs=txt2img_input.cfg_curve,
+        etas=txt2img_input.eta_curve,
     )
