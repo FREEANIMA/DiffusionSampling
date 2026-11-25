@@ -47,9 +47,12 @@ def sampling(model, txt2img_input: Txt2ImgInput, init_out: InitOutput, inpaint_c
 
     x = noise if clamp_known is None else clamp_known(noise, float(sigmas[0]))
 
+    tqdm.write(f"sigmas={[round(float(s),3) for s in sigmas]}")
+    tqdm.write(f"x0 std={x.std().item():.3f} dtype={x.dtype} sigma dtype={sigmas.dtype}")
+
     for i in tqdm(range(n), desc="sampling"):
         sigma, sigma_next = float(sigmas[i]), float(sigmas[i + 1])
-        print(sigma)
+
         cfg = init_out.cfgs[i]
         eta = init_out.etas[i]
 
@@ -71,6 +74,14 @@ def sampling(model, txt2img_input: Txt2ImgInput, init_out: InitOutput, inpaint_c
 
         x_in0, v0 = first_v[0]
         x0_hat = x_in0 - sigma * v0
+        tqdm.write(
+            f"[{i:02d}] s={sigma:.3f}->{sigma_next:.3f} cfg={float(cfg):.1f} eta={float(eta):.3f} | "
+            f"x_in.std={x_in0.std().item():.3f} x_in.max={x_in0.abs().max().item():.2f} | "
+            f"v.std={v0.std().item():.3f} v.max={v0.abs().max().item():.2f} | "
+            f"x0hat.std={x0_hat.std().item():.3f} | "
+            f"x_next.std={x.std().item():.3f} x_next.max={x.abs().max().item():.2f} | "
+            f"nan={bool(torch.isnan(x).any())}"
+        )
 
         if clamp_known is not None:
             x = clamp_known(x, sigma_next) 
