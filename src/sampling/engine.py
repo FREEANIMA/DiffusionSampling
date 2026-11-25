@@ -59,6 +59,9 @@ class SamplingEngine:
             init_out.cfgs = init_out.cfgs[start_idx:]
             init_out.etas = init_out.etas[start_idx:]
 
+            for i, prompt in enumerate(txt2img_input.prompts):
+                print(f"promp_{i} : {prompt}")
+
             self.model.eval()
             x, latents, sigmas_steps = sampling(
                 model=self.model,
