@@ -21,7 +21,8 @@ class SamplingEngine:
 
         self.te = TE()
         self.vae = VAE()
-        self.llm:LLM = TagGenration(console=console)
+
+        self.llm:TagGenration = TagGenration(console=console)
 
         # download_model(config=state.config, filename="model.pt")
         # self.model:MMDIT = load_ema_only(
@@ -41,8 +42,11 @@ class SamplingEngine:
 
         return imgs, frames
 
-    def txt2img(self, txt2img_input, start_t=0, inpaint_ctx: InpaintCtx | None = None) -> tuple[list[Image.Image], list[Image.Image], list[float]]:
+    def txt2img(self, txt2img_input:Txt2ImgInput, start_t=0, inpaint_ctx: InpaintCtx | None = None) -> tuple[list[Image.Image], list[Image.Image], list[float]]:
         try:
+            if not txt2img_input.prompt_static:
+                print(self.llm.generation(txt2img_input.prompts), txt2img_input.nsfw)
+
             init_out:InitOutput = setup_init(model=self.te, config=state.config, txt2img_input=txt2img_input)
 
             start_idx = int(np.argmin(np.abs(init_out.sigmas - start_t)))

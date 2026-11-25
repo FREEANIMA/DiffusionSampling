@@ -49,6 +49,7 @@ class PathSettins:
     CKPT_REPO_ID: str
     INPAINTING_DIR:str
     TAG_TYPE_FILENAME:str
+    LLM_FILENAME:str
 
 @dataclass(kw_only=True)
 class SamplingSettings:

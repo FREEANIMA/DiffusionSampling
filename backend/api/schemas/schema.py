@@ -14,6 +14,7 @@ class SamplingRequest:
     height: int = 1024
     prompt_static:bool = False
     frame_save: bool = False
+    nsfw:bool = False
 
 @dataclass
 class InPaintingRequest:

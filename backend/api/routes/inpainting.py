@@ -23,6 +23,7 @@ def run_inpainting(sampling: SamplingRequest, inpainting: InPaintingRequest, eng
         eta_curve=sampling.eta_curve,
         frame_save=sampling.frame_save,
         prompt_static=sampling.prompt_static,
+        nsfw=sampling.nsfw
     )
 
     use_crop = inpainting.crop_b64 is not None and inpainting.crop_box is not None

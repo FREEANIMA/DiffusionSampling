@@ -1,11 +1,19 @@
 /* common.css — txt2img / inpaint 공용 */
 
 /* ===== 전체 틀: 트리 / 입력 / 이미지판 ===== */
+/* 열: 트리 | 입력 | 세로 조절바 | 이미지판
+   --tree-col : 트리 열 폭 (접으면 아래 .tree-collapsed가 바꿈)
+   --ctrl-w   : 입력 열 폭 (드래그하면 JS가 px로 지정, 없으면 이미지판과 1:1) */
 .page-txt2img {
+    --tree-col: calc(240px + 1rem);
     height: 100%;
     display: grid;
-    grid-template-columns: 240px 1fr 1fr;
-    gap: 1rem;
+    grid-template-columns: var(--tree-col) minmax(0, var(--ctrl-w, 1fr)) 1rem minmax(0, 1fr);
+    gap: 0;                        /* 간격은 트리의 margin / 조절바 폭이 대신함 */
+}
+
+.page-txt2img.tree-collapsed {
+    --tree-col: calc(2.8rem + 1rem);
 }
 
 /* 각 열이 자기 안에서 스크롤되도록 */
@@ -19,6 +27,61 @@
 
 .page-txt2img .t2i-title {
     margin: 0 0 0.6rem;
+}
+
+/* ===== Tag Browser 접기 / 펴기 ===== */
+.page-txt2img .t2i-tree {
+    margin-right: 1rem;
+}
+
+.page-txt2img .t2i-tree-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.6rem;
+}
+
+.page-txt2img .t2i-tree-head .t2i-title {
+    margin: 0;
+}
+
+.page-txt2img .t2i-tree-toggle {
+    flex: none;
+    width: 1.8rem;
+    height: 1.8rem;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: var(--bg);
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.page-txt2img .t2i-tree-toggle:hover {
+    background: var(--hover-bg);
+    border-color: var(--accent);
+}
+
+/* 접힌 상태: 토글 버튼만 남김 */
+.page-txt2img.tree-collapsed .t2i-tree {
+    padding: 0.4rem;
+    overflow: hidden;
+}
+
+.page-txt2img.tree-collapsed .t2i-tree-head {
+    justify-content: center;
+    margin: 0;
+}
+
+.page-txt2img.tree-collapsed .t2i-title,
+.page-txt2img.tree-collapsed .t2i-tag-search,
+.page-txt2img.tree-collapsed .t2i-tag-tree {
+    display: none;
 }
 
 /* ===== 왼쪽: 트리 ===== */
@@ -37,8 +100,9 @@
 /* ===== 가운데: 입력 (위 프롬프트 / 아래 조건, 자동 분할) ===== */
 .page-txt2img .t2i-controls {
     display: grid;
-    grid-template-rows: minmax(0, 1fr) fit-content(60%);   /* 프롬프트: 남는 공간 / 조건: 내용만큼 */
-    gap: 1rem;
+    /* 프롬프트 | 가로 조절바 | 조건. 드래그하면 JS가 --rows를 px로 바꿈 */
+    grid-template-rows: var(--rows, minmax(0, 1fr) 1rem fit-content(60%));
+    gap: 0;
     padding: 0;                    /* 바깥 박스 스타일은 각 pane이 대신 가짐 */
     border: none;
     overflow: hidden;
@@ -106,13 +170,6 @@
 }
 
 /* --- 아래: 조건 --- */
-.page-txt2img .t2i-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    font-size: 0.9rem;
-}
-
 .page-txt2img textarea,
 .page-txt2img input[type="number"] {
     padding: 0.4rem 0.6rem;
@@ -122,21 +179,43 @@
     resize: vertical;
 }
 
+/* 한 행 = .t2i-params. 칸이 몇 개든 한 행에 균등 분할 */
 .page-txt2img .t2i-params {
     display: grid;
-    grid-auto-flow: column;            /* 칸이 몇 개든 한 행에 나열 */
-    grid-auto-columns: minmax(0, 1fr); /* 내용 때문에 안 늘어나고 균등 분할 */
-    gap: 0.4rem;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 0.5rem 0.8rem;
 }
 
+.page-txt2img .t2i-params-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+/* 라벨 : 입력 (가로 배치) */
 .page-txt2img .t2i-field {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.4rem;
     min-width: 0;
     font-size: 0.8rem;
 }
 
-.page-txt2img .t2i-field input,
+.page-txt2img .t2i-field > span {
+    flex: none;                       /* 라벨은 줄어들지 않음 */
+    white-space: nowrap;
+}
+
+.page-txt2img .t2i-field > span::after {
+    content: " :";
+}
+
+.page-txt2img .t2i-field input:not([type="checkbox"]),
 .page-txt2img .t2i-field select {
-    width: 100%;
+    flex: 1;                          /* 입력칸이 남는 폭을 채움 */
+    width: auto;
     min-width: 0;
     box-sizing: border-box;
     padding: 0.3rem 0.4rem;
@@ -163,7 +242,7 @@
 .page-txt2img .t2i-chart canvas {
     display: block;
     width: 100%;
-    height: 120px;
+    height: 150px;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--bg);
@@ -510,12 +589,14 @@
     color: inherit;
 }
 
+/* ===== 토글 (checkbox) ===== */
 .page-txt2img .t2i-check input[type="checkbox"] {
     appearance: none;
     -webkit-appearance: none;
     position: relative;
+    flex: none;
     width: 2.4rem;
-    height: 1.3rem;
+    height: 1.4rem;
     margin: 0;
     border: 1px solid var(--border);
     border-radius: 999px;
@@ -552,34 +633,60 @@
     outline-offset: 2px;
 }
 
-/* Frame save 토글: 다른 입력칸과 같은 높이 영역 안에서 세로 가운데 정렬 */
-.page-txt2img .t2i-check {
-    justify-content: flex-start;
+/* ===== 크기 조절바 (세로: 입력 | 이미지판, 가로: 프롬프트 / 조건) ===== */
+.page-txt2img .t2i-resizer {
+    position: relative;
+    z-index: 2;
+    touch-action: none;
 }
 
-.page-txt2img .t2i-check input[type="checkbox"] {
-    flex: none;
-    width: 2.4rem;           /* .t2i-field input의 width:100%를 덮어씀 */
-    height: 1.4rem;
-    margin-top: 0.3rem;      /* 입력창(약 1.9rem) 높이 안에서 가운데 */
-    margin-bottom: 0.3rem;
+/* .page-txt2img > * 의 박스 스타일을 덮어씀 */
+.page-txt2img > .t2i-resizer {
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
 }
 
-.page-txt2img .t2i-params-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
+.page-txt2img .t2i-resizer::before {
+    content: "";
+    position: absolute;
+    border-radius: 999px;
+    background: var(--border);
+    transition: background 0.15s;
 }
 
-/* 2층은 칸 수가 적어 너무 넓어지지 않게, 1층과 같은 칸 폭(5등분)으로 맞춤 */
-.page-txt2img .t2i-params-wrap .t2i-params {
-    grid-auto-flow: row;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+.page-txt2img .t2i-resizer:hover::before,
+.page-txt2img .t2i-resizer.dragging::before {
+    background: var(--accent);
 }
 
-/* 라벨이 길어도 줄바꿈 없이 말줄임 */
-.page-txt2img .t2i-field > span {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.page-txt2img .t2i-resizer-v {
+    cursor: col-resize;
+}
+
+.page-txt2img .t2i-resizer-v::before {
+    top: 0.5rem;
+    bottom: 0.5rem;
+    left: 50%;
+    width: 4px;
+    margin-left: -2px;
+}
+
+.page-txt2img .t2i-resizer-h {
+    cursor: row-resize;
+}
+
+.page-txt2img .t2i-resizer-h::before {
+    left: 0.5rem;
+    right: 0.5rem;
+    top: 50%;
+    height: 4px;
+    margin-top: -2px;
+}
+
+/* 드래그 중에는 글자 선택 방지 */
+html.t2i-resizing,
+html.t2i-resizing * {
+    user-select: none !important;
 }

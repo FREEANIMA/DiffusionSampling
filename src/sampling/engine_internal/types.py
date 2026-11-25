@@ -43,6 +43,7 @@ class Txt2ImgInput(InitInput):
     eta_curve: np.ndarray
     frame_save: bool
     prompt_static:bool
+    nsfw:bool
 
     def __post_init__(self):
         self.sigma_curve = np.clip(np.asarray(self.sigma_curve, dtype=np.float32), 0.001, 0.999)

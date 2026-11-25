@@ -449,6 +449,7 @@ export async function initCommon({ size = true, inpaint = false, onGenerate } = 
     root.insertAdjacentHTML('afterbegin', htmlCache);      // 왼쪽/가운데를 루트의 직계 자식으로
     if (!size) root.querySelectorAll('[data-size]').forEach(el => el.remove());
     if (!inpaint) root.querySelectorAll('[data-inpaint]').forEach(el => el.remove());
+    initLayout(root);          // Tag Browser 접기 / 폭·높이 조절
 
     restorePrompts();   
 
@@ -501,6 +502,7 @@ export function collectCommon() {
         calculateType: val('t2i-calculate-type'),   // ← 추가
         promptStatic: document.getElementById('t2i-prompt-static').checked,
         frameSave: document.getElementById('t2i-frame-save').checked,
+        nsfw: document.getElementById('t2i-nsfw').checked,
         ...getCurveParams(cfg),
         tags: [...checkedTags],
     };
@@ -540,7 +542,8 @@ export function toSamplingRequest(p, prompts = p.prompts, size = {}) {
         width: size.width ?? p.width,
         height: size.height ?? p.height,
         frame_save: p.frameSave,
-        prompt_static: p.promptStatic
+        prompt_static: p.promptStatic,
+        nsfw: p.nsfw
     };
 }
 
@@ -775,5 +778,107 @@ function initAutocomplete() {
         } else if (e.key === 'Escape') {
             hideAc();
         }
+    });
+}
+
+
+// ===================== 레이아웃: 접기 / 폭·높이 조절 =====================
+const LAYOUT_KEY = 't2i-layout';
+
+function loadLayout() {
+    try { return JSON.parse(localStorage.getItem(LAYOUT_KEY)) || {}; } catch { return {}; }
+}
+
+function saveLayout(patch) {
+    try { localStorage.setItem(LAYOUT_KEY, JSON.stringify({ ...loadLayout(), ...patch })); } catch { /* 저장 불가면 무시 */ }
+}
+
+function initLayout(root) {
+    const ctrl = root.querySelector('.t2i-controls');
+    const top = ctrl.querySelector('.t2i-pane-prompts');
+    const toggle = document.getElementById('t2i-tree-toggle');
+    const lay = loadLayout();
+    const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+    // --- Tag Browser 열기 / 닫기 (왼쪽으로 접힘) ---
+    const applyTree = open => {
+        root.classList.toggle('tree-collapsed', !open);
+        toggle.textContent = open ? '«' : '»';
+        toggle.setAttribute('aria-expanded', String(open));
+    };
+    applyTree(lay.treeOpen !== false);
+    toggle.addEventListener('click', () => {
+        const open = root.classList.contains('tree-collapsed');
+        applyTree(open);
+        saveLayout({ treeOpen: open });
+    });
+
+    // --- 조절바 만들기: 입력 | 이미지판 (세로), 프롬프트 / 조건 (가로) ---
+    const vBar = document.createElement('div');
+    vBar.className = 't2i-resizer t2i-resizer-v';
+    vBar.setAttribute('role', 'separator');
+    vBar.setAttribute('aria-orientation', 'vertical');
+    ctrl.after(vBar);
+
+    const hBar = document.createElement('div');
+    hBar.className = 't2i-resizer t2i-resizer-h';
+    hBar.setAttribute('role', 'separator');
+    hBar.setAttribute('aria-orientation', 'horizontal');
+    top.after(hBar);
+
+    const setCtrlW = w => root.style.setProperty('--ctrl-w', `${w}px`);
+    const setTopH = h => ctrl.style.setProperty('--rows', `${h}px 1rem minmax(0, 1fr)`);
+
+    if (lay.ctrlW) setCtrlW(lay.ctrlW);
+    if (lay.topH) setTopH(lay.topH);
+
+    // 드래그 공통 처리
+    const makeDraggable = (bar, onMove, onEnd, onReset) => {
+        bar.addEventListener('pointerdown', e => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            bar.setPointerCapture(e.pointerId);
+            bar.classList.add('dragging');
+            document.documentElement.classList.add('t2i-resizing');
+        });
+        bar.addEventListener('pointermove', e => {
+            if (bar.hasPointerCapture(e.pointerId)) onMove(e);
+        });
+        const end = e => {
+            if (!bar.hasPointerCapture(e.pointerId)) return;
+            bar.releasePointerCapture(e.pointerId);
+            bar.classList.remove('dragging');
+            document.documentElement.classList.remove('t2i-resizing');
+            onEnd();
+        };
+        bar.addEventListener('pointerup', end);
+        bar.addEventListener('pointercancel', end);
+        bar.addEventListener('dblclick', onReset);        // 더블클릭 = 기본 크기로
+    };
+
+    // 입력 열 폭: 이미지판은 남는 폭을 차지함
+    let ctrlW = lay.ctrlW;
+    makeDraggable(vBar, e => {
+        const left = ctrl.getBoundingClientRect().left;
+        const maxW = root.getBoundingClientRect().right - left - vBar.offsetWidth - 240;
+        ctrlW = Math.round(clamp(e.clientX - left, 320, Math.max(320, maxW)));
+        setCtrlW(ctrlW);
+    }, () => saveLayout({ ctrlW }), () => {
+        root.style.removeProperty('--ctrl-w');
+        ctrlW = undefined;
+        saveLayout({ ctrlW: null });
+    });
+
+    // 프롬프트 높이: 조건 영역은 남는 높이를 차지함
+    let topH = lay.topH;
+    makeDraggable(hBar, e => {
+        const t = ctrl.getBoundingClientRect().top;
+        const maxH = ctrl.clientHeight - hBar.offsetHeight - 140;
+        topH = Math.round(clamp(e.clientY - t, 90, Math.max(90, maxH)));
+        setTopH(topH);
+    }, () => saveLayout({ topH }), () => {
+        ctrl.style.removeProperty('--rows');
+        topH = undefined;
+        saveLayout({ topH: null });
     });
 }
