@@ -17,6 +17,8 @@ def one_steps(model:MMDIT, x, init_out:InitOutput, sigma, cfg) -> torch.Tensor:
         max_side = 32
     elif max_side > 64:
         max_side = 64
+
+    tqdm.write(f"latent={H}x{W} patch={model.patch_size} tokens={H//model.patch_size} max_side={max_side}")
         
     sigma_1d = torch.full((2 * B,), sigma, device=state.config.device, dtype=torch.float32)
 
