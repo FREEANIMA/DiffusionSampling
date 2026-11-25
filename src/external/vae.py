@@ -78,20 +78,19 @@ class VAE():
 
     @torch.inference_mode()
     def decoder(self, latent, chunk_size=8) -> torch.Tensor:
-        # VAE를 float32로 (일시적)
-        vae_f32 = self.vae.to(torch.float32)
-        try:
-            latent = latent.to(device=state.config.device, dtype=torch.float32, non_blocking=True)
-            images = []
-            for i in range(0, latent.shape[0], chunk_size):
-                chunk = latent[i:i+chunk_size]
-                decoded = vae_f32.decode(chunk).sample
-                images.append(decoded)
-            images = torch.cat(images, dim=0)
-        finally:
-            self.vae.to(state.config.torch_dtype)   # bf16 복원
+        latent = latent.to(device=state.config.device, dtype=state.config.torch_dtype, non_blocking=True)
+        
+        images = []
+        for i in range(0, latent.shape[0], chunk_size):
+            chunk = latent[i:i+chunk_size]
+            decoded = self.vae.decode(chunk).sample
+            images.append(decoded)
 
+        images = torch.cat(images, dim=0)
+
+        # [-1, 1] -> [0, 1]
         images = (images * 0.5 + 0.5).clamp(0.0, 1.0)
+
         return images
     
     def to(self, device):
